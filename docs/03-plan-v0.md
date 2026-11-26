@@ -55,6 +55,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [~] Tocar = clic izquierdo (con umbral de tiempo y distancia). La lógica está testeada.
 - [~] Tocar con dos dedos = clic derecho. La lógica está testeada.
 - [~] Arrastrar con dos dedos = scroll vertical y horizontal. La lógica está testeada.
+- [ ] Pellizco = zoom (Ctrl + rueda): mensaje `ZOOM` en los dos lados y estado nuevo en el intérprete.
 - [~] Doble toque y arrastrar = mantener el clic pulsado (seleccionar, mover ventanas). La lógica está testeada.
 
 ### M4: ajuste fino
@@ -62,6 +63,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [ ] Velocidad de scroll configurable.
 - [ ] Atenuar la pantalla tras X segundos sin uso (sin apagarla).
 - [ ] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen −.
+- [ ] Chuleta de gestos básicos en el centro del trackpad.
 - [ ] Modo ventana: trackpad con margen, botones Ajustes y Salir.
 - [ ] (Opcional) Modo bloqueado completo como propietaria del dispositivo, arranque al encender.
 - [ ] Prueba de un día entero y lista de molestias, que alimentará la v1.

@@ -12,7 +12,7 @@
 4. **Levantar** el dedo. El móvil reconoce la forma y muestra durante 1 s su nombre y la acción asignada, o "No reconocido".
 5. El modo gestos termina solo; se vuelve al trackpad.
 
-**Cancelar:** no dibujar nada en 2 s, o tocar con 2 dedos durante el modo gestos.
+**Cancelar:** no dibujar nada en 2 s, volver a mantener 3 dedos (los 3 dedos activan y desactivan), o tocar con 2 dedos.
 
 Por qué así:
 - **3 dedos mantenidos** no choca con nada de la v0 (1 dedo = mover, 2 = scroll/clic derecho; 3 ya está reservado). Mantenerlos quietos evita activaciones accidentales al apoyar la mano. N es configurable (3 o 4).
@@ -91,7 +91,7 @@ Fichero `%APPDATA%\MyMouse\gestures.json`. Al principio se edita a mano; el host
 
 Campos opcionales de cada regla:
 - `help`: texto de ayuda que se muestra en la chuleta del móvil (hasta 40 caracteres). Si falta, se genera uno a partir de la acción ("Ctrl+Tab", "Abrir chrome.exe").
-- `pin`: `true` para que la forma aparezca en la chuleta fija del trackpad (ver §6).
+- `pin`: `true` para que la forma aparezca también en la chuleta de reposo, en la sección "Tus formas" (ver §6).
 
 Sintaxis de `keys`: modificadores `Ctrl`, `Alt`, `Shift` y `Win`, unidos con `+`, más una tecla: `A`–`Z`, `0`–`9`, `F1`–`F24`, `Enter`, `Tab`, `Esc`, `Space`, `Backspace`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right`, `PrintScreen`… Las secuencias van separadas por comas. Se envían como teclas virtuales (VK), así que **no dependen de la distribución del teclado** para letras y teclas especiales. Los símbolos (`ñ`, `@`) se escriben mejor con `text`.
 
@@ -118,18 +118,16 @@ Todo esto es lógica pura en `android/core`, testeable en la JVM con trazos grab
 
 ## 6. Chuleta
 
-Un recuadro en el centro del trackpad recuerda las formas y lo que hace cada una.
+El recuadro gris del centro del trackpad cambia según el modo.
 
 **En reposo (modo trackpad):**
-- Recuadro gris oscuro con esquinas redondeadas, centrado, de poco contraste para que no distraiga.
-- Muestra las formas con `pin: true`, hasta 6. Cada una con un **dibujo en miniatura** de la forma (generado a partir de su plantilla) y su **texto de ayuda**.
-- Es solo dibujo: toda la superficie, recuadro incluido, sigue funcionando como trackpad.
-- Se atenúa con el resto de la pantalla y se puede ocultar en ajustes.
+- Muestra los **gestos básicos del trackpad**: mover, clic, clic derecho, scroll, zoom, arrastrar, "3 dedos = modo gestos" y cómo salir del bloqueo. Está definida en la [spec de la v0](spec-v0.md#212-chuleta).
+- Opcional: debajo, una sección "Tus formas" con las formas marcadas con `pin: true` (hasta 4), con su miniatura y su texto de ayuda. Vacía por defecto.
 
 **Al activar el modo gestos:**
-- El recuadro crece y muestra **todas** las formas con acción asignada, no solo las fijadas, en una cuadrícula de miniatura + texto.
+- El recuadro crece y cambia de contenido: muestra **todas las formas** con acción asignada, en una cuadrícula de **dibujo en miniatura** (generado a partir de la plantilla) + **texto de ayuda** ("Abrir Chrome").
 - Si hay reglas por aplicación, muestra las que valen para la **ventana activa** del PC, con su nombre arriba ("Chrome").
-- El trazo se dibuja por encima. Al soltar, se resalta la forma reconocida (o se indica "No reconocido") y la chuleta vuelve a su tamaño.
+- El trazo se dibuja por encima. Al soltar, se resalta la forma reconocida (o se indica "No reconocido") y vuelve la chuleta de reposo.
 
 **De dónde salen los datos:**
 - Las acciones y los textos de ayuda viven en el PC (`gestures.json`), las plantillas en el móvil. El host envía la lista `forma → texto de ayuda, fijada` al móvil:

@@ -37,7 +37,26 @@ Dos niveles, porque Android solo permite el bloqueo completo a la app "propietar
 
 Riesgo del nivel completo: si la app falla al arrancar, el móvil queda atrapado. Mitigación: si la app se cierra por un error 3 veces seguidas, arranca sin bloqueo. **Hay que comprobar en el P10 que EMUI acepta `set-device-owner`** (añadido a M0).
 
-### 2.1.2 Modo ventana
+### 2.1.2 Chuleta
+Un recuadro gris oscuro, de poco contraste y esquinas redondeadas, en el centro del trackpad, que recuerda los gestos básicos:
+
+| Icono | Texto |
+|---|---|
+| 1 dedo moviéndose | Mover |
+| 1 toque | Clic |
+| 2 toques a la vez | Clic derecho |
+| 2 dedos moviéndose | Scroll |
+| Pellizco | Zoom |
+| Doble toque y mover | Arrastrar |
+| 3 dedos mantenidos | Modo gestos (desde la v1) |
+| Vol− ×2 | Salir del bloqueo |
+
+- Es solo dibujo: el recuadro también es trackpad.
+- Se atenúa con el resto de la pantalla. En ajustes se puede ocultar entera o quitar filas sueltas.
+- No necesita el PC: es fija y está en el móvil.
+- Desde la v1 cambia al activar el modo gestos y puede incluir formas propias (ver [spec-v1-gestos.md](spec-v1-gestos.md#6-chuleta)).
+
+### 2.1.3 Modo ventana
 Se entra con el atajo de volumen. Sirve para cambiar ajustes o salir de la app.
 
 - El trackpad se reduce y deja **un margen alrededor**, como una ventana, para que se vea a simple vista que no está bloqueado. Dentro del recuadro sigue funcionando como trackpad.
@@ -54,6 +73,7 @@ El intérprete es una **máquina de estados pura** en `core`. Recibe eventos tá
 | **Clic** | 1 dedo, pulsar y levantar en menos de `TAP_TIMEOUT` y sin pasar de `TOUCH_SLOP` | `BUTTON left ↓` + `↑` (diferido, ver arrastre) |
 | **Clic derecho** | 2 dedos tocan y levantan en menos de `TAP_TIMEOUT`, sin pasar de `TOUCH_SLOP` | `BUTTON right ↓↑` |
 | **Scroll** | 2 dedos se desplazan más de `TOUCH_SLOP` | `SCROLL` con el delta del centroide × `scrollSpeed` |
+| **Zoom** | 2 dedos se separan o se juntan (pellizco) más de `PINCH_SLOP` y más de lo que se desplaza su centro | `ZOOM` (el PC lo convierte en Ctrl + rueda) |
 | **Arrastrar** | Clic y, antes de `DOUBLE_TAP_TIMEOUT`, otro toque que se mueve | `BUTTON left ↓`, `MOVE`…, `BUTTON left ↑` al levantar |
 | **Doble clic** | Dos clics seguidos | Dos clics completos (Windows decide si es doble clic) |
 
@@ -64,10 +84,12 @@ Valores por defecto (configurables internamente, no en la UI de v0):
 | `TOUCH_SLOP` | 8 px |
 | `TAP_TIMEOUT` | 180 ms |
 | `DOUBLE_TAP_TIMEOUT` | 250 ms |
+| `PINCH_SLOP` | 24 px de cambio en la distancia entre dedos |
 
 **Decisión sobre el clic diferido.** Para poder detectar el arrastre, el `BUTTON ↑` del primer toque espera hasta `DOUBLE_TAP_TIMEOUT`, o se envía en cuanto se descarta el arrastre. Así se evita el "clic fantasma" al empezar a arrastrar. El precio es que **el clic llega con hasta 250 ms de retraso**. Si molesta en la prueba de uso, se puede desactivar el arrastre por doble toque.
 
 Reglas:
+- Con 2 dedos, el primer gesto que se decide (scroll o zoom) se mantiene hasta levantar los dedos; no se mezclan.
 - Pasar de 1 a 2 dedos en mitad de un movimiento cambia a scroll. Pasar de 2 a 1 no vuelve a mover hasta que se levantan todos los dedos (evita saltos).
 - Con 3 o más dedos no se hace nada en v0; quedan reservados para el modo gestos de v1.
 - Se procesan **todas las muestras históricas** de cada `MotionEvent`.

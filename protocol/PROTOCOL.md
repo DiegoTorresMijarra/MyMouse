@@ -34,6 +34,7 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
 | `0x03` | `BUTTON` | `u8 button`, `u8 pressed` | 3 |
 | `0x04` | `SCROLL` | `i16 vertical`, `i16 horizontal` | 5 |
 | `0x05` | `PING` | — | 1 |
+| `0x07` | `ZOOM` (pendiente de implementar) | `i16 delta` | 3 |
 | `0x06` | `GESTURE` (reservado, v1) | `u8 len`, nombre UTF-8 ([detalle](../docs/spec-v1-gestos.md#8-protocolo)) | variable |
 
 ### Host → cliente
@@ -57,11 +58,10 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
   - `horizontal` positivo = scroll hacia la derecha.
   - Se permiten valores menores que 120 (scroll suave).
 - **PING / PONG.** El cliente envía `PING` cada segundo y el host responde `PONG`. Si cualquiera de los dos extremos pasa **3 s sin recibir nada**, da la conexión por muerta.
-- **GESTURE** (v1, reservado). Sustituye al antiguo `KEYCOMBO`: las acciones se definen en el PC.
-  - `modifiers` es una máscara de bits: `0x01` Ctrl, `0x02` Shift, `0x04` Alt, `0x08` Win.
-  - `vkey` es un *virtual-key code* de Windows.
-  - El host pulsa los modificadores y la tecla, y después los suelta en orden inverso.
-  - Un host de versión 1 que lo reciba lo trata como tipo desconocido.
+- **ZOOM** (pendiente de implementar; entra en la versión 1 porque aún no hay ninguna publicada). Pellizco en el trackpad.
+  - `delta` en unidades de rueda: positivo = acercar. `120` equivale a un paso.
+  - El host lo ejecuta como **Ctrl + rueda**: pulsa Ctrl, envía `WHEEL` con `delta` y suelta Ctrl. Funciona en navegadores, Office, VS Code, el Explorador y la mayoría de visores.
+- **GESTURE** (v1, reservado). El móvil envía el nombre de la forma reconocida; las acciones se definen en el PC. Detalle en [spec-v1-gestos.md](../docs/spec-v1-gestos.md#8-protocolo).
 
 ## Versionado
 
@@ -79,5 +79,6 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
 | `BUTTON(left, pressed)` | `03 00 01` |
 | `BUTTON(right, released)` | `03 01 00` |
 | `SCROLL(v=120, h=-40)` | `04 78 00 D8 FF` |
+| `ZOOM(-120)` | `07 88 FF` |
 | `PING` | `05` |
 | `PONG` | `85` |
