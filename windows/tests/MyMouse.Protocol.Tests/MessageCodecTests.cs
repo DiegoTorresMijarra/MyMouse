@@ -22,6 +22,9 @@ public class MessageCodecTests
         { new VolumeSetMessage(55), "09 37" },
         { new MediaCommandMessage(MediaCommand.Next), "0A 01" },
         { new VolumeMuteMessage(true), "0B 01" },
+        { new SystemGestureMessage(SystemGestureCommand.TaskView), "0C 00" },
+        { new SystemGestureMessage(SystemGestureCommand.AppSwitchStart), "0C 02" },
+        { new SystemGestureMessage(SystemGestureCommand.AppSwitchEnd), "0C 05" },
         { new VolumeStateMessage(40, false), "89 28 00" },
         { new WidgetResultMessage(2, GestureStatus.Executed), "8B 02 00" },
         { new WidgetLayoutMessage([new WidgetLayoutEntry(0, WidgetKind.Volume, "", "")]), "88 05 00 01 00 02 00 00" },
@@ -72,6 +75,8 @@ public class MessageCodecTests
     [InlineData("03 00 02")] // booleano inválido
     [InlineData("0A 03")] // orden multimedia inválida
     [InlineData("0B 02")] // booleano inválido
+    [InlineData("0C 06")] // gesto de sistema inválido
+    [InlineData("0C")] // SYSTEM_GESTURE truncado
     [InlineData("89 65 00")] // volumen > 100
     [InlineData("8B 02 03")] // estado inválido
     [InlineData("88 05 00 01 00 03 00 00")] // tipo de widget inválido

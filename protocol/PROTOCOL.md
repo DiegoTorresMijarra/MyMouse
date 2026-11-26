@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **3** (panel de widgets). El host acepta también clientes de versión 1 y 2. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **4** (gestos de Windows con 3 dedos). El host acepta también clientes de versión 1, 2 y 3. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -45,6 +45,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x09` | `VOLUME_SET` (v3) | `u8 nivel` (0–100) | 2 |
 | `0x0A` | `MEDIA_COMMAND` (v3) | `u8 orden`: 0 = reproducir/pausar, 1 = siguiente, 2 = anterior | 2 |
 | `0x0B` | `VOLUME_MUTE` (v3) | `u8 silenciado` (0/1) | 2 |
+| `0x0C` | `SYSTEM_GESTURE` (v4) | `u8 orden`: 0 = vista de tareas, 1 = escritorio, 2 = empezar cambio de app, 3 = siguiente app, 4 = app anterior, 5 = terminar cambio de app | 2 |
 
 ### Host → cliente
 
@@ -74,7 +75,7 @@ Tamaño variable:  +--------+-----------+---------------------+
   - Se permiten valores menores que 120 (scroll suave).
 - **PING / PONG.** El cliente envía `PING` cada segundo y el host responde `PONG`. Si cualquiera de los dos extremos pasa **3 s sin recibir nada**, da la conexión por muerta.
 - **ZOOM.** Pellizco en el trackpad. Entra en la versión 1 porque se añadió antes de publicar ninguna.
-  - El cliente lo envía en múltiplos de 120 (pasos enteros): muchas aplicaciones hacen un paso de zoom por evento, sea cual sea el valor.
+  - Hasta la v3.0 el cliente lo enviaba en múltiplos de 120 (pasos enteros). Desde la v3.1 envía deltas finos (como un touchpad de precisión), como mucho cada 16 ms.
   - `delta` en unidades de rueda: positivo = acercar. `120` equivale a un paso.
   - El host lo ejecuta como **Ctrl + rueda**: pulsa Ctrl, envía `WHEEL` con `delta` y suelta Ctrl. Funciona en navegadores, Office, VS Code, el Explorador y la mayoría de visores.
 - **GESTURE** (v2). El móvil envía el nombre de la forma reconocida (`circle`, `line-right`, `custom:firma`…); las acciones se definen en el PC ([spec-v1-gestos.md](../docs/spec-v1-gestos.md)). El host responde siempre con un `GESTURE_RESULT`.
@@ -91,6 +92,13 @@ Tamaño variable:  +--------+-----------+---------------------+
   - `VOLUME_SET` con nivel > 100: el host lo recorta a 100. `MEDIA_COMMAND` con una orden desconocida es un error de protocolo. `VOLUME_SET`, `VOLUME_MUTE` y `MEDIA_COMMAND` no se responden si se ejecutan, y se ignoran si el host no tiene el widget correspondiente.
   - En pausa, el host responde `WIDGET_RESULT(id, 2)` a `WIDGET_PRESS` y, a las órdenes de volumen o música, `WIDGET_RESULT` con el id de su widget (`volume` o `media`); no cambia volumen ni música.
   - `VOLUME_STATE` con un nivel > 100 es un error de protocolo.
+
+- **Gestos de Windows** (v4). Los gestos de 3 dedos del trackpad ([spec-v3.1-ajustes.md](../docs/spec-v3.1-ajustes.md)). Solo se envían y aceptan con versión negociada ≥ 4: un mensaje `SYSTEM_GESTURE` con versión < 4 es un error de protocolo, y con un host de versión < 4 el móvil no los envía (los anota en el modo depuración). Una orden desconocida (> 5) también es un error de protocolo. No se responden.
+  - `0` vista de tareas: el host pulsa y suelta `Win+Tab`. `1` escritorio: `Win+D`.
+  - Cambio de app: `2` pulsa `Alt` y lo mantiene; `3` envía `Tab` y `4` envía `Shift+Tab` con `Alt` pulsado; `5` suelta `Alt`. Un `3` o `4` sin un `2` previo se ignora, igual que un `2` repetido o un `5` sin cambio en curso.
+  - **El host debe soltar `Alt`** si la sesión termina (cierre, timeout o error) o si el PC está en pausa a mitad de un cambio de app. En pausa, los `SYSTEM_GESTURE` se descartan.
+  - Por Bluetooth no se usa este mensaje: el móvil envía los informes de teclado HID equivalentes.
+- **ZOOM y SCROLL con deltas finos** (v4, sin cambio de formato). Desde la v3.1 el cliente envía `ZOOM` con deltas proporcionales (no múltiplos de 120) y `SCROLL` con valores pequeños; el host los pasa tal cual a la rueda (`Ctrl` + rueda en el zoom). Un host anterior los acepta igual.
 
 ## Versionado
 
@@ -120,5 +128,8 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `WIDGET_RESULT(2, 0)` | `8B 02 00` |
 | `WIDGET_LAYOUT([0, volume, "", ""])` | `88 05 00 01 00 02 00 00` |
 | `MEDIA_STATE(1, "A", "B")` | `8A 05 00 01 01 41 01 42` |
+| `SYSTEM_GESTURE(vista de tareas)` | `0C 00` |
+| `SYSTEM_GESTURE(empezar cambio de app)` | `0C 02` |
+| `SYSTEM_GESTURE(terminar cambio de app)` | `0C 05` |
 | `PING` | `05` |
 | `PONG` | `85` |

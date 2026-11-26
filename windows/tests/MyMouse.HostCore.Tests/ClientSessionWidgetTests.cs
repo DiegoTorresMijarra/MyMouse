@@ -13,6 +13,7 @@ public class ClientSessionWidgetTests
         public void SetButton(MouseButton button, bool pressed) { }
         public void Scroll(int vertical, int horizontal) { }
         public void Zoom(int delta) { }
+        public void SystemGesture(SystemGestureCommand command) { }
     }
 
     private readonly FakeExecutor _executor = new();

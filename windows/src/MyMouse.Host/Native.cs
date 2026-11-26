@@ -23,6 +23,11 @@ internal static class Native
     public const uint MOUSEEVENTF_HWHEEL = 0x1000;
 
     public const ushort VK_CONTROL = 0x11;
+    public const ushort VK_SHIFT = 0x10;
+    public const ushort VK_MENU = 0x12; // Alt
+    public const ushort VK_TAB = 0x09;
+    public const ushort VK_D = 0x44;
+    public const ushort VK_LWIN = 0x5B;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct INPUT

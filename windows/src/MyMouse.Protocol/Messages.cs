@@ -3,14 +3,17 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets.</summary>
-    public const byte CurrentVersion = 3;
+    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE).</summary>
+    public const byte CurrentVersion = 4;
 
     /// <summary>Primera versión con los mensajes del modo gestos.</summary>
     public const byte GesturesVersion = 2;
 
     /// <summary>Primera versión con los mensajes del panel de widgets.</summary>
     public const byte WidgetsVersion = 3;
+
+    /// <summary>Primera versión con SYSTEM_GESTURE (gestos de 3 dedos de Windows).</summary>
+    public const byte SystemGestureVersion = 4;
 
     /// <summary>Máximo de widgets en un WIDGET_LAYOUT.</summary>
     public const int MaxWidgets = 32;
@@ -39,6 +42,7 @@ public enum MessageType : byte
     VolumeSet = 0x09,
     MediaCommand = 0x0A,
     VolumeMute = 0x0B,
+    SystemGesture = 0x0C,
     HelloAck = 0x81,
     Pong = 0x85,
     GestureResult = 0x86,
@@ -162,6 +166,23 @@ public sealed record MediaCommandMessage(MediaCommand Command) : Message
 public sealed record VolumeMuteMessage(bool Muted) : Message
 {
     public override MessageType Type => MessageType.VolumeMute;
+}
+
+/// <summary>Gesto de sistema de Windows de <see cref="SystemGestureMessage"/>. El cambio de app mantiene Alt pulsado entre Start y End.</summary>
+public enum SystemGestureCommand : byte
+{
+    TaskView = 0,
+    ShowDesktop = 1,
+    AppSwitchStart = 2,
+    AppSwitchNext = 3,
+    AppSwitchPrevious = 4,
+    AppSwitchEnd = 5,
+}
+
+/// <summary>Gesto de 3 dedos del móvil: vista de tareas, escritorio o cambio de app (protocolo v4).</summary>
+public sealed record SystemGestureMessage(SystemGestureCommand Command) : Message
+{
+    public override MessageType Type => MessageType.SystemGesture;
 }
 
 public sealed record WidgetLayoutEntry(byte Id, WidgetKind Kind, string Label, string Icon);

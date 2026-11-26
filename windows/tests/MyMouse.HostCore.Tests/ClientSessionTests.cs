@@ -12,6 +12,7 @@ public class ClientSessionTests
         public void SetButton(MouseButton button, bool pressed) => Calls.Add($"{button} {(pressed ? "down" : "up")}");
         public void Scroll(int vertical, int horizontal) => Calls.Add($"scroll {vertical},{horizontal}");
         public void Zoom(int delta) => Calls.Add($"zoom {delta}");
+        public void SystemGesture(SystemGestureCommand command) => Calls.Add($"system {command}");
     }
 
     private sealed class FakeGestures : IGestureService
@@ -91,6 +92,154 @@ public class ClientSessionTests
 
         Assert.Equal(2, session.Version);
         Assert.Equal(Bytes(new HelloAckMessage(2), gestures.List), output.ToArray());
+    }
+
+    // ---- Gestos de Windows (protocolo v4) ----
+
+    [Fact]
+    public async Task SystemGestures_AreInjected()
+    {
+        var (_, injector, _, _) = await Run(Bytes(
+            new HelloMessage(4),
+            new SystemGestureMessage(SystemGestureCommand.TaskView),
+            new SystemGestureMessage(SystemGestureCommand.ShowDesktop),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchNext),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchPrevious),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchEnd)));
+
+        Assert.Equal(
+            ["system TaskView", "system ShowDesktop", "system AppSwitchStart", "system AppSwitchNext", "system AppSwitchPrevious", "system AppSwitchEnd"],
+            injector.Calls);
+    }
+
+    [Fact]
+    public async Task SystemGesture_WithOlderProtocol_IsProtocolError()
+    {
+        var (reason, injector, _, session) = await Run(Bytes(new HelloMessage(3), new SystemGestureMessage(SystemGestureCommand.TaskView)));
+
+        Assert.Equal(SessionEndReason.ProtocolError, reason);
+        Assert.Equal(3, session.Version);
+        Assert.Empty(injector.Calls);
+    }
+
+    [Fact]
+    public async Task AppSwitch_IsReleasedWhenTheSessionEndsMidSwitch()
+    {
+        // El cliente se va tras AppSwitchStart y AppSwitchNext: el host no puede dejar Alt pulsado.
+        var (reason, injector, _, _) = await Run(Bytes(
+            new HelloMessage(4),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchNext)));
+
+        Assert.Equal(SessionEndReason.ClientClosed, reason);
+        Assert.Equal(["system AppSwitchStart", "system AppSwitchNext", "system AppSwitchEnd"], injector.Calls);
+    }
+
+    [Fact]
+    public async Task AppSwitch_IsReleasedOnProtocolError()
+    {
+        var (reason, injector, _, _) = await Run(Bytes(
+            new HelloMessage(4),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
+            new HelloMessage(4)));
+
+        Assert.Equal(SessionEndReason.ProtocolError, reason);
+        Assert.Equal(["system AppSwitchStart", "system AppSwitchEnd"], injector.Calls);
+    }
+
+    [Fact]
+    public async Task AppSwitch_StepsWithoutStartAreIgnoredAndEndIsNotRepeated()
+    {
+        var (_, injector, _, _) = await Run(Bytes(
+            new HelloMessage(4),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchNext),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchPrevious),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchEnd),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchEnd)));
+
+        Assert.Equal(["system AppSwitchStart", "system AppSwitchEnd"], injector.Calls);
+    }
+
+    [Fact]
+    public async Task SystemGestures_WhilePaused_AreIgnored()
+    {
+        var (_, injector, _, _) = await Run(Bytes(
+            new HelloMessage(4),
+            new SystemGestureMessage(SystemGestureCommand.TaskView),
+            new SystemGestureMessage(SystemGestureCommand.AppSwitchStart)), paused: true);
+
+        Assert.Empty(injector.Calls);
+    }
+
+    [Fact]
+    public async Task Pause_DuringAppSwitch_ReleasesAlt()
+    {
+        var injector = new FakeInjector();
+        var paused = false;
+        var input = new PipeStream();
+        var session = new ClientSession(input, new MemoryStream(), injector, () => paused);
+        var run = session.RunAsync(CancellationToken.None);
+
+        void Write(params Message[] messages) => input.Write(Bytes(messages));
+        Write(new HelloMessage(4), new SystemGestureMessage(SystemGestureCommand.AppSwitchStart));
+        await WaitFor(() => injector.Calls.Contains("system AppSwitchStart"));
+
+        paused = true;
+        Write(new MoveMessage(1, 1)); // cualquier mensaje con el host en pausa suelta lo pulsado
+        await WaitFor(() => injector.Calls.Contains("system AppSwitchEnd"));
+        input.Complete();
+
+        Assert.Equal(SessionEndReason.ClientClosed, await run);
+        Assert.Equal(["system AppSwitchStart", "system AppSwitchEnd"], injector.Calls);
+    }
+
+    private static async Task WaitFor(Func<bool> condition)
+    {
+        for (var i = 0; i < 200 && !condition(); i++) await Task.Delay(10);
+        Assert.True(condition(), "condición no cumplida a tiempo");
+    }
+
+    /// <summary>Flujo de lectura alimentado a mano: permite enviar mensajes en varios pasos y cerrarlo al final.</summary>
+    private sealed class PipeStream : Stream
+    {
+        private readonly System.Threading.Channels.Channel<byte[]> _chunks = System.Threading.Channels.Channel.CreateUnbounded<byte[]>();
+        private byte[] _current = [];
+        private int _pos;
+
+        public void Write(byte[] bytes) => _chunks.Writer.TryWrite(bytes);
+        public void Complete() => _chunks.Writer.TryComplete();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            while (_pos >= _current.Length)
+            {
+                if (!await _chunks.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false)) return 0;
+                _chunks.Reader.TryRead(out var next);
+                _current = next ?? [];
+                _pos = 0;
+            }
+            var n = Math.Min(buffer.Length, _current.Length - _pos);
+            _current.AsMemory(_pos, n).CopyTo(buffer);
+            _pos += n;
+            return n;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     [Fact]

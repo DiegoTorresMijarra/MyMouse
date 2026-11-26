@@ -13,4 +13,10 @@ public interface IInputInjector
 
     /// <summary>Zoom como Ctrl + rueda vertical (120 = un paso; positivo = acercar).</summary>
     void Zoom(int delta);
+
+    /// <summary>
+    /// Gesto de 3 dedos de Windows: Win+Tab, Win+D o cambio de app. <see cref="SystemGestureCommand.AppSwitchStart"/> deja Alt
+    /// pulsado hasta <see cref="SystemGestureCommand.AppSwitchEnd"/>; <see cref="ClientSession"/> garantiza que se envíe el final.
+    /// </summary>
+    void SystemGesture(SystemGestureCommand command);
 }

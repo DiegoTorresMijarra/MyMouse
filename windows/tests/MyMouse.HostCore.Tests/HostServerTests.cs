@@ -15,6 +15,7 @@ public class HostServerTests
         public void SetButton(MouseButton button, bool pressed) => Calls.Enqueue($"{button} {(pressed ? "down" : "up")}");
         public void Scroll(int vertical, int horizontal) => Calls.Enqueue($"scroll {vertical},{horizontal}");
         public void Zoom(int delta) => Calls.Enqueue($"zoom {delta}");
+        public void SystemGesture(SystemGestureCommand command) => Calls.Enqueue($"system {command}");
     }
 
     private static int FreePort()

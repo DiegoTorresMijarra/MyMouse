@@ -27,6 +27,9 @@ public sealed class ClientSession
     private readonly IWidgetService? _widgets;
     private readonly HashSet<MouseButton> _pressed = [];
 
+    /// <summary>Cambio de app en curso: el inyector tiene Alt pulsado y hay que soltarlo si la sesión se corta.</summary>
+    private bool _appSwitching;
+
     /// <summary>Las escrituras pueden venir del bucle de lectura y de los avisos de la lista de formas y de los widgets.</summary>
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
@@ -202,6 +205,9 @@ public sealed class ClientSession
             return;
         }
 
+        if (message is SystemGestureMessage && Version < ProtocolInfo.SystemGestureVersion)
+            throw new ProtocolException($"SYSTEM_GESTURE con protocolo v{Version}");
+
         if (_isPaused())
         {
             ReleaseAll();
@@ -222,6 +228,9 @@ public sealed class ClientSession
                 break;
             case ZoomMessage z:
                 _injector.Zoom(z.Delta);
+                break;
+            case SystemGestureMessage g:
+                HandleSystemGesture(g.Command);
                 break;
             case HelloMessage:
                 throw new ProtocolException("HELLO duplicado");
@@ -281,11 +290,37 @@ public sealed class ClientSession
         }
     }
 
+    private void HandleSystemGesture(SystemGestureCommand command)
+    {
+        switch (command)
+        {
+            case SystemGestureCommand.AppSwitchStart:
+                if (_appSwitching) return; // Alt ya está pulsado
+                _appSwitching = true;
+                break;
+            case SystemGestureCommand.AppSwitchNext or SystemGestureCommand.AppSwitchPrevious:
+                if (!_appSwitching) return; // sin START no hay Alt pulsado: se ignora
+                break;
+            case SystemGestureCommand.AppSwitchEnd:
+                if (!_appSwitching) return;
+                _appSwitching = false;
+                break;
+        }
+        _injector.SystemGesture(command);
+    }
+
     private void ReleaseAll()
     {
         foreach (var button in _pressed)
             _injector.SetButton(button, false);
         _pressed.Clear();
+
+        // Un cambio de app a medias (sesión cortada o PC en pausa) no puede dejar Alt pulsado.
+        if (_appSwitching)
+        {
+            _appSwitching = false;
+            _injector.SystemGesture(SystemGestureCommand.AppSwitchEnd);
+        }
     }
 
     private SessionEndReason Fail(string error)

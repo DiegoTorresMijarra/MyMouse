@@ -40,4 +40,37 @@ internal sealed class SendInputInjector : IInputInjector
         // Ctrl pulsado + rueda + Ctrl soltado en una sola llamada, para que nada se cuele en medio.
         Send(Key(VK_CONTROL, up: false), Mouse(0, 0, delta, MOUSEEVENTF_WHEEL), Key(VK_CONTROL, up: true));
     }
+
+    /// <summary>Alt pulsado por un cambio de app en curso: <see cref="SystemGestureCommand.AppSwitchEnd"/> lo suelta.</summary>
+    private bool _altHeld;
+
+    public void SystemGesture(SystemGestureCommand command)
+    {
+        switch (command)
+        {
+            case SystemGestureCommand.TaskView:
+                // Win+Tab (vista de tareas) en una sola llamada.
+                Send(Key(VK_LWIN, up: false, extended: true), Key(VK_TAB, up: false), Key(VK_TAB, up: true), Key(VK_LWIN, up: true, extended: true));
+                break;
+            case SystemGestureCommand.ShowDesktop:
+                Send(Key(VK_LWIN, up: false, extended: true), Key(VK_D, up: false), Key(VK_D, up: true), Key(VK_LWIN, up: true, extended: true));
+                break;
+            case SystemGestureCommand.AppSwitchStart:
+                if (_altHeld) break;
+                _altHeld = true;
+                Send(Key(VK_MENU, up: false));
+                break;
+            case SystemGestureCommand.AppSwitchNext when _altHeld:
+                Send(Key(VK_TAB, up: false), Key(VK_TAB, up: true));
+                break;
+            case SystemGestureCommand.AppSwitchPrevious when _altHeld:
+                Send(Key(VK_SHIFT, up: false), Key(VK_TAB, up: false), Key(VK_TAB, up: true), Key(VK_SHIFT, up: true));
+                break;
+            case SystemGestureCommand.AppSwitchEnd:
+                if (!_altHeld) break;
+                _altHeld = false;
+                Send(Key(VK_MENU, up: true));
+                break;
+        }
+    }
 }

@@ -13,7 +13,8 @@ public static class MessageCodec
     public static int? PayloadSize(byte type) => (MessageType)type switch
     {
         MessageType.Hello or MessageType.HelloAck or MessageType.GestureResult
-            or MessageType.WidgetPress or MessageType.VolumeSet or MessageType.MediaCommand or MessageType.VolumeMute => 1,
+            or MessageType.WidgetPress or MessageType.VolumeSet or MessageType.MediaCommand or MessageType.VolumeMute
+            or MessageType.SystemGesture => 1,
         MessageType.VolumeState or MessageType.WidgetResult => 2,
         MessageType.Move or MessageType.Scroll => 4,
         MessageType.Button or MessageType.Zoom => 2,
@@ -88,6 +89,8 @@ public static class MessageCodec
                 return [(byte)m.Command];
             case VolumeMuteMessage m:
                 return [m.Muted ? (byte)1 : (byte)0];
+            case SystemGestureMessage m:
+                return [(byte)m.Command];
             case WidgetLayoutMessage m:
             {
                 var ms = new MemoryStream();
@@ -148,6 +151,7 @@ public static class MessageCodec
             MessageType.VolumeSet => new VolumeSetMessage(payload[0]),
             MessageType.MediaCommand => new MediaCommandMessage(ParseMediaCommand(payload[0])),
             MessageType.VolumeMute => new VolumeMuteMessage(ParseBool(payload[0])),
+            MessageType.SystemGesture => new SystemGestureMessage(ParseSystemGesture(payload[0])),
             MessageType.WidgetLayout => DecodeWidgetLayout(payload),
             MessageType.VolumeState => new VolumeStateMessage(ParseLevel(payload[0]), ParseBool(payload[1])),
             MessageType.MediaState => DecodeMediaState(payload),
@@ -269,6 +273,10 @@ public static class MessageCodec
     private static MediaCommand ParseMediaCommand(byte value) => value <= (byte)MediaCommand.Previous
         ? (MediaCommand)value
         : throw new ProtocolException($"Orden multimedia inválida: {value}");
+
+    private static SystemGestureCommand ParseSystemGesture(byte value) => value <= (byte)SystemGestureCommand.AppSwitchEnd
+        ? (SystemGestureCommand)value
+        : throw new ProtocolException($"Gesto de sistema inválido: {value}");
 
     private static byte ParseLevel(byte value) => value <= 100
         ? value
