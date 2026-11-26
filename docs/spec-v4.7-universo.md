@@ -95,6 +95,16 @@ Dónde se usa:
   - Si no cabe a lo alto, se encoge entera, como la chuleta en la v4.6.
 - La chuleta básica ya va en dos columnas en horizontal desde la v4.6, y se mantiene.
 - **Icono nuevo de la app** (§3.3).
+- **Widget de volumen** (captura del usuario por USB, en horizontal):
+  - La barra sale diminuta: el pulgar es enorme y la pista mide unos pocos píxeles, y el número apenas se lee.
+  - Rediseño: fila con el icono de altavoz (44 dp, toque = silenciar) a la izquierda y la pista ocupando todo el ancho restante, de 4 dp de alto, con radio, la parte llena con el acento y el resto blanco al 18 %. El pulgar mide 18 dp, blanco, con sombra suave. El número va a la derecha en texto normal (no terciario), con ancho fijo para 3 cifras.
+  - Si el panel es estrecho (2 columnas en horizontal), el número pasa debajo o se oculta antes de encoger la pista por debajo de 96 dp.
+  - Silenciado: icono con una × en el color de texto secundario (no rojo chillón), y la parte llena de la pista en gris.
+  - La lógica de la geometría (pista, pulgar y posición del número según el ancho) va en `core`, con tests.
+- **Chuleta y modo depuración**:
+  - En horizontal, con depuración activada, la mini pantalla de depuración se dibuja encima de la chuleta y la tapa.
+  - La chuleta tiene que colocarse en el espacio libre: a la derecha de la mini pantalla en horizontal, debajo en vertical. Si no cabe, se encoge.
+  - Ningún elemento del trackpad se solapa con otro. Va como una función pura de disposición en `core`, con tests de los dos casos.
 
 ## 5. Criterios de "hecho"
 1. Toolbox, gesto en vivo y editor con el universo de fondo y tarjetas de cristal claramente distinguibles, sin el gris plano.
