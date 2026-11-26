@@ -29,8 +29,7 @@ internal sealed class TrayContext : ApplicationContext
 
         _icon = new NotifyIcon
         {
-            // TODO: iconos propios por estado (sin móvil / esperando / conectado / pausado).
-            Icon = SystemIcons.Application,
+            Icon = TrayIcons.NoDevice,
             ContextMenuStrip = menu,
             Visible = true,
         };
@@ -57,14 +56,15 @@ internal sealed class TrayContext : ApplicationContext
 
     private void UpdateStatus()
     {
-        var status = (_paused, _connected, _adb.Status) switch
+        var (status, icon) = (_paused, _connected, _adb.Status) switch
         {
-            (true, _, _) => "En pausa",
-            (_, true, _) => "Conectado",
-            (_, _, AdbStatus.AdbNotFound) => "adb no encontrado (ver config.json)",
-            (_, _, AdbStatus.NoDevice) => "Sin móvil (¿cable? ¿depuración USB?)",
-            _ => "Esperando a la app del móvil",
+            (true, _, _) => ("En pausa", TrayIcons.Paused),
+            (_, true, _) => ("Conectado", TrayIcons.Connected),
+            (_, _, AdbStatus.AdbNotFound) => ("adb no encontrado (ver config.json)", TrayIcons.NoDevice),
+            (_, _, AdbStatus.NoDevice) => ("Sin móvil (¿cable? ¿depuración USB?)", TrayIcons.NoDevice),
+            _ => ("Esperando a la app del móvil", TrayIcons.Waiting),
         };
+        _icon.Icon = icon;
         // El tooltip de NotifyIcon admite como máximo 127 caracteres.
         _icon.Text = $"MyMouse: {status}";
     }

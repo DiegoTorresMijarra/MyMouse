@@ -33,6 +33,15 @@ class TrackpadView(
     private val statusPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val density = resources.displayMetrics.density
 
+    val cheatSheet = CheatSheet(density)
+
+    /** Mostrar la chuleta de gestos en el centro. */
+    var showCheatSheet: Boolean = true
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     private val tick = Runnable {
         interpreter.onTick(SystemClock.uptimeMillis()).forEach(send)
         scheduleTick()
@@ -92,6 +101,7 @@ class TrackpadView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (showCheatSheet) cheatSheet.draw(canvas, width, height)
         // Indicador discreto de estado: verde = conectado, gris = desconectado.
         statusPaint.color = if (connected) Color.rgb(40, 160, 70) else Color.rgb(90, 90, 90)
         val r = 5 * density

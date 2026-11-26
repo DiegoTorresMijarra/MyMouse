@@ -39,7 +39,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [ ] (Opcional) Comprobar que EMUI acepta `dpm set-device-owner` (necesario para el modo bloqueado completo).
 
 ### M1: host de Windows
-- [~] App de bandeja en .NET 10 con menú (Pausar, Logs, Salir) y estado en el tooltip. Faltan iconos propios por estado.
+- [~] App de bandeja en .NET 10 con menú (Pausar, Logs, Salir), estado en el tooltip e icono por estado (release v0.2).
 - [x] Servidor TCP en `127.0.0.1:47800` que acepta un único cliente.
 - [x] Parser del protocolo, con tests unitarios.
 - [~] Inyección con `SendInput`: MOVE, BUTTON y SCROLL.
@@ -63,7 +63,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [ ] Velocidad de scroll configurable.
 - [ ] Atenuar la pantalla tras X segundos sin uso (sin apagarla).
 - [ ] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen −.
-- [ ] Chuleta de gestos básicos en el centro del trackpad.
+- [~] Chuleta de gestos básicos en el centro del trackpad (release v0.2).
 - [ ] Modo ventana: trackpad con margen, botones Ajustes y Salir.
 - [ ] (Opcional) Modo bloqueado completo como propietaria del dispositivo, arranque al encender.
 - [ ] Prueba de un día entero y lista de molestias, que alimentará la v1.
