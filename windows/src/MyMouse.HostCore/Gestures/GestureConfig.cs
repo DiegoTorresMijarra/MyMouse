@@ -64,16 +64,28 @@ public sealed record GestureBinding(string Gesture, GestureAction Action, string
     public string HelpText => string.IsNullOrWhiteSpace(Help) ? Action.DefaultHelp : Help!;
 }
 
-/// <summary>Contenido de <c>gestures.json</c>. Las reglas con errores se descartan y se informan en <see cref="Warnings"/>.</summary>
+/// <summary>
+/// Contenido de <c>gestures.json</c>: reglas de formas y widgets del panel. Las reglas y los widgets con errores
+/// se descartan y se informan en <see cref="Warnings"/>.
+/// </summary>
 public sealed class GestureConfig
 {
     public IReadOnlyList<GestureBinding> Bindings { get; }
     public IReadOnlyList<string> Warnings { get; }
 
-    public GestureConfig(IReadOnlyList<GestureBinding> bindings, IReadOnlyList<string>? warnings = null)
+    /// <summary>Widgets válidos, en el orden del fichero (su posición es el id del protocolo).</summary>
+    public IReadOnlyList<WidgetDefinition> Widgets { get; }
+
+    /// <summary>¿El fichero trae la lista <c>"widgets"</c>, aunque esté vacía? Los de la v1 no la traen.</summary>
+    public bool HasWidgetsSection { get; }
+
+    public GestureConfig(IReadOnlyList<GestureBinding> bindings, IReadOnlyList<string>? warnings = null,
+        IReadOnlyList<WidgetDefinition>? widgets = null, bool hasWidgetsSection = false)
     {
         Bindings = bindings;
         Warnings = warnings ?? [];
+        Widgets = widgets ?? [];
+        HasWidgetsSection = hasWidgetsSection;
     }
 
     public static GestureConfig Empty { get; } = new([]);
@@ -144,7 +156,10 @@ public sealed class GestureConfig
                     warnings.Add($"Regla {index}: {ex.Message}");
                 }
             }
-            return new GestureConfig(bindings, warnings);
+
+            var hasWidgets = doc.RootElement.TryGetProperty("widgets", out var widgetList);
+            var widgets = hasWidgets ? WidgetParser.Parse(widgetList, warnings) : [];
+            return new GestureConfig(bindings, warnings, widgets, hasWidgets);
         }
     }
 
@@ -161,7 +176,7 @@ public sealed class GestureConfig
             OptionalString(e, "app"));
     }
 
-    private static GestureAction ParseAction(JsonElement a)
+    internal static GestureAction ParseAction(JsonElement a)
     {
         var type = RequiredString(a, "type");
         switch (type.ToLowerInvariant())
@@ -197,12 +212,12 @@ public sealed class GestureConfig
         }
     }
 
-    private static string RequiredString(JsonElement e, string name) =>
+    internal static string RequiredString(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString())
             ? v.GetString()!
             : throw new FormatException($"Falta \"{name}\" (texto)");
 
-    private static string? OptionalString(JsonElement e, string name) =>
+    internal static string? OptionalString(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     /// <summary>Configuración de ejemplo que se crea la primera vez.</summary>
@@ -214,6 +229,10 @@ public sealed class GestureConfig
           // Formas: line-right, line-left, line-up, line-down, v, caret, lt, gt, circle, triangle, square,
           //         check, z, s, l, y las propias como "custom:<nombre>".
           // Al guardar este fichero, MyMouse lo recarga solo.
+          //
+          // "widgets": panel junto al trackpad del móvil (docs/spec-v2-widgets.md). Tipos:
+          //   button (label, icon opcional, action con el mismo formato que en bindings), media y volume
+          //   (como mucho uno de cada). Máximo 32. Sin "widgets" (o vacío) no hay panel.
           "bindings": [
             { "gesture": "circle",     "action": { "type": "launch", "target": "chrome.exe", "focusIfRunning": true }, "help": "Abrir Chrome", "pin": true },
             { "gesture": "z",          "action": { "type": "keys", "keys": "Ctrl+Z" }, "help": "Deshacer", "pin": true },
@@ -227,6 +246,15 @@ public sealed class GestureConfig
             { "gesture": "check",      "action": { "type": "keys", "keys": "Ctrl+S" }, "help": "Guardar" },
             { "gesture": "s",          "action": { "type": "launch", "target": "ms-settings:" }, "help": "Configuración de Windows" },
             { "gesture": "check",      "action": { "type": "keys", "keys": "F5" }, "help": "Recargar", "app": "chrome.exe" }
+          ],
+          "widgets": [
+            { "type": "media" },
+            { "type": "volume" },
+            { "type": "button", "label": "Chrome",   "icon": "🌐", "action": { "type": "launch", "target": "chrome.exe", "focusIfRunning": true } },
+            { "type": "button", "label": "Copiar",   "icon": "📋", "action": { "type": "keys", "keys": "Ctrl+C" } },
+            { "type": "button", "label": "Pegar",    "icon": "📄", "action": { "type": "keys", "keys": "Ctrl+V" } },
+            { "type": "button", "label": "Captura",  "icon": "✂️", "action": { "type": "keys", "keys": "Win+Shift+S" } },
+            { "type": "button", "label": "Bloquear", "icon": "🔒", "action": { "type": "mymouse", "command": "lock" } }
           ]
         }
         """;

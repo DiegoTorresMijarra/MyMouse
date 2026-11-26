@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
 
 namespace MyMouse.HostCore;
@@ -9,7 +10,8 @@ namespace MyMouse.HostCore;
 /// Una conexión nueva sustituye a la anterior.
 /// </summary>
 public sealed class HostServer(
-    IInputInjector injector, Func<bool> isPaused, int port = ProtocolInfo.DefaultPort, IGestureService? gestures = null)
+    IInputInjector injector, Func<bool> isPaused, int port = ProtocolInfo.DefaultPort, IGestureService? gestures = null,
+    IWidgetService? widgets = null)
 {
     private CancellationTokenSource? _currentSession;
 
@@ -55,7 +57,7 @@ public sealed class HostServer(
 
             try
             {
-                var session = new ClientSession(client.GetStream(), injector, isPaused, gestures);
+                var session = new ClientSession(client.GetStream(), injector, isPaused, gestures: gestures, widgets: widgets);
                 var reason = await session.RunAsync(sessionCts.Token).ConfigureAwait(false);
                 Log?.Invoke($"Cliente desconectado (protocolo v{session.Version}): {reason}{(session.Error is null ? "" : $" ({session.Error})")}");
             }

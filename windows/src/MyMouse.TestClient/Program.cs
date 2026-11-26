@@ -5,6 +5,7 @@ using MyMouse.Protocol;
 // Uso: dotnet run --project src/MyMouse.TestClient [puerto]
 // Mueve el cursor en círculo, hace clic derecho (y clic izquierdo para cerrar el menú) hace scroll y zoom (Ctrl + rueda)
 // y, con protocolo v2, lista las formas configuradas y envía una forma sin asignar.
+// Con protocolo v3 imprime los widgets configurados y el estado de volumen y música, y prueba un toque en un widget inexistente.
 
 var port = args.Length > 0 ? int.Parse(args[0]) : ProtocolInfo.DefaultPort;
 
@@ -14,6 +15,24 @@ var stream = client.GetStream();
 var reader = new MessageReader(stream);
 
 async Task Send(Message m) => await stream.WriteAsync(MessageCodec.Encode(m));
+
+/// <summary>Lee mensajes hasta que llega uno del tipo esperado (el host puede intercalar avisos de volumen o música).</summary>
+async Task<T?> Expect<T>() where T : Message
+{
+    while (await reader.ReadAsync() is { } m)
+    {
+        if (m is T expected) return expected;
+        Console.WriteLine($"  (aviso del PC: {Describe(m)})");
+    }
+    return null;
+}
+
+string Describe(Message m) => m switch
+{
+    VolumeStateMessage v => $"Volumen {v.Level}{(v.Muted ? " (silenciado)" : "")}",
+    MediaStateMessage s => s.Playing || s.Title.Length > 0 ? $"{(s.Playing ? "▶" : "⏸")} {s.Title} — {s.Artist}" : "Nada en reproducción",
+    _ => m.ToString() ?? m.GetType().Name,
+};
 
 await Send(new HelloMessage(ProtocolInfo.CurrentVersion));
 var ack = await reader.ReadAsync();
@@ -25,6 +44,16 @@ if (helloAck.Version >= ProtocolInfo.GesturesVersion && await reader.ReadAsync()
 {
     Console.WriteLine($"Formas configuradas en el PC ({list.Entries.Count}):");
     foreach (var e in list.Entries) Console.WriteLine($"  {(e.Pinned ? "*" : " ")} {e.Name,-12} {e.Help}");
+}
+
+if (helloAck.Version >= ProtocolInfo.WidgetsVersion && await reader.ReadAsync() is WidgetLayoutMessage layout)
+{
+    Console.WriteLine($"Widgets configurados en el PC ({layout.Entries.Count}):");
+    foreach (var e in layout.Entries) Console.WriteLine($"  {e.Id,2} {e.Kind,-7} {e.Icon,-4} {e.Label}");
+    if (layout.Entries.Any(e => e.Kind == WidgetKind.Volume) && await reader.ReadAsync() is { } volume)
+        Console.WriteLine($"Estado inicial: {Describe(volume)}");
+    if (layout.Entries.Any(e => e.Kind == WidgetKind.Media) && await reader.ReadAsync() is { } media)
+        Console.WriteLine($"Estado inicial: {Describe(media)}");
 }
 
 Console.WriteLine("Círculo (2 s)...");
@@ -59,10 +88,17 @@ if (helloAck.Version >= ProtocolInfo.GesturesVersion)
 {
     // Una forma que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
     await Send(new GestureMessage("test-client"));
-    Console.WriteLine($"Forma 'test-client': {await reader.ReadAsync()} (lo esperado es Unassigned y un aviso en la bandeja)");
+    Console.WriteLine($"Forma 'test-client': {await Expect<GestureResultMessage>()} (lo esperado es Unassigned y un aviso en la bandeja)");
+}
+
+if (helloAck.Version >= ProtocolInfo.WidgetsVersion)
+{
+    // Un widget que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
+    await Send(new WidgetPressMessage(250));
+    Console.WriteLine($"Widget 250: {await Expect<WidgetResultMessage>()} (lo esperado es Error)");
 }
 
 await Send(PingMessage.Instance);
-Console.WriteLine($"Ping: {await reader.ReadAsync()}");
+Console.WriteLine($"Ping: {await Expect<PongMessage>()}");
 Console.WriteLine("Hecho.");
 return 0;

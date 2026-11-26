@@ -12,6 +12,7 @@ internal sealed class GestureConfigFile : IDisposable
 
     private readonly FileSystemWatcher _watcher;
     private readonly System.Threading.Timer _debounce;
+    private bool _firstLoad = true;
 
     /// <summary>Configuración cargada (válida). Se llama también en la primera carga.</summary>
     public event Action<GestureConfig>? Loaded;
@@ -59,11 +60,16 @@ internal sealed class GestureConfigFile : IDisposable
         try
         {
             var config = GestureConfig.Parse(json);
-            FileLog.Write($"gestures.json cargado: {config.Bindings.Count} reglas");
+            FileLog.Write($"gestures.json cargado: {config.Bindings.Count} reglas, {config.Widgets.Count} widgets");
             foreach (var w in config.Warnings) FileLog.Write($"gestures.json: {w}");
             Loaded?.Invoke(config);
             if (config.Warnings.Count > 0)
-                Problem?.Invoke($"{config.Warnings.Count} regla(s) ignoradas en gestures.json: {config.Warnings[0]}");
+                Problem?.Invoke($"{config.Warnings.Count} aviso(s) en gestures.json (reglas o widgets ignorados): {config.Warnings[0]}");
+
+            // Un gestures.json de la v1 no se toca: se avisa una vez al arrancar de que existe el panel.
+            if (_firstLoad && !config.HasWidgetsSection)
+                Problem?.Invoke("MyMouse 2 tiene panel de widgets. Para activarlo añade una lista \"widgets\" a gestures.json (ejemplo en docs/probar.md); con \"widgets\": [] no se vuelve a avisar.");
+            _firstLoad = false;
         }
         catch (FormatException ex)
         {

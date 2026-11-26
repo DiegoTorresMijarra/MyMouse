@@ -1,3 +1,4 @@
+using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
 
 namespace MyMouse.HostCore;
@@ -23,13 +24,15 @@ public sealed class ClientSession
     private readonly Func<bool> _isPaused;
     private readonly TimeSpan _idleTimeout;
     private readonly IGestureService? _gestures;
+    private readonly IWidgetService? _widgets;
     private readonly HashSet<MouseButton> _pressed = [];
 
-    /// <summary>Las escrituras pueden venir del bucle de lectura y de los avisos de la lista de formas.</summary>
+    /// <summary>Las escrituras pueden venir del bucle de lectura y de los avisos de la lista de formas y de los widgets.</summary>
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
     public ClientSession(Stream input, Stream output, IInputInjector injector,
-        Func<bool>? isPaused = null, TimeSpan? idleTimeout = null, IGestureService? gestures = null)
+        Func<bool>? isPaused = null, TimeSpan? idleTimeout = null, IGestureService? gestures = null,
+        IWidgetService? widgets = null)
     {
         _input = input;
         _output = output;
@@ -37,10 +40,12 @@ public sealed class ClientSession
         _isPaused = isPaused ?? (() => false);
         _idleTimeout = idleTimeout ?? ProtocolInfo.IdleTimeout;
         _gestures = gestures;
+        _widgets = widgets;
     }
 
-    public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null, IGestureService? gestures = null)
-        : this(duplex, duplex, injector, isPaused, gestures: gestures) { }
+    public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null,
+        IGestureService? gestures = null, IWidgetService? widgets = null)
+        : this(duplex, duplex, injector, isPaused, gestures: gestures, widgets: widgets) { }
 
     /// <summary>Último error de protocolo, si la sesión terminó por uno.</summary>
     public string? Error { get; private set; }
@@ -53,6 +58,9 @@ public sealed class ClientSession
         var reader = new MessageReader(_input);
         var handshakeDone = false;
         Action? onListChanged = null;
+        Action? onLayoutChanged = null;
+        Action<VolumeStateMessage>? onVolume = null;
+        Action<MediaStateMessage>? onMedia = null;
         using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         try
@@ -94,6 +102,19 @@ public sealed class ClientSession
                         onListChanged = () => _ = SendListSafelyAsync(token);
                         _gestures.ListChanged += onListChanged;
                     }
+
+                    if (_widgets is not null && Version >= ProtocolInfo.WidgetsVersion)
+                    {
+                        // Se suscribe antes de enviar el estado inicial para no perder cambios: un aviso repetido es inocuo.
+                        var token = sessionCts.Token;
+                        onLayoutChanged = () => _ = SendSafelyAsync(SendWidgetsAsync, token);
+                        onVolume = state => _ = SendSafelyAsync(ct => SendAsync(state, ct).AsTask(), token);
+                        onMedia = state => _ = SendSafelyAsync(ct => SendAsync(state, ct).AsTask(), token);
+                        _widgets.LayoutChanged += onLayoutChanged;
+                        _widgets.VolumeChanged += onVolume;
+                        _widgets.MediaChanged += onMedia;
+                        await SendWidgetsAsync(cancellationToken).ConfigureAwait(false);
+                    }
                     continue;
                 }
 
@@ -116,6 +137,9 @@ public sealed class ClientSession
         finally
         {
             if (onListChanged is not null) _gestures!.ListChanged -= onListChanged;
+            if (onLayoutChanged is not null) _widgets!.LayoutChanged -= onLayoutChanged;
+            if (onVolume is not null) _widgets!.VolumeChanged -= onVolume;
+            if (onMedia is not null) _widgets!.MediaChanged -= onMedia;
             sessionCts.Cancel();
             ReleaseAll();
         }
@@ -126,6 +150,28 @@ public sealed class ClientSession
         try
         {
             await SendAsync(_gestures!.CurrentList(), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            // La sesión se está cerrando: el bucle principal ya lo gestiona.
+        }
+    }
+
+    /// <summary>Layout y, si hay widgets de volumen o música, su estado actual.</summary>
+    private async Task SendWidgetsAsync(CancellationToken cancellationToken)
+    {
+        await SendAsync(_widgets!.CurrentLayout(), cancellationToken).ConfigureAwait(false);
+        if (_widgets.CurrentVolume() is { } volume)
+            await SendAsync(volume, cancellationToken).ConfigureAwait(false);
+        if (_widgets.CurrentMedia() is { } media)
+            await SendAsync(media, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task SendSafelyAsync(Func<CancellationToken, Task> send, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await send(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
         {
@@ -147,6 +193,12 @@ public sealed class ClientSession
                 throw new ProtocolException("GESTURE con protocolo v1");
             var status = _isPaused() || _gestures is null ? GestureStatus.Error : _gestures.Execute(gesture.Name);
             await SendAsync(new GestureResultMessage(status), cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (message is WidgetPressMessage or VolumeSetMessage or MediaCommandMessage or VolumeMuteMessage)
+        {
+            await HandleWidgetAsync(message, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -175,6 +227,42 @@ public sealed class ClientSession
                 throw new ProtocolException("HELLO duplicado");
             default:
                 throw new ProtocolException($"Mensaje no válido del cliente: {message.Type}");
+        }
+    }
+
+    private async ValueTask HandleWidgetAsync(Message message, CancellationToken cancellationToken)
+    {
+        if (Version < ProtocolInfo.WidgetsVersion)
+            throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+
+        var paused = _isPaused();
+        if (message is WidgetPressMessage press)
+        {
+            var status = paused || _widgets is null ? GestureStatus.Error : _widgets.Press(press.Id);
+            await SendAsync(new WidgetResultMessage(press.Id, status), cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Volumen y música no se responden si salen bien; sin el widget correspondiente se ignoran.
+        var widgetId = message is MediaCommandMessage ? _widgets?.MediaWidgetId : _widgets?.VolumeWidgetId;
+        if (widgetId is not { } id) return;
+        if (paused)
+        {
+            await SendAsync(new WidgetResultMessage(id, GestureStatus.Error), cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        switch (message)
+        {
+            case VolumeSetMessage v:
+                _widgets!.SetVolume(Math.Min(v.Level, (byte)100));
+                break;
+            case VolumeMuteMessage m:
+                _widgets!.SetMuted(m.Muted);
+                break;
+            case MediaCommandMessage c:
+                _widgets!.SendMedia(c.Command);
+                break;
         }
     }
 
