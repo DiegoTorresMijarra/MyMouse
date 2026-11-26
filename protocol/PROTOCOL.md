@@ -34,7 +34,7 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
 | `0x03` | `BUTTON` | `u8 button`, `u8 pressed` | 3 |
 | `0x04` | `SCROLL` | `i16 vertical`, `i16 horizontal` | 5 |
 | `0x05` | `PING` | — | 1 |
-| `0x06` | `KEYCOMBO` | `u8 modifiers`, `u16 vkey` | 4 | (reservado para v1)
+| `0x06` | `GESTURE` (reservado, v1) | `u8 len`, nombre UTF-8 ([detalle](../docs/spec-v1-gestos.md#7-protocolo)) | variable |
 
 ### Host → cliente
 
@@ -57,7 +57,7 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
   - `horizontal` positivo = scroll hacia la derecha.
   - Se permiten valores menores que 120 (scroll suave).
 - **PING / PONG.** El cliente envía `PING` cada segundo y el host responde `PONG`. Si cualquiera de los dos extremos pasa **3 s sin recibir nada**, da la conexión por muerta.
-- **KEYCOMBO** (v1, reservado).
+- **GESTURE** (v1, reservado). Sustituye al antiguo `KEYCOMBO`: las acciones se definen en el PC.
   - `modifiers` es una máscara de bits: `0x01` Ctrl, `0x02` Shift, `0x04` Alt, `0x08` Win.
   - `vkey` es un *virtual-key code* de Windows.
   - El host pulsa los modificadores y la tecla, y después los suelta en orden inverso.

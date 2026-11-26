@@ -38,22 +38,23 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 ## v1: Modo gestos
 
-**Objetivo:** ejecutar atajos de teclado dibujando formas sobre el trackpad, sin interferir con el uso normal.
+**Objetivo:** ejecutar atajos de teclado o abrir aplicaciones dibujando formas sobre el trackpad, sin interferir con el uso normal.
 
 **Alcance:**
 - Activación con N dedos (N configurable; 3 por defecto) mantenidos un instante.
 - Trazado con feedback visual en pantalla; reconocimiento con el algoritmo $1 (o $P) en el móvil.
-- Mapa configurable `forma → atajo`, que se guarda en el móvil.
+- Mapa configurable `forma → acción` (atajo, abrir app/URL, texto, multimedia), que se guarda **en el PC**. El móvil solo envía el nombre de la forma reconocida.
 - Grabación de formas propias (de 1 a 3 ejemplos por forma).
-- Un conjunto inicial de formas incluidas (círculo, check, flechas, zigzag, letras sencillas).
-- Mensaje de protocolo `KEYCOMBO`.
+- Un catálogo de 16 formas incluidas (líneas, ángulos, círculo, triángulo, cuadrado, check, Z, S, L).
+- Mensaje de protocolo `GESTURE`.
+- Detalle: [spec-v1-gestos.md](spec-v1-gestos.md).
 
 **Criterios de "hecho":**
 1. Al menos un 90 % de aciertos con las formas propias, en una prueba de 50 trazos.
 2. Cero activaciones accidentales durante una jornada de uso normal como trackpad.
 3. Crear una forma nueva y asignarle un atajo lleva menos de un minuto.
 
-**Fuera de alcance:** lanzar aplicaciones o scripts (solo atajos), perfiles por aplicación.
+**Fuera de alcance:** formas de varios trazos, comandos o scripts arbitrarios. Las reglas por aplicación activa son opcionales.
 
 ---
 
@@ -83,4 +84,4 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 ---
 
 ## Ideas sin versión
-Lanzar apps o scripts desde gestos · perfiles por aplicación activa · teclado remoto · gestos del sistema (zoom, cambio de escritorio) · instalador y arranque con Windows.
+Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio) · instalador y arranque con Windows.

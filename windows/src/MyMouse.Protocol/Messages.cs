@@ -17,7 +17,7 @@ public enum MessageType : byte
     Button = 0x03,
     Scroll = 0x04,
     Ping = 0x05,
-    // 0x06 KeyCombo: reservado para la versión 2 (v1 de la app).
+    // 0x06 Gesture: reservado para la versión 2 (v1 de la app).
     HelloAck = 0x81,
     Pong = 0x85,
 }

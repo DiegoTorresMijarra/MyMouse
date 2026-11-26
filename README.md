@@ -21,6 +21,7 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/02-tecnico.md](docs/02-tecnico.md) | Limitaciones técnicas y decisiones |
 | [docs/03-plan-v0.md](docs/03-plan-v0.md) | Hitos de la v0 y su estado |
 | [docs/spec-v0.md](docs/spec-v0.md) | Especificación funcional de la v0 |
+| [docs/spec-v1-gestos.md](docs/spec-v1-gestos.md) | Modo gestos: formas, acciones y límites (propuesta) |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha

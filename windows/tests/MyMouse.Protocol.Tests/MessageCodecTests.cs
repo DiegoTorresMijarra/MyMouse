@@ -47,7 +47,7 @@ public class MessageCodecTests
     }
 
     [Theory]
-    [InlineData("06 00 00 00")] // KEYCOMBO no existe en la versión 1
+    [InlineData("06 00 00 00")] // GESTURE no existe en la versión 1
     [InlineData("FF")]
     [InlineData("02 05 00")] // MOVE truncado
     [InlineData("03 03 01")] // botón inválido

@@ -70,7 +70,7 @@ internal sealed class SendInputInjector : IInputInjector
     private struct InputUnion
     {
         [FieldOffset(0)] public MOUSEINPUT mi;
-        [FieldOffset(0)] public KEYBDINPUT ki; // usado en v1 (KEYCOMBO); fija el tamaño correcto de la unión
+        [FieldOffset(0)] public KEYBDINPUT ki; // usado en v1 (acciones de teclado); fija el tamaño correcto de la unión
     }
 
     [StructLayout(LayoutKind.Sequential)]
