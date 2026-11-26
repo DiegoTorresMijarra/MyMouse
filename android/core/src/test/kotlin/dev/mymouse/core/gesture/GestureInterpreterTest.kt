@@ -199,7 +199,7 @@ class GestureInterpreterTest {
     }
 
     @Test
-    fun threeFingersAreIgnored() {
+    fun threeFingersMovingAreIgnored() {
         val out = feed(
             Down(0, 0f, 0f, 0), Down(1, 50f, 0f, 5), Down(2, 100f, 0f, 10),
             Move(0, 0f, 50f, 20, false), Move(1, 50f, 50f, 20), Move(2, 100f, 50f, 20),

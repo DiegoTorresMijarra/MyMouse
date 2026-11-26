@@ -18,6 +18,10 @@ class MessageCodecTest {
         Message.Button(MouseButton.RIGHT, false) to "03 01 00",
         Message.Scroll(120, -40) to "04 78 00 D8 FF",
         Message.Zoom(-120) to "07 88 FF",
+        Message.Gesture("z") to "06 01 00 7A",
+        Message.GestureResult(GestureStatus.UNASSIGNED) to "86 01",
+        Message.GestureList("", listOf(GestureListEntry("z", "Deshacer", pinned = true))) to
+            "87 0E 00 00 01 01 01 7A 08 44 65 73 68 61 63 65 72",
         Message.Ping to "05",
         Message.Pong to "85",
     )
@@ -40,7 +44,7 @@ class MessageCodecTest {
 
     @Test
     fun invalidInputThrows() {
-        for (hex in listOf("06 00 00 00", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78")) {
+        for (hex in listOf("06 00 00", "06 02 00 7A", "06 01 00 FF", "86 03", "87 02 00 00 01", "87 03 00 00 00 99", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78")) {
             assertFailsWith<ProtocolException>(hex) { MessageReader(ByteArrayInputStream(hex(hex))).read() }
         }
     }

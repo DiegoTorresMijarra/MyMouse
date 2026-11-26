@@ -8,7 +8,8 @@ namespace MyMouse.HostCore;
 /// Servidor TCP en loopback que atiende a un único cliente a la vez.
 /// Una conexión nueva sustituye a la anterior.
 /// </summary>
-public sealed class HostServer(IInputInjector injector, Func<bool> isPaused, int port = ProtocolInfo.DefaultPort)
+public sealed class HostServer(
+    IInputInjector injector, Func<bool> isPaused, int port = ProtocolInfo.DefaultPort, IGestureService? gestures = null)
 {
     private CancellationTokenSource? _currentSession;
 
@@ -54,9 +55,9 @@ public sealed class HostServer(IInputInjector injector, Func<bool> isPaused, int
 
             try
             {
-                var session = new ClientSession(client.GetStream(), injector, isPaused);
+                var session = new ClientSession(client.GetStream(), injector, isPaused, gestures);
                 var reason = await session.RunAsync(sessionCts.Token).ConfigureAwait(false);
-                Log?.Invoke($"Cliente desconectado: {reason}{(session.Error is null ? "" : $" ({session.Error})")}");
+                Log?.Invoke($"Cliente desconectado (protocolo v{session.Version}): {reason}{(session.Error is null ? "" : $" ({session.Error})")}");
             }
             catch (Exception ex)
             {

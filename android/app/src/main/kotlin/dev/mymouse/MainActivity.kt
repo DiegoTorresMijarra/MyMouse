@@ -25,7 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import dev.mymouse.core.gesture.GestureInterpreter
+import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Protocol
 
 /**
@@ -51,6 +51,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
     private var settings = AppSettings()
+    private lateinit var shapes: ShapeStore
     private var dimmed = false
     private val dim = Runnable { setDimmed(true) }
     private val density get() = resources.displayMetrics.density
@@ -60,10 +61,18 @@ class MainActivity : Activity() {
         AdminReceiver.applyKioskPolicies(this)
 
         settings = AppSettings.load(this)
-        val interpreter = GestureInterpreter(settings.trackpadConfig())
+        shapes = ShapeStore(this)
         connection = HostConnection(port = Protocol.DEFAULT_PORT)
-        trackpad = TrackpadView(this, interpreter, connection::send)
-        connection.onConnectionChanged = { connected -> trackpad.post { trackpad.connected = connected } }
+        trackpad = TrackpadView(this, buildEngine(), connection::send)
+        trackpad.shapeStore = shapes
+        connection.onConnectionChanged = { connected ->
+            trackpad.post {
+                trackpad.connected = connected
+                if (!connected) trackpad.hostGestureList = null
+            }
+        }
+        connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
+        connection.onGestureResult = { status -> trackpad.post { trackpad.showGestureStatus(status) } }
 
         controls = buildControls()
         root = FrameLayout(this).apply {
@@ -114,12 +123,18 @@ class MainActivity : Activity() {
 
     // ---- Ajustes y atenuación ----
 
+    private fun buildEngine(): TrackpadEngine {
+        val config = settings.trackpadConfig()
+        val recognizer = if (config.gestureFingers > 0) shapes.recognizer(minSizePx = 40 * density) else null
+        return TrackpadEngine(config, recognizer)
+    }
+
     private fun applySettings() {
-        val loaded = AppSettings.load(this)
-        if (loaded.trackpadConfig() != settings.trackpadConfig()) {
-            trackpad.interpreter = GestureInterpreter(loaded.trackpadConfig())
-        }
-        settings = loaded
+        settings = AppSettings.load(this)
+        // Las formas o los ajustes pueden haber cambiado en otras pantallas: se recrea el motor.
+        shapes = ShapeStore(this)
+        trackpad.shapeStore = shapes
+        trackpad.interpreter = buildEngine()
         trackpad.showCheatSheet = settings.showCheatSheet
         if (settings.debug != (trackpad.debugOverlay != null)) {
             trackpad.debugOverlay = if (settings.debug) DebugOverlay(density) else null
@@ -167,7 +182,14 @@ class MainActivity : Activity() {
         root.setBackgroundColor(if (window) Color.rgb(32, 32, 32) else Color.BLACK)
         applyMargins()
         trackpad.framed = window
-        trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS +
+        trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS.mapNotNull { row ->
+            if (row.icon != CheatSheet.Icon.THREE) row
+            else when (settings.gestureFingers) {
+                0 -> null
+                4 -> row.copy(text = "4 dedos quietos: modo gestos")
+                else -> row
+            }
+        } +
             CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo")
         trackpad.invalidate()
         applySystemBars()

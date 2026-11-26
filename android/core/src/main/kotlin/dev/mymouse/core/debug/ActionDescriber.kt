@@ -51,6 +51,18 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
             zoom += action.delta
             Label(key, "Zoom ${if (zoom >= 0) "+" else "−"} ${steps(zoom)}")
         }
+        is OutputAction.GestureMode -> {
+            currentKind = null
+            newLabel(if (action.active) "Modo gestos: dibuja una forma" else "Fin del modo gestos")
+        }
+        is OutputAction.Gesture -> {
+            currentKind = null
+            newLabel("Forma: ${action.name} (${(action.score * 100).roundToInt()} %)")
+        }
+        is OutputAction.GestureRejected -> {
+            currentKind = null
+            newLabel("Forma: ${action.reason}")
+        }
     }
 
     private fun button(b: OutputAction.Button, nowMs: Long): Label? {

@@ -12,7 +12,7 @@ import android.graphics.RectF
  */
 class CheatSheet(private val density: Float) {
 
-    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, VOLUME }
+    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE, VOLUME }
 
     data class Row(val icon: Icon, val text: String)
 
@@ -96,6 +96,10 @@ class CheatSheet(private val density: Float) {
                 c.drawCircle(cx - 10 * d, cy, ring + 3 * d, iconStroke)
                 arrow(c, cx + 1 * d, cy, cx + 16 * d, cy)
             }
+            Icon.THREE -> for (dx in listOf(-12 * d, 0f, 12 * d)) {
+                c.drawCircle(cx + dx, cy, dot, iconFill)
+                c.drawCircle(cx + dx, cy, ring - 1.5f * d, iconStroke)
+            }
             Icon.VOLUME -> {
                 val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
                 c.drawRoundRect(r, 4 * d, 4 * d, iconStroke)
@@ -126,6 +130,7 @@ class CheatSheet(private val density: Float) {
             Row(Icon.SCROLL, "Scroll"),
             Row(Icon.PINCH, "Zoom"),
             Row(Icon.DRAG, "Doble toque y mover: arrastrar"),
+            Row(Icon.THREE, "3 dedos quietos: modo gestos"),
         )
     }
 }

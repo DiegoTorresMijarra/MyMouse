@@ -3,6 +3,8 @@
 
     <!-- Necesario incluso para sockets a 127.0.0.1 (adb reverse). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Vibración breve al activar el modo gestos. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:label="@string/app_name"

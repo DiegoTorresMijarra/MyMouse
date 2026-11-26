@@ -5,27 +5,31 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.os.Build
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.MotionEvent
 import android.view.View
-import dev.mymouse.core.gesture.GestureInterpreter
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.gesture.TouchInput
+import dev.mymouse.core.gesture.TrackpadEngine
+import dev.mymouse.core.protocol.GestureStatus
 
 /**
  * Superficie del trackpad: traduce MotionEvent a [TouchInput] (incluidas las muestras históricas),
- * se los pasa al intérprete y envía las acciones resultantes.
+ * se los pasa al motor (trackpad + modo gestos) y envía las acciones resultantes.
  */
 @SuppressLint("ViewConstructor")
 class TrackpadView(
     context: Context,
-    interpreter: GestureInterpreter,
+    engine: TrackpadEngine,
     private val send: (OutputAction) -> Unit,
 ) : View(context) {
 
     /** Se puede sustituir (p. ej. al cambiar los ajustes); el clic pendiente del anterior se suelta. */
-    var interpreter: GestureInterpreter = interpreter
+    var interpreter: TrackpadEngine = engine
         set(value) {
             field.onTouch(TouchInput.Cancel(SystemClock.uptimeMillis())).forEach(send)
             removeCallbacks(tick)
@@ -67,7 +71,89 @@ class TrackpadView(
     private fun emit(action: OutputAction) {
         send(action)
         debugOverlay?.onAction(action, SystemClock.uptimeMillis())
+        when (action) {
+            is OutputAction.GestureMode -> {
+                if (action.active) vibrate()
+                invalidate()
+            }
+            is OutputAction.Gesture -> {
+                lastGesture = action.name
+                val item = gestureItems().firstOrNull { it.name == action.name }
+                showResult(
+                    "${ShapeStore.label(action.name)}${item?.help?.takeIf { it.isNotEmpty() }?.let { " → $it" } ?: ""}",
+                    ok = true,
+                )
+            }
+            is OutputAction.GestureRejected -> showResult(action.reason, ok = false)
+            else -> Unit
+        }
     }
+
+    // ---- Modo gestos ----
+
+    /** Formas guardadas en el móvil (activas, miniaturas). */
+    var shapeStore: ShapeStore? = null
+
+    /** Última lista de formas recibida del PC (null = ninguna: sin conexión o PC sin modo gestos). */
+    var hostGestureList: dev.mymouse.core.protocol.Message.GestureList? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    private val gestureSheet = GestureSheet(density)
+    private var lastGesture: String? = null
+    private var resultText: String? = null
+    private var resultOk = true
+    private var resultUntil = 0L
+
+    private fun gestureItems(): List<GestureSheet.Item> =
+        shapeStore?.let { GestureSheet.items(it, hostGestureList?.entries) } ?: emptyList()
+
+    private fun showResult(text: String, ok: Boolean) {
+        resultText = text
+        resultOk = ok
+        resultUntil = SystemClock.uptimeMillis() + RESULT_MS
+        invalidate()
+    }
+
+    /** Respuesta del PC a la última forma: solo se avisa si no se ha ejecutado. */
+    fun showGestureStatus(status: GestureStatus) {
+        when (status) {
+            GestureStatus.EXECUTED -> Unit
+            GestureStatus.UNASSIGNED -> showResult("${lastGesture?.let(ShapeStore::label) ?: "Forma"}: sin acción en el PC", ok = false)
+            GestureStatus.ERROR -> showResult("El PC no la ha ejecutado (¿en pausa?)", ok = false)
+        }
+    }
+
+    private fun vibrate() {
+        val vibrator = context.getSystemService(Vibrator::class.java) ?: return
+        try {
+            vibrator.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (e: SecurityException) {
+            // Sin permiso de vibración: no es imprescindible.
+        }
+    }
+
+    private val gestureBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(80, 170, 255)
+        strokeWidth = 4 * resources.displayMetrics.density
+    }
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(120, 200, 255)
+        strokeWidth = 5 * resources.displayMetrics.density
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val resultPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 20 * resources.displayMetrics.density
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+    }
+    private val resultBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(220, 20, 20, 20) }
+    private val strokePath = Path()
 
     /** Mostrar la chuleta de gestos en el centro. */
     var showCheatSheet: Boolean = true
@@ -98,7 +184,7 @@ class TrackpadView(
             interpreter.onTouch(input).forEach(::emit)
         }
         scheduleTick()
-        if (debug != null) invalidate()
+        if (debug != null || interpreter.gestureModeActive) invalidate()
         return true
     }
 
@@ -138,12 +224,47 @@ class TrackpadView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (showCheatSheet) cheatSheet.draw(canvas, width, height, atBottom = debugOverlay != null)
+        val gestureMode = interpreter.gestureModeActive
+        if (gestureMode) {
+            val list = hostGestureList
+            val note = when {
+                !connected -> "Sin conexión: las formas no llegarán al PC"
+                list == null -> "El PC no tiene modo gestos (actualiza el host)"
+                else -> null
+            }
+            gestureSheet.draw(canvas, width, height, gestureItems(), list?.context ?: "", note, null)
+        } else if (showCheatSheet) {
+            cheatSheet.draw(canvas, width, height, atBottom = debugOverlay != null)
+        }
         debugOverlay?.let {
             it.draw(canvas, width, height, SystemClock.uptimeMillis(), connected)
             if (it.animating) postInvalidateDelayed(50) // trazos y textos que se desvanecen
         }
-        if (framed) {
+        if (gestureMode) {
+            val inset = gestureBorder.strokeWidth / 2
+            canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, gestureBorder)
+            val stroke = interpreter.currentStroke
+            if (stroke.size >= 2) {
+                strokePath.reset()
+                strokePath.moveTo(stroke[0].x, stroke[0].y)
+                for (k in 1 until stroke.size) strokePath.lineTo(stroke[k].x, stroke[k].y)
+                canvas.drawPath(strokePath, strokePaint)
+            }
+        }
+        val now = SystemClock.uptimeMillis()
+        val text = resultText
+        if (text != null && now < resultUntil) {
+            resultPaint.color = if (resultOk) Color.rgb(120, 230, 120) else Color.rgb(255, 170, 90)
+            val tw = resultPaint.measureText(text)
+            val cy = height * 0.82f
+            canvas.drawRoundRect(
+                width / 2f - tw / 2 - 16 * density, cy - 30 * density, width / 2f + tw / 2 + 16 * density, cy + 14 * density,
+                12 * density, 12 * density, resultBg,
+            )
+            canvas.drawText(text, width / 2f, cy, resultPaint)
+            postInvalidateDelayed(resultUntil - now)
+        }
+        if (framed && !gestureMode) {
             val inset = framePaint.strokeWidth / 2
             canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, framePaint)
         }
@@ -151,6 +272,10 @@ class TrackpadView(
         statusPaint.color = if (connected) Color.rgb(40, 160, 70) else Color.rgb(90, 90, 90)
         val r = 5 * density
         canvas.drawCircle(width - 16 * density, 16 * density, r, statusPaint)
+    }
+
+    private companion object {
+        const val RESULT_MS = 1_500L
     }
 
     override fun onDetachedFromWindow() {

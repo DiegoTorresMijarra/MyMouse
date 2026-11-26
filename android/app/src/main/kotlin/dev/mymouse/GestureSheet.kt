@@ -1,0 +1,158 @@
+package dev.mymouse
+
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import dev.mymouse.core.protocol.GestureListEntry
+import dev.mymouse.core.shapes.P
+
+/**
+ * Chuleta del modo gestos (docs/spec-v1-gestos.md §6): miniatura de cada forma + texto de ayuda del PC.
+ * Primero "Tus formas" (las fijadas en el PC), después el resto.
+ */
+class GestureSheet(private val density: Float) {
+
+    data class Item(val name: String, val label: String, val help: String, val pinned: Boolean, val preview: List<P>?)
+
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 20, 32, 44) }
+    private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(100, 180, 255)
+        textSize = 12 * density
+        isFakeBoldText = true
+    }
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(225, 225, 225)
+        textSize = 13 * density
+    }
+    private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(140, 140, 140)
+        textSize = 11 * density
+    }
+    private val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(180, 210, 240)
+        strokeWidth = 2 * density
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(110, 220, 110) }
+    private val box = RectF()
+
+    /**
+     * [items]: formas a mostrar. [context]: app activa en el PC si tiene reglas propias.
+     * [note]: aviso opcional (p. ej. sin conexión).
+     */
+    fun draw(canvas: Canvas, width: Int, height: Int, items: List<Item>, context: String, note: String?, highlight: String?) {
+        val pad = 12 * density
+        val cellH = 40 * density
+        val icon = 30 * density
+        val columns = if (width > 520 * density) 3 else 2
+        val w = (width - 32 * density).coerceAtMost(560 * density)
+        val cellW = (w - 2 * pad) / columns
+
+        val pinned = items.filter { it.pinned }
+        val others = items.filterNot { it.pinned }
+        val sections = listOfNotNull(
+            if (pinned.isNotEmpty()) "Tus formas" to pinned else null,
+            if (others.isNotEmpty()) (if (pinned.isEmpty()) "Formas" else "Otras") to others else null,
+        )
+        val headerH = 22 * density
+        val rows = sections.sumOf { (_, list) -> (list.size + columns - 1) / columns }
+        val titleH = 24 * density
+        val noteH = if (note != null) 18 * density else 0f
+        val h = (pad * 2 + titleH + noteH + sections.size * headerH + rows * cellH)
+            .coerceAtMost(height - 32 * density)
+        box.set((width - w) / 2, (height - h) / 2, (width + w) / 2, (height + h) / 2)
+        canvas.drawRoundRect(box, 14 * density, 14 * density, boxPaint)
+        canvas.save()
+        canvas.clipRect(box)
+
+        var y = box.top + pad + 14 * density
+        val title = if (context.isNotEmpty()) "Modo gestos · $context" else "Modo gestos: dibuja una forma"
+        canvas.drawText(title, box.left + pad, y, textPaint)
+        y += titleH - 14 * density
+        if (note != null) {
+            canvas.drawText(note, box.left + pad, y + 12 * density, dimPaint)
+            y += noteH
+        }
+        if (items.isEmpty()) {
+            canvas.drawText("No hay formas activas. Actívalas en Ajustes → Formas.", box.left + pad, y + 16 * density, dimPaint)
+        }
+        for ((header, list) in sections) {
+            canvas.drawText(header.uppercase(), box.left + pad, y + 15 * density, headerPaint)
+            y += headerH
+            list.forEachIndexed { i, item ->
+                val col = i % columns
+                if (i > 0 && col == 0) y += cellH
+                val x = box.left + pad + col * cellW
+                val iconRect = RectF(x, y + (cellH - icon) / 2, x + icon, y + (cellH + icon) / 2)
+                item.preview?.let { drawShape(canvas, it, iconRect, item.name == highlight) }
+                val text = item.help.ifEmpty { item.label }
+                canvas.drawText(ellipsize(text, cellW - icon - 14 * density, textPaint), x + icon + 8 * density, y + cellH / 2 - 1 * density, textPaint)
+                canvas.drawText(item.label, x + icon + 8 * density, y + cellH / 2 + 12 * density, dimPaint)
+            }
+            y += cellH
+        }
+        canvas.restore()
+    }
+
+    private fun ellipsize(text: String, maxWidth: Float, paint: Paint): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        var end = text.length
+        while (end > 1 && paint.measureText(text, 0, end) + paint.measureText("…") > maxWidth) end--
+        return text.substring(0, end) + "…"
+    }
+
+    private fun drawShape(canvas: Canvas, points: List<P>, rect: RectF, highlighted: Boolean) {
+        shapePaint.color = if (highlighted) Color.rgb(110, 220, 110) else Color.rgb(180, 210, 240)
+        drawShape(canvas, points, rect, shapePaint, startPaint, density)
+    }
+
+    companion object {
+        /** Dibuja un trazo escalado para caber en [rect], manteniendo la proporción, con un punto donde empieza. */
+        fun drawShape(canvas: Canvas, points: List<P>, rect: RectF, paint: Paint, startPaint: Paint?, density: Float) {
+            if (points.size < 2) return
+            val minX = points.minOf { it.x }
+            val maxX = points.maxOf { it.x }
+            val minY = points.minOf { it.y }
+            val maxY = points.maxOf { it.y }
+            val span = maxOf(maxX - minX, maxY - minY).coerceAtLeast(1e-3f)
+            val scale = minOf(rect.width(), rect.height()) / span
+            val ox = rect.centerX() - (minX + maxX) / 2 * scale
+            val oy = rect.centerY() - (minY + maxY) / 2 * scale
+            val path = Path()
+            points.forEachIndexed { i, p ->
+                val x = ox + p.x * scale
+                val y = oy + p.y * scale
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            canvas.drawPath(path, paint)
+            // Punta de flecha al final para indicar el sentido.
+            val a = points[points.size - 2]
+            val b = points.last()
+            val angle = Math.atan2((b.y - a.y).toDouble(), (b.x - a.x).toDouble())
+            val head = 5 * density
+            val ex = ox + b.x * scale
+            val ey = oy + b.y * scale
+            for (sign in listOf(-1, 1)) {
+                val t = angle + Math.PI + sign * Math.PI / 6
+                canvas.drawLine(ex, ey, ex + head * Math.cos(t).toFloat(), ey + head * Math.sin(t).toFloat(), paint)
+            }
+            startPaint?.let { canvas.drawCircle(ox + points[0].x * scale, oy + points[0].y * scale, 2.5f * density, it) }
+        }
+
+        fun items(store: ShapeStore, hostList: List<GestureListEntry>?): List<Item> {
+            val enabled = store.enabled
+            return if (hostList != null) {
+                hostList.filter { it.name in enabled }.map {
+                    Item(it.name, ShapeStore.label(it.name), it.help, it.pinned, store.preview(it.name))
+                }
+            } else {
+                enabled.sortedBy { dev.mymouse.core.shapes.ShapeCatalog.IDS.indexOf(it).let { i -> if (i < 0) 999 else i } }
+                    .map { Item(it, ShapeStore.label(it), "", false, store.preview(it)) }
+            }
+        }
+    }
+}

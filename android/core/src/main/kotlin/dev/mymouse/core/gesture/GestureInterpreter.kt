@@ -31,6 +31,12 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         /** Pellizco: [accumulated] guarda el cambio de distancia aún no convertido en pasos de zoom. */
         data class Zooming(var lastSpread: Float, var accumulated: Float = 0f) : State
 
+        /** N dedos apoyados casi a la vez: si se quedan quietos hasta [deadline], se activa el modo gestos. */
+        data class ActivationPending(val starts: Map<Int, Point>, val deadline: Long) : State
+
+        /** Activación con 4 dedos: ya hay 3, falta el cuarto. */
+        data class ThreeDownFor4(val startTime: Long) : State
+
         /** Se ignora todo hasta que se levanten todos los dedos. */
         data object Ignoring : State
     }
@@ -45,13 +51,22 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
     private var pendingReleaseAt: Long? = null
 
     /** Próximo instante (misma base que [TouchInput.timeMs]) en que debe llamarse a [onTick]. */
-    val nextDeadlineMs: Long? get() = pendingReleaseAt
+    val nextDeadlineMs: Long?
+        get() = listOfNotNull(pendingReleaseAt, (state as? State.ActivationPending)?.deadline).minOrNull()
 
     fun onTick(nowMs: Long): List<OutputAction> {
-        val deadline = pendingReleaseAt ?: return emptyList()
-        if (nowMs < deadline) return emptyList()
-        pendingReleaseAt = null
-        return listOf(leftUp())
+        val out = mutableListOf<OutputAction>()
+        val deadline = pendingReleaseAt
+        if (deadline != null && nowMs >= deadline) {
+            pendingReleaseAt = null
+            out += leftUp()
+        }
+        val s = state
+        if (s is State.ActivationPending && nowMs >= s.deadline) {
+            state = State.Ignoring // los dedos siguen apoyados: se esperan a que se levanten
+            out += OutputAction.GestureMode(true)
+        }
+        return out
     }
 
     fun onTouch(event: TouchInput): List<OutputAction> {
@@ -84,7 +99,21 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 state = startScrolling()
             }
             is State.Dragging -> Unit // dedos extra durante el arrastre: se ignoran
-            is State.TwoDown, is State.Scrolling, is State.Zooming -> state = State.Ignoring // 3+ dedos: reservado para v1
+            is State.TwoDown -> state =
+                if (config.gestureFingers == 3 && e.timeMs - s.startTime <= config.gestureWindowMs) {
+                    State.ActivationPending(pointers.toMap(), e.timeMs + config.gestureHoldMs)
+                } else if (config.gestureFingers == 4 && e.timeMs - s.startTime <= config.gestureWindowMs) {
+                    State.ThreeDownFor4(s.startTime)
+                } else {
+                    State.Ignoring
+                }
+            is State.ThreeDownFor4 -> state =
+                if (e.timeMs - s.startTime <= config.gestureWindowMs) {
+                    State.ActivationPending(pointers.toMap(), e.timeMs + config.gestureHoldMs)
+                } else {
+                    State.Ignoring
+                }
+            is State.ActivationPending, is State.Scrolling, is State.Zooming -> state = State.Ignoring
             State.Ignoring -> Unit
         }
     }
@@ -140,7 +169,11 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 s.lastCentroid = c
                 if (v != 0 || h != 0) out += OutputAction.Scroll(v.clampI16(), h.clampI16())
             }
-            State.Idle, State.Ignoring -> Unit
+            is State.ActivationPending -> if (e.endOfSample) {
+                val moved = s.starts.any { (id, start) -> pointers[id]?.let { distance(start, it) > config.touchSlopPx } == true }
+                if (moved) state = State.Ignoring // p. ej. deslizar con 3 dedos: no activa
+            }
+            State.Idle, State.Ignoring, is State.ThreeDownFor4 -> Unit
         }
     }
 
@@ -171,7 +204,8 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             }
             is State.Scrolling, is State.Zooming -> state = if (pointers.isEmpty()) State.Idle else State.Ignoring
-            State.Ignoring -> if (pointers.isEmpty()) state = State.Idle
+            State.Ignoring, is State.ActivationPending, is State.ThreeDownFor4 ->
+                state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             State.Idle -> Unit
         }
     }

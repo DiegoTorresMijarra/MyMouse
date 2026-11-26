@@ -22,28 +22,38 @@ public sealed class ClientSession
     private readonly IInputInjector _injector;
     private readonly Func<bool> _isPaused;
     private readonly TimeSpan _idleTimeout;
+    private readonly IGestureService? _gestures;
     private readonly HashSet<MouseButton> _pressed = [];
 
+    /// <summary>Las escrituras pueden venir del bucle de lectura y de los avisos de la lista de formas.</summary>
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+
     public ClientSession(Stream input, Stream output, IInputInjector injector,
-        Func<bool>? isPaused = null, TimeSpan? idleTimeout = null)
+        Func<bool>? isPaused = null, TimeSpan? idleTimeout = null, IGestureService? gestures = null)
     {
         _input = input;
         _output = output;
         _injector = injector;
         _isPaused = isPaused ?? (() => false);
         _idleTimeout = idleTimeout ?? ProtocolInfo.IdleTimeout;
+        _gestures = gestures;
     }
 
-    public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null)
-        : this(duplex, duplex, injector, isPaused) { }
+    public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null, IGestureService? gestures = null)
+        : this(duplex, duplex, injector, isPaused, gestures: gestures) { }
 
     /// <summary>Último error de protocolo, si la sesión terminó por uno.</summary>
     public string? Error { get; private set; }
+
+    /// <summary>Versión acordada en el handshake (0 hasta entonces).</summary>
+    public byte Version { get; private set; }
 
     public async Task<SessionEndReason> RunAsync(CancellationToken cancellationToken)
     {
         var reader = new MessageReader(_input);
         var handshakeDone = false;
+        Action? onListChanged = null;
+        using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         try
         {
@@ -70,11 +80,20 @@ public sealed class ClientSession
                 {
                     if (message is not HelloMessage hello)
                         return Fail($"Se esperaba HELLO, llegó {message.Type}");
-                    if (hello.Version != ProtocolInfo.CurrentVersion)
-                        return Fail($"Versión no soportada: {hello.Version}");
+                    if (hello.Version == 0)
+                        return Fail("Versión no soportada: 0");
 
-                    await SendAsync(new HelloAckMessage(ProtocolInfo.CurrentVersion), cancellationToken).ConfigureAwait(false);
+                    Version = Math.Min(hello.Version, ProtocolInfo.CurrentVersion);
+                    await SendAsync(new HelloAckMessage(Version), cancellationToken).ConfigureAwait(false);
                     handshakeDone = true;
+
+                    if (_gestures is not null && Version >= ProtocolInfo.GesturesVersion)
+                    {
+                        await SendAsync(_gestures.CurrentList(), cancellationToken).ConfigureAwait(false);
+                        var token = sessionCts.Token;
+                        onListChanged = () => _ = SendListSafelyAsync(token);
+                        _gestures.ListChanged += onListChanged;
+                    }
                     continue;
                 }
 
@@ -96,7 +115,21 @@ public sealed class ClientSession
         }
         finally
         {
+            if (onListChanged is not null) _gestures!.ListChanged -= onListChanged;
+            sessionCts.Cancel();
             ReleaseAll();
+        }
+    }
+
+    private async Task SendListSafelyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await SendAsync(_gestures!.CurrentList(), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            // La sesión se está cerrando: el bucle principal ya lo gestiona.
         }
     }
 
@@ -105,6 +138,15 @@ public sealed class ClientSession
         if (message is PingMessage)
         {
             await SendAsync(PongMessage.Instance, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (message is GestureMessage gesture)
+        {
+            if (Version < ProtocolInfo.GesturesVersion)
+                throw new ProtocolException("GESTURE con protocolo v1");
+            var status = _isPaused() || _gestures is null ? GestureStatus.Error : _gestures.Execute(gesture.Name);
+            await SendAsync(new GestureResultMessage(status), cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -138,8 +180,17 @@ public sealed class ClientSession
 
     private async ValueTask SendAsync(Message message, CancellationToken cancellationToken)
     {
-        await _output.WriteAsync(MessageCodec.Encode(message), cancellationToken).ConfigureAwait(false);
-        await _output.FlushAsync(cancellationToken).ConfigureAwait(false);
+        var bytes = MessageCodec.Encode(message);
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _output.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+            await _output.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
     }
 
     private void ReleaseAll()

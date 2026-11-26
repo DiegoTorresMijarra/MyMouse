@@ -3,7 +3,17 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    public const byte CurrentVersion = 1;
+    /// <summary>Versión más alta soportada. 2 = modo gestos.</summary>
+    public const byte CurrentVersion = 2;
+
+    /// <summary>Primera versión con los mensajes del modo gestos.</summary>
+    public const byte GesturesVersion = 2;
+
+    /// <summary>Longitud máxima del nombre de una forma, en bytes UTF-8.</summary>
+    public const int MaxGestureNameBytes = 64;
+
+    /// <summary>Máximo de entradas en un GESTURE_LIST.</summary>
+    public const int MaxGestureListEntries = 64;
     public const int DefaultPort = 47800;
 
     /// <summary>Tiempo sin recibir nada tras el cual la conexión se da por muerta.</summary>
@@ -17,10 +27,12 @@ public enum MessageType : byte
     Button = 0x03,
     Scroll = 0x04,
     Ping = 0x05,
-    // 0x06 Gesture: reservado para el modo gestos (v1 de la app).
+    Gesture = 0x06,
     Zoom = 0x07,
     HelloAck = 0x81,
     Pong = 0x85,
+    GestureResult = 0x86,
+    GestureList = 0x87,
 }
 
 public enum MouseButton : byte
@@ -66,6 +78,38 @@ public sealed record ScrollMessage(short Vertical, short Horizontal) : Message
 public sealed record ZoomMessage(short Delta) : Message
 {
     public override MessageType Type => MessageType.Zoom;
+}
+
+/// <summary>Forma reconocida en el móvil (p. ej. "circle", "custom:firma").</summary>
+public sealed record GestureMessage(string Name) : Message
+{
+    public override MessageType Type => MessageType.Gesture;
+}
+
+public enum GestureStatus : byte
+{
+    Executed = 0,
+    Unassigned = 1,
+    Error = 2,
+}
+
+public sealed record GestureResultMessage(GestureStatus Status) : Message
+{
+    public override MessageType Type => MessageType.GestureResult;
+}
+
+public sealed record GestureListEntry(string Name, string Help, bool Pinned);
+
+/// <summary>Formas con acción asignada, para la chuleta del móvil. <paramref name="Context"/>: app activa con reglas propias, o vacío.</summary>
+public sealed record GestureListMessage(string Context, IReadOnlyList<GestureListEntry> Entries) : Message
+{
+    public override MessageType Type => MessageType.GestureList;
+
+    // Igualdad por contenido (los records comparan listas por referencia).
+    public bool Equals(GestureListMessage? other) =>
+        other is not null && Context == other.Context && Entries.SequenceEqual(other.Entries);
+
+    public override int GetHashCode() => HashCode.Combine(Context, Entries.Count);
 }
 
 public sealed record PingMessage : Message

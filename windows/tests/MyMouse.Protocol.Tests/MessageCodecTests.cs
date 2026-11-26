@@ -15,6 +15,9 @@ public class MessageCodecTests
         { new ButtonMessage(MouseButton.Right, false), "03 01 00" },
         { new ScrollMessage(120, -40), "04 78 00 D8 FF" },
         { new ZoomMessage(-120), "07 88 FF" },
+        { new GestureMessage("z"), "06 01 00 7A" },
+        { new GestureResultMessage(GestureStatus.Unassigned), "86 01" },
+        { new GestureListMessage("", [new GestureListEntry("z", "Deshacer", true)]), "87 0E 00 00 01 01 01 7A 08 44 65 73 68 61 63 65 72" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -48,10 +51,15 @@ public class MessageCodecTests
     }
 
     [Theory]
-    [InlineData("06 00 00 00")] // GESTURE no existe en la versión 1
+    [InlineData("06 00 00")] // GESTURE con nombre vacío
     [InlineData("FF")]
     [InlineData("02 05 00")] // MOVE truncado
     [InlineData("07 78")] // ZOOM truncado
+    [InlineData("06 02 00 7A")] // GESTURE truncado
+    [InlineData("06 01 00 FF")] // UTF-8 inválido
+    [InlineData("86 03")] // estado inválido
+    [InlineData("87 02 00 00 01")] // GESTURE_LIST con una entrada que no llega
+    [InlineData("87 03 00 00 00 99")] // bytes sobrantes
     [InlineData("03 03 01")] // botón inválido
     [InlineData("03 00 02")] // booleano inválido
     public async Task Read_InvalidInput_Throws(string hex)

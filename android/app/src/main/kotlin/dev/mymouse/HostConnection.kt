@@ -2,6 +2,7 @@ package dev.mymouse
 
 import android.util.Log
 import dev.mymouse.core.gesture.OutputAction
+import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.protocol.MessageCodec
 import dev.mymouse.core.protocol.MessageReader
@@ -27,6 +28,16 @@ import kotlin.concurrent.withLock
 class HostConnection(private val port: Int) {
 
     var onConnectionChanged: (Boolean) -> Unit = {}
+
+    /** Lista de formas del PC (para la chuleta). Se llama desde el hilo de lectura. */
+    var onGestureList: (Message.GestureList) -> Unit = {}
+
+    /** Respuesta del PC a una forma enviada. Se llama desde el hilo de lectura. */
+    var onGestureResult: (GestureStatus) -> Unit = {}
+
+    /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
+    @Volatile var protocolVersion = 0
+        private set
 
     private val lock = ReentrantLock()
     private val notEmpty = lock.newCondition()
@@ -78,6 +89,9 @@ class HostConnection(private val port: Int) {
                     queue.addLast(Message.Scroll(action.vertical, action.horizontal))
                 }
             is OutputAction.Button -> queue.addLast(Message.Button(action.button, action.pressed))
+            is OutputAction.Gesture ->
+                if (protocolVersion >= Protocol.GESTURES_VERSION) queue.addLast(Message.Gesture(action.name))
+            is OutputAction.GestureMode, is OutputAction.GestureRejected -> Unit // solo feedback local
             is OutputAction.Zoom ->
                 if (last is Message.Zoom && fitsI16(last.delta + action.delta)) {
                     queue[queue.lastIndex] = Message.Zoom(last.delta + action.delta)
@@ -122,7 +136,8 @@ class HostConnection(private val port: Int) {
         out.flush()
         s.soTimeout = Protocol.HANDSHAKE_TIMEOUT_MS.toInt()
         val ack = reader.read()
-        if (ack != Message.HelloAck(Protocol.VERSION)) throw IOException("Handshake inválido: $ack")
+        if (ack !is Message.HelloAck || ack.version !in 1..Protocol.VERSION) throw IOException("Handshake inválido: $ack")
+        protocolVersion = ack.version
 
         s.soTimeout = Protocol.IDLE_TIMEOUT_MS.toInt()
         val readerThread = thread(name = "MyMouse-reader", isDaemon = true) { readLoop(s, reader) }
@@ -150,7 +165,11 @@ class HostConnection(private val port: Int) {
         try {
             while (!s.isClosed) {
                 // Llega un PONG por segundo; cualquier silencio de 3 s salta como SocketTimeoutException.
-                reader.read() ?: break
+                when (val m = reader.read() ?: break) {
+                    is Message.GestureList -> onGestureList(m)
+                    is Message.GestureResult -> onGestureResult(m.status)
+                    else -> Unit // PONG
+                }
             }
         } catch (e: SocketTimeoutException) {
             Log.d(TAG, "Host sin responder")
@@ -170,6 +189,7 @@ class HostConnection(private val port: Int) {
     }
 
     private fun setConnected(value: Boolean) {
+        if (!value) protocolVersion = 0
         if (connected == value) return
         connected = value
         onConnectionChanged(value)

@@ -40,6 +40,13 @@ class ActionDescriberTest {
     }
 
     @Test
+    fun gestureEvents() {
+        assertEquals("Modo gestos: dibuja una forma", d.describe(dev.mymouse.core.gesture.OutputAction.GestureMode(true), 0)?.text)
+        assertEquals("Forma: circle (93 %)", d.describe(dev.mymouse.core.gesture.OutputAction.Gesture("circle", 0.93f), 10)?.text)
+        assertEquals("Forma: No reconocido", d.describe(dev.mymouse.core.gesture.OutputAction.GestureRejected("No reconocido"), 20)?.text)
+    }
+
+    @Test
     fun rightClickScrollAndZoom() {
         assertEquals("Clic derecho", d.describe(Button(RIGHT, true), 0)?.text)
         assertNull(d.describe(Button(RIGHT, false), 10))

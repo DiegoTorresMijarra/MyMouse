@@ -14,6 +14,20 @@ public class ClientSessionTests
         public void Zoom(int delta) => Calls.Add($"zoom {delta}");
     }
 
+    private sealed class FakeGestures : IGestureService
+    {
+        public List<string> Executed { get; } = [];
+        public GestureListMessage List { get; set; } = new("", [new GestureListEntry("z", "Deshacer", true)]);
+        public GestureStatus Execute(string name)
+        {
+            Executed.Add(name);
+            return name == "z" ? GestureStatus.Executed : GestureStatus.Unassigned;
+        }
+        public GestureListMessage CurrentList() => List;
+        public event Action? ListChanged;
+        public void RaiseListChanged() => ListChanged?.Invoke();
+    }
+
     private static byte[] Bytes(params Message[] messages) => messages.SelectMany(MessageCodec.Encode).ToArray();
 
     private static async Task<(SessionEndReason reason, FakeInjector injector, byte[] output, ClientSession session)> Run(
@@ -47,7 +61,7 @@ public class ClientSessionTests
     [Fact]
     public async Task UnsupportedVersion_IsProtocolError()
     {
-        var (reason, _, output, _) = await Run(Bytes(new HelloMessage(99)));
+        var (reason, _, output, _) = await Run(Bytes(new HelloMessage(0)));
 
         Assert.Equal(SessionEndReason.ProtocolError, reason);
         Assert.Empty(output);
@@ -65,6 +79,63 @@ public class ClientSessionTests
             new ZoomMessage(-120)));
 
         Assert.Equal(["move 5,-3", "Left down", "Left up", "scroll 120,-40", "zoom -120"], injector.Calls);
+    }
+
+    [Fact]
+    public async Task HelloV2_AcksV2AndSendsGestureList()
+    {
+        var gestures = new FakeGestures();
+        var output = new MemoryStream();
+        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(2))), output, new FakeInjector(), gestures: gestures);
+        await session.RunAsync(CancellationToken.None);
+
+        Assert.Equal(2, session.Version);
+        Assert.Equal(Bytes(new HelloAckMessage(2), gestures.List), output.ToArray());
+    }
+
+    [Fact]
+    public async Task HelloFromNewerClient_NegotiatesHostVersion()
+    {
+        var (_, _, output, session) = await Run(Bytes(new HelloMessage(9)));
+        Assert.Equal(ProtocolInfo.CurrentVersion, session.Version);
+        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(ProtocolInfo.CurrentVersion)), output);
+    }
+
+    [Fact]
+    public async Task Gesture_IsExecutedAndAnswered()
+    {
+        var gestures = new FakeGestures();
+        var output = new MemoryStream();
+        var input = Bytes(new HelloMessage(2), new GestureMessage("z"), new GestureMessage("circle"));
+        var session = new ClientSession(new MemoryStream(input), output, new FakeInjector(), gestures: gestures);
+        await session.RunAsync(CancellationToken.None);
+
+        Assert.Equal(["z", "circle"], gestures.Executed);
+        Assert.Equal(Bytes(
+            new HelloAckMessage(2), gestures.List,
+            new GestureResultMessage(GestureStatus.Executed),
+            new GestureResultMessage(GestureStatus.Unassigned)), output.ToArray());
+    }
+
+    [Fact]
+    public async Task Gesture_WhilePaused_IsNotExecuted()
+    {
+        var gestures = new FakeGestures();
+        var output = new MemoryStream();
+        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(2), new GestureMessage("z"))),
+            output, new FakeInjector(), () => true, gestures: gestures);
+        await session.RunAsync(CancellationToken.None);
+
+        Assert.Empty(gestures.Executed);
+        Assert.EndsWith(Convert.ToHexString(MessageCodec.Encode(new GestureResultMessage(GestureStatus.Error))),
+            Convert.ToHexString(output.ToArray()));
+    }
+
+    [Fact]
+    public async Task Gesture_WithProtocolV1_IsProtocolError()
+    {
+        var (reason, _, _, _) = await Run(Bytes(new HelloMessage(1), new GestureMessage("z")));
+        Assert.Equal(SessionEndReason.ProtocolError, reason);
     }
 
     [Fact]

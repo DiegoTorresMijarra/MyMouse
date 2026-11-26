@@ -27,6 +27,17 @@ sealed interface OutputAction {
 
     /** Unidades de rueda, múltiplos de 120. Positivo = acercar. */
     data class Zoom(val delta: Int) : OutputAction
+
+    /** Forma reconocida en el modo gestos: se envía al PC. */
+    data class Gesture(val name: String, val score: Float) : OutputAction
+
+    // ---- Solo locales (feedback en el móvil, no se envían) ----
+
+    /** El modo gestos empieza o termina. */
+    data class GestureMode(val active: Boolean) : OutputAction
+
+    /** Trazo dibujado en el modo gestos que no se ha reconocido (o se ha cancelado). */
+    data class GestureRejected(val reason: String) : OutputAction
 }
 
 /** Parámetros del trackpad. Valores por defecto según docs/spec-v0.md. */
@@ -49,4 +60,12 @@ data class TrackpadConfig(
     val pinchSlopPx: Float = 24f,
     /** Cambio de distancia entre dedos que equivale a un paso de zoom (120 unidades). */
     val zoomStepPx: Float = 40f,
+    /** Dedos que activan el modo gestos (3 o 4). 0 = desactivado. */
+    val gestureFingers: Int = 3,
+    /** Tiempo máximo entre el primer y el último dedo de la activación. */
+    val gestureWindowMs: Long = 150,
+    /** Tiempo que hay que mantener los dedos quietos para activar. */
+    val gestureHoldMs: Long = 300,
+    /** Tras levantar los dedos de la activación, tiempo para empezar a dibujar. */
+    val gestureStrokeTimeoutMs: Long = 3_000,
 )

@@ -20,6 +20,8 @@ data class AppSettings(
     val autoRelock: Boolean = false,
     /** Modo depuración: minipantalla con los dedos y las acciones enviadas. */
     val debug: Boolean = false,
+    /** Dedos que activan el modo gestos: 3, 4 o 0 (desactivado). */
+    val gestureFingers: Int = 3,
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -29,6 +31,7 @@ data class AppSettings(
         scrollSpeed = scrollSpeed,
         naturalScroll = naturalScroll,
         tapToDrag = tapToDrag,
+        gestureFingers = gestureFingers,
     )
 
     fun save(context: Context) {
@@ -44,6 +47,7 @@ data class AppSettings(
             .putBoolean("pinApp", pinApp)
             .putBoolean("autoRelock", autoRelock)
             .putBoolean("debug", debug)
+            .putInt("gestureFingers", gestureFingers)
             .apply()
     }
 
@@ -68,6 +72,7 @@ data class AppSettings(
                 pinApp = p.getBoolean("pinApp", d.pinApp),
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
                 debug = p.getBoolean("debug", d.debug),
+                gestureFingers = p.getInt("gestureFingers", d.gestureFingers).takeIf { it in setOf(0, 3, 4) } ?: d.gestureFingers,
             )
         }
     }
