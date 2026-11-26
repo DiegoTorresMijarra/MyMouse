@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import android.os.Build
 import android.os.SystemClock
 import android.os.VibrationEffect
@@ -56,10 +57,48 @@ class TrackpadView(
             invalidate()
         }
 
+    // Cristal: panel (blanco al 6 %, radio 16 en modo ventana; a pantalla completa y sin radio en modo bloqueado) y su borde fino.
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_FILL }
     private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(90, 90, 90)
-        strokeWidth = 2 * resources.displayMetrics.density
+        color = GlassTheme.BORDER
+        strokeWidth = resources.displayMetrics.density
+    }
+    private val panelRect = RectF()
+    private val backdropDrawable = GlassTheme.baseBackground()
+
+    /** Con un toque en el punto de estado (solo en modo Bluetooth): abre el diagnóstico. */
+    var onStatusDotTap: (() -> Unit)? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+    private var dotTouch = false
+
+    private fun inStatusDot(x: Float, y: Float): Boolean {
+        val r = 28 * density
+        val dx = x - (width - 16 * density)
+        val dy = y - 16 * density
+        return dx * dx + dy * dy <= r * r
+    }
+
+    /**
+     * Lo que hay detrás de los paneles de cristal (degradado y trazo del modo gestos), en coordenadas del padre, para que los paneles
+     * lo desenfoquen en Android 12+. [w] y [h] son el tamaño del padre.
+     */
+    fun drawBackdrop(canvas: Canvas, w: Int, h: Int) {
+        backdropDrawable.setBounds(0, 0, w, h)
+        backdropDrawable.draw(canvas)
+        val stroke = interpreter.currentStroke
+        if (interpreter.gestureModeActive && stroke.size >= 2) {
+            canvas.save()
+            canvas.translate(left.toFloat(), top.toFloat())
+            strokePath.reset()
+            strokePath.moveTo(stroke[0].x, stroke[0].y)
+            for (k in 1 until stroke.size) strokePath.lineTo(stroke[k].x, stroke[k].y)
+            canvas.drawPath(strokePath, strokePaint)
+            canvas.restore()
+        }
     }
 
     /** Modo depuración: minipantalla con los dedos y lista de acciones (null = desactivado). */
@@ -165,12 +204,12 @@ class TrackpadView(
 
     private val gestureBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(80, 170, 255)
-        strokeWidth = 4 * resources.displayMetrics.density
+        color = GlassTheme.ACCENT
+        strokeWidth = 3 * resources.displayMetrics.density
     }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(120, 200, 255)
+        color = GlassTheme.TEXT
         strokeWidth = 5 * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
@@ -180,7 +219,7 @@ class TrackpadView(
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
     }
-    private val resultBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(220, 20, 20, 20) }
+    private val resultBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
     private val strokePath = Path()
 
     /** Mostrar la chuleta de gestos en el centro. */
@@ -195,15 +234,22 @@ class TrackpadView(
         scheduleTick()
     }
 
-    init {
-        setBackgroundColor(Color.BLACK)
-    }
-
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Recibir eventos en cuanto llegan, sin esperar al vsync (Android 11+).
             requestUnbufferedDispatch(event)
+        }
+
+        // Toque en el punto de estado (solo con [onStatusDotTap]): no llega al motor del trackpad.
+        val dotTap = onStatusDotTap
+        if (dotTap != null) {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) dotTouch = inStatusDot(event.x, event.y)
+            if (dotTouch) {
+                if (event.actionMasked == MotionEvent.ACTION_UP && inStatusDot(event.x, event.y)) dotTap()
+                if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) dotTouch = false
+                return true
+            }
         }
 
         val debug = debugOverlay
@@ -258,6 +304,9 @@ class TrackpadView(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val gestureMode = interpreter.gestureModeActive
+        val panelRadius = if (framed) GlassTheme.dp(context, GlassTheme.RADIUS_PANEL) else 0f
+        panelRect.set(0f, 0f, width.toFloat(), height.toFloat())
+        canvas.drawRoundRect(panelRect, panelRadius, panelRadius, panelPaint)
         if (gestureMode) {
             val list = hostGestureList
             val note = when {
@@ -275,7 +324,7 @@ class TrackpadView(
         }
         if (gestureMode) {
             val inset = gestureBorder.strokeWidth / 2
-            canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, gestureBorder)
+            canvas.drawRoundRect(inset, inset, width - inset, height - inset, panelRadius, panelRadius, gestureBorder)
             val stroke = interpreter.currentStroke
             if (stroke.size >= 2) {
                 strokePath.reset()
@@ -287,24 +336,29 @@ class TrackpadView(
         val now = SystemClock.uptimeMillis()
         val text = resultText
         if (text != null && now < resultUntil) {
-            resultPaint.color = if (resultOk) Color.rgb(120, 230, 120) else Color.rgb(255, 170, 90)
+            resultPaint.color = if (resultOk) GlassTheme.GREEN else GlassTheme.AMBER
             val tw = resultPaint.measureText(text)
             val cy = height * 0.82f
             canvas.drawRoundRect(
                 width / 2f - tw / 2 - 16 * density, cy - 30 * density, width / 2f + tw / 2 + 16 * density, cy + 14 * density,
                 12 * density, 12 * density, resultBg,
             )
+            canvas.drawRoundRect(
+                width / 2f - tw / 2 - 16 * density, cy - 30 * density, width / 2f + tw / 2 + 16 * density, cy + 14 * density,
+                12 * density, 12 * density, framePaint,
+            )
             canvas.drawText(text, width / 2f, cy, resultPaint)
             postInvalidateDelayed(resultUntil - now)
         }
         if (framed && !gestureMode) {
             val inset = framePaint.strokeWidth / 2
-            canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, framePaint)
+            canvas.drawRoundRect(inset, inset, width - inset, height - inset, panelRadius, panelRadius, framePaint)
         }
         // Indicador discreto de estado: verde = conectado, gris = desconectado.
-        statusPaint.color = if (connected) Color.rgb(40, 160, 70) else Color.rgb(90, 90, 90)
+        statusPaint.color = if (connected) GlassTheme.GREEN else GlassTheme.TEXT_TERTIARY
         val r = 5 * density
         canvas.drawCircle(width - 16 * density, 16 * density, r, statusPaint)
+        if (onStatusDotTap != null) canvas.drawCircle(width - 16 * density, 16 * density, r + 4 * density, framePaint) // se puede tocar
     }
 
     /** Primer mensaje de cada gesto de 3 dedos (el cambio de app envía varios). */

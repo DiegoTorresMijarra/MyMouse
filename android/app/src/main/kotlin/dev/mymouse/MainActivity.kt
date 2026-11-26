@@ -103,7 +103,15 @@ class MainActivity : Activity() {
         trackpad.systemGesturesAvailable = { connection.supportsSystemGestures }
         trackpad.toolboxAvailable = { connection.supportsToolbox }
         trackpad.toolboxUnavailableText = { connection.toolboxUnavailableText }
+        // En modo Bluetooth, un toque en el punto de estado abre el diagnóstico (docs/spec-v4.5-estilo.md §4).
+        if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            trackpad.onStatusDotTap = {
+                startActivity(Intent(this, BluetoothActivity::class.java).putExtra(BluetoothActivity.EXTRA_SHOW_DIAGNOSTICS, true))
+            }
+        }
         panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
+        panel.backdrop = GlassTheme.BackdropBlur(trackpad::drawBackdrop)
+        trackpad.cheatSheet.backdrop = GlassTheme.BackdropBlur(trackpad::drawBackdrop)
         connection.onConnectionChanged = { connected ->
             trackpad.post {
                 trackpad.connected = connected
@@ -138,7 +146,7 @@ class MainActivity : Activity() {
 
         controls = buildControls()
         root = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
+            background = GlassTheme.baseBackground() // degradado oscuro de la v4.5 (también en modo bloqueado)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(panel, FrameLayout.LayoutParams(MATCH, MATCH)) // el tamaño y el sitio los fija applyMargins
             // Un toque que empieza en el panel nunca llega al trackpad, ni al revés: todos los dedos van a la vista
@@ -293,9 +301,9 @@ class MainActivity : Activity() {
     private fun applyLayout() {
         val window = mode == Mode.WINDOW
         controls.visibility = if (window) View.VISIBLE else View.GONE
-        root.setBackgroundColor(if (window) Color.rgb(32, 32, 32) else Color.BLACK)
         applyMargins()
         trackpad.framed = window
+        panel.framed = window // el panel de widgets: cristal con radio 16 en modo ventana, a pantalla completa sin radio en bloqueado
         trackpad.cheatSheet.rows = CheatSheet.rowsFor(
             windowsGestures = settings.windowsGestures,
             gestureMode = connection.supportsGestures && settings.gestureFingers == 4,
@@ -499,30 +507,31 @@ class MainActivity : Activity() {
 
     // ---- Botones del modo ventana ----
 
+    /** Botones del modo ventana: círculos de cristal de 44 dp con el icono dibujado con trazos. */
     private fun buildControls(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL or Gravity.END
         val p = (8 * density).toInt()
         setPadding(p, p / 2, p, p / 2)
-        addView(button("Ajustes") { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
-        addView(button("Bloquear") { setMode(Mode.LOCKED) })
-        addView(button("Salir") {
+        addView(iconButton(GlassTheme.IconButton.Kind.SLIDERS, "Ajustes") { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
+        addView(iconButton(GlassTheme.IconButton.Kind.LOCK, "Bloquear") { setMode(Mode.LOCKED) })
+        addView(iconButton(GlassTheme.IconButton.Kind.POWER, "Salir") {
             stopLock()
             finishAndRemoveTask()
         })
         if (AdminReceiver.isDeviceOwner(this@MainActivity)) {
-            addView(button("Quitar propietario") { confirmReleaseOwner() })
+            addView(GlassTheme.button(this@MainActivity, "Quitar propietario") { confirmReleaseOwner() }.apply {
+                (layoutParams as LinearLayout.LayoutParams).apply { topMargin = 0; marginStart = (8 * density).toInt(); marginEnd = 0 }
+            })
         }
     }
 
-    private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
-        this.text = text
-        isAllCaps = false
-        setTextColor(Color.rgb(220, 220, 220))
-        setBackgroundColor(Color.rgb(60, 60, 60))
-        setOnClickListener { onClick() }
-        layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = (8 * density).toInt() }
-    }
+    private fun iconButton(kind: GlassTheme.IconButton.Kind, description: String, onClick: () -> Unit) =
+        GlassTheme.IconButton(this, kind).apply {
+            contentDescription = description
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
+        }
 
     private fun confirmReleaseOwner() {
         AlertDialog.Builder(this)

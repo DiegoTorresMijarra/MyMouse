@@ -16,28 +16,35 @@ class GestureSheet(private val density: Float) {
 
     data class Item(val name: String, val label: String, val help: String, val pinned: Boolean, val preview: List<P>?)
 
-    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 20, 32, 44) }
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = GlassTheme.BORDER
+        strokeWidth = density
+    }
+    private val tilePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.ELEVATED }
     private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(100, 180, 255)
-        textSize = 12 * density
+        color = GlassTheme.TEXT_SECONDARY
+        textSize = GlassTheme.CARD_TITLE_SP * density
+        letterSpacing = 0.06f
         isFakeBoldText = true
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(225, 225, 225)
+        color = GlassTheme.TEXT
         textSize = 13 * density
     }
     private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(140, 140, 140)
+        color = GlassTheme.TEXT_SECONDARY
         textSize = 11 * density
     }
     private val shapePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(180, 210, 240)
+        color = GlassTheme.TEXT
         strokeWidth = 2 * density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(110, 220, 110) }
+    private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.ACCENT }
     private val box = RectF()
 
     /**
@@ -65,7 +72,8 @@ class GestureSheet(private val density: Float) {
         val h = (pad * 2 + titleH + noteH + sections.size * headerH + rows * cellH)
             .coerceAtMost(height - 32 * density)
         box.set((width - w) / 2, (height - h) / 2, (width + w) / 2, (height + h) / 2)
-        canvas.drawRoundRect(box, 14 * density, 14 * density, boxPaint)
+        canvas.drawRoundRect(box, GlassTheme.RADIUS_CARD * density, GlassTheme.RADIUS_CARD * density, boxPaint)
+        canvas.drawRoundRect(box, GlassTheme.RADIUS_CARD * density, GlassTheme.RADIUS_CARD * density, borderPaint)
         canvas.save()
         canvas.clipRect(box)
 
@@ -88,7 +96,9 @@ class GestureSheet(private val density: Float) {
                 if (i > 0 && col == 0) y += cellH
                 val x = box.left + pad + col * cellW
                 val iconRect = RectF(x, y + (cellH - icon) / 2, x + icon, y + (cellH + icon) / 2)
-                item.preview?.let { drawShape(canvas, it, iconRect, item.name == highlight) }
+                val tile = RectF(iconRect).apply { inset(-3 * density, -3 * density) }
+                canvas.drawRoundRect(tile, GlassTheme.RADIUS_ROW * density, GlassTheme.RADIUS_ROW * density, tilePaint)
+                item.preview?.let { drawShape(canvas, it, RectF(iconRect).apply { inset(3 * density, 3 * density) }, item.name == highlight) }
                 val text = item.help.ifEmpty { item.label }
                 canvas.drawText(ellipsize(text, cellW - icon - 14 * density, textPaint), x + icon + 8 * density, y + cellH / 2 - 1 * density, textPaint)
                 canvas.drawText(item.label, x + icon + 8 * density, y + cellH / 2 + 12 * density, dimPaint)
@@ -106,7 +116,7 @@ class GestureSheet(private val density: Float) {
     }
 
     private fun drawShape(canvas: Canvas, points: List<P>, rect: RectF, highlighted: Boolean) {
-        shapePaint.color = if (highlighted) Color.rgb(110, 220, 110) else Color.rgb(180, 210, 240)
+        shapePaint.color = if (highlighted) GlassTheme.GREEN else GlassTheme.TEXT
         drawShape(canvas, points, rect, shapePaint, startPaint, density)
     }
 

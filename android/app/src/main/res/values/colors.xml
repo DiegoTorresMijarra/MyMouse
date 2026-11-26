@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tokens "glass" (docs/spec-v4.5-estilo.md §1). Los mismos valores están en GlassTheme.kt para lo que se dibuja en código. -->
+<resources>
+    <color name="glass_base_start">#14161B</color>
+    <color name="glass_base_end">#1B1E26</color>
+    <color name="glass_panel_solid">#EB1E2128</color>
+    <color name="glass_border">#1AFFFFFF</color>
+    <color name="glass_accent">#3574F0</color>
+    <color name="glass_text">#ECEEF2</color>
+    <color name="glass_text_secondary">#9AA0AA</color>
+    <color name="glass_text_tertiary">#6B717C</color>
+</resources>

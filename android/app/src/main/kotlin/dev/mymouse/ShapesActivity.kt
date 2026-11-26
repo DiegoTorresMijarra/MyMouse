@@ -3,19 +3,14 @@ package dev.mymouse
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import dev.mymouse.core.shapes.ShapeCatalog
 
 /**
@@ -25,26 +20,16 @@ import dev.mymouse.core.shapes.ShapeCatalog
 class ShapesActivity : Activity() {
 
     private lateinit var store: ShapeStore
+    private lateinit var screen: GlassTheme.Screen
+
+    /** La tarjeta de cristal en la que se está añadiendo (la nota inicial, "Formas incluidas" o "Formas propias"). */
     private lateinit var list: LinearLayout
     private val density get() = resources.displayMetrics.density
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        list = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val p = (20 * density).toInt()
-            setPadding(p, p, p, p)
-        }
-        val scroll = ScrollView(this).apply {
-            setBackgroundColor(Color.rgb(18, 18, 18))
-            addView(list)
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-        setContentView(scroll)
+        screen = GlassTheme.Screen(this, "Formas")
+        screen.setContentView()
     }
 
     override fun onResume() {
@@ -61,19 +46,15 @@ class ShapesActivity : Activity() {
     }
 
     private fun build() {
-        list.removeAllViews()
-        list.addView(TextView(this).apply {
-            text = "Formas"
-            textSize = 24f
-            setTextColor(Color.WHITE)
-        })
+        screen.content.removeAllViews()
+        list = screen.card(null)
         list.addView(note(
             "Activa solo las que uses: cuantas menos, menos se confunden (recomendado: hasta 10). " +
                 "Qué hace cada forma se decide en el PC: toolbox → tarjeta Gestos (4 dedos ↑ en el trackpad). " +
-                "El punto verde de cada dibujo marca dónde empieza el trazo.",
+                "El punto azul de cada dibujo marca dónde empieza el trazo.",
         ))
 
-        list.addView(header("Formas incluidas"))
+        section("Formas incluidas")
         for (shape in ShapeCatalog.ALL) {
             val mine = store.recorded.any { it.name == shape.id }
             list.addView(row(
@@ -82,6 +63,7 @@ class ShapesActivity : Activity() {
                 shape.id + if (mine) " · tu versión" else "",
             ) {
                 addView(Switch(this@ShapesActivity).apply {
+                    GlassTheme.tint(this)
                     isChecked = shape.id in store.enabledCatalog
                     setOnCheckedChangeListener { _, checked -> store.setEnabled(shape.id, checked) }
                 })
@@ -96,7 +78,7 @@ class ShapesActivity : Activity() {
             }
         }
 
-        list.addView(header("Formas propias"))
+        section("Formas propias")
         val custom = store.recorded.filter { it.name.startsWith(ShapeStore.CUSTOM_PREFIX) }
         if (custom.isEmpty()) list.addView(note("Todavía no hay ninguna."))
         for (r in custom) {
@@ -104,11 +86,7 @@ class ShapesActivity : Activity() {
                 addView(smallButton("Borrar") { confirmDelete(r.name) })
             })
         }
-        list.addView(Button(this).apply {
-            text = "Nueva forma"
-            isAllCaps = false
-            setOnClickListener { askName() }
-        })
+        list.addView(GlassTheme.button(this, "Nueva forma", accent = true) { askName() })
     }
 
     private fun askName() {
@@ -149,19 +127,12 @@ class ShapesActivity : Activity() {
 
     private fun toast(text: String) = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
 
-    private fun header(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(Color.rgb(100, 180, 255))
-        setPadding(0, (20 * density).toInt(), 0, (6 * density).toInt())
+    /** Una tarjeta de cristal nueva con su título. */
+    private fun section(title: String) {
+        list = screen.card(title)
     }
 
-    private fun note(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 13f
-        setTextColor(Color.rgb(150, 150, 150))
-        setPadding(0, (6 * density).toInt(), 0, (6 * density).toInt())
-    }
+    private fun note(text: String) = GlassTheme.note(this, text)
 
     private fun row(
         preview: List<dev.mymouse.core.shapes.P>?, title: String, subtitle: String,
@@ -170,29 +141,33 @@ class ShapesActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(0, (4 * density).toInt(), 0, (4 * density).toInt())
-        val size = (48 * density).toInt()
-        addView(ShapePreviewView(this@ShapesActivity, preview), LinearLayout.LayoutParams(size, size))
+        // La misma fila que en el PC: baldosa de cristal con la forma, título y un chip con el detalle.
+        val size = (40 * density).toInt()
+        addView(ShapePreviewView(this@ShapesActivity, preview).apply {
+            background = GlassTheme.rounded(this@ShapesActivity, GlassTheme.ELEVATED, GlassTheme.RADIUS_ROW)
+        }, LinearLayout.LayoutParams(size, size))
         addView(LinearLayout(this@ShapesActivity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding((12 * density).toInt(), 0, 0, 0)
             addView(TextView(this@ShapesActivity).apply {
                 text = title
-                textSize = 17f
-                setTextColor(Color.rgb(230, 230, 230))
+                textSize = 14f
+                setTextColor(GlassTheme.TEXT)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
             })
             addView(TextView(this@ShapesActivity).apply {
                 text = subtitle
-                textSize = 12f
-                setTextColor(Color.rgb(130, 130, 130))
+                textSize = 11f
+                typeface = android.graphics.Typeface.MONOSPACE
+                setTextColor(GlassTheme.TEXT_SECONDARY)
+                background = GlassTheme.rounded(this@ShapesActivity, GlassTheme.ELEVATED, GlassTheme.RADIUS_CHIP)
+                setPadding((6 * density).toInt(), (1 * density).toInt(), (6 * density).toInt(), (2 * density).toInt())
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (2 * density).toInt()
             })
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         trailing()
     }
 
-    private fun smallButton(text: String, onClick: () -> Unit) = Button(this).apply {
-        this.text = text
-        isAllCaps = false
-        textSize = 13f
-        setOnClickListener { onClick() }
-    }
+    private fun smallButton(text: String, onClick: () -> Unit) = GlassTheme.button(this, text, onClick = onClick).apply { textSize = 13f }
 }

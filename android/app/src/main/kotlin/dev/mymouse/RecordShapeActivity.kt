@@ -13,11 +13,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import dev.mymouse.core.shapes.P
 
 /**
@@ -40,67 +37,43 @@ class RecordShapeActivity : Activity() {
         store = ShapeStore(this)
 
         info = TextView(this).apply {
-            textSize = 16f
-            setTextColor(Color.rgb(230, 230, 230))
+            textSize = 15f
+            setTextColor(GlassTheme.TEXT)
         }
-        saveButton = Button(this).apply {
-            text = "Guardar"
-            isAllCaps = false
-            isEnabled = false
-            setOnClickListener {
-                store.put(name, samples.toList())
-                finish()
-            }
+        saveButton = GlassTheme.button(this, "Guardar", accent = true) {
+            store.put(name, samples.toList())
+            finish()
         }
-        val again = Button(this).apply {
-            text = "Repetir"
-            isAllCaps = false
-            setOnClickListener { reset() }
-        }
-        val cancel = Button(this).apply {
-            text = "Cancelar"
-            isAllCaps = false
-            setOnClickListener { finish() }
-        }
+        val again = GlassTheme.button(this, "Repetir") { reset() }
+        val cancel = GlassTheme.button(this, "Cancelar") { finish() }
         canvasView = DrawView(this) { stroke -> onStroke(stroke) }
 
-        val top = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val p = (16 * density).toInt()
-            setPadding(p, p, p, p)
-            addView(TextView(this@RecordShapeActivity).apply {
-                text = "Grabar \"${ShapeStore.label(name)}\""
-                textSize = 22f
-                setTextColor(Color.WHITE)
-            })
-            addView(info)
-            addView(LinearLayout(this@RecordShapeActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                addView(saveButton)
-                addView(again)
-                addView(cancel)
-            })
-        }
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(18, 18, 18))
-            addView(top)
-            addView(canvasView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-        setContentView(root)
+        val screen = GlassTheme.Screen(this, "Grabar \"${ShapeStore.label(name)}\"", scrollable = false)
+        val card = screen.card(null)
+        card.addView(info)
+        card.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(saveButton)
+            addView(again)
+            addView(cancel)
+        })
+        screen.content.addView(canvasView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply {
+            topMargin = (12 * density).toInt()
+        })
+        screen.setContentView()
         reset()
     }
 
     private fun reset() {
         samples.clear()
         canvasView.clearSamples()
-        saveButton.isEnabled = false
+        setSaveEnabled(false)
         info.text = "Dibújala con un dedo, de un solo trazo (1 de $SAMPLES)."
+    }
+
+    private fun setSaveEnabled(enabled: Boolean) {
+        saveButton.isEnabled = enabled
+        saveButton.alpha = if (enabled) 1f else 0.45f
     }
 
     private fun onStroke(stroke: List<P>) {
@@ -117,7 +90,7 @@ class RecordShapeActivity : Activity() {
             return
         }
         info.text = check()
-        saveButton.isEnabled = true
+        setSaveEnabled(true)
     }
 
     /** ¿Se confunde con alguna forma activa? (La lógica está en `core`, compartida con las formas que llegan del PC.) */
@@ -143,10 +116,10 @@ class RecordShapeActivity : Activity() {
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
-        private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = Color.rgb(60, 110, 160)
-            strokeWidth = 2 * density
+
+        init {
+            // El lienzo es un panel de cristal (radio 16).
+            background = GlassTheme.rounded(context, GlassTheme.PANEL_FILL, GlassTheme.RADIUS_PANEL, GlassTheme.BORDER)
         }
 
         fun clearSamples() {
@@ -184,11 +157,9 @@ class RecordShapeActivity : Activity() {
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val m = border.strokeWidth
-            canvas.drawRoundRect(m, m, width - m, height - m, 12 * density, 12 * density, border)
-            paint.color = Color.argb(110, 120, 200, 255)
+            paint.color = Color.argb(110, 0x35, 0x74, 0xF0)
             samples.forEach { draw(canvas, it) }
-            paint.color = Color.rgb(120, 200, 255)
+            paint.color = GlassTheme.TEXT
             draw(canvas, current)
         }
 

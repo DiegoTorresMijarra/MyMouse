@@ -2,9 +2,11 @@ package dev.mymouse
 
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Shader
 
 /**
  * Chuleta de gestos básicos en el centro del trackpad (docs/spec-v0.md §2.1.2).
@@ -18,21 +20,37 @@ class CheatSheet(private val density: Float) {
 
     var rows: List<Row> = DEFAULT_ROWS
 
-    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(24, 24, 24) }
+    /** Desenfoque de lo que hay detrás (Android 12+); sin él, la tarjeta usa el color translúcido sin desenfoque. */
+    var backdrop: GlassTheme.BackdropBlur? = null
+
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = GlassTheme.BORDER
+        strokeWidth = density
+    }
+    private val shinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tilePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.ELEVATED }
+    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = GlassTheme.TEXT_SECONDARY
+        textSize = GlassTheme.CARD_TITLE_SP * density
+        letterSpacing = 0.06f
+        isFakeBoldText = true
+    }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(140, 140, 140)
+        color = GlassTheme.TEXT
         textSize = 14 * density
     }
-    private val iconFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(120, 120, 120) }
+    private val iconFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.TEXT }
     private val iconStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(120, 120, 120)
+        color = GlassTheme.TEXT
         style = Paint.Style.STROKE
         strokeWidth = 1.5f * density
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val iconText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(120, 120, 120)
+        color = GlassTheme.TEXT
         textSize = 10 * density
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
@@ -47,27 +65,45 @@ class CheatSheet(private val density: Float) {
     fun draw(canvas: Canvas, width: Int, height: Int, atBottom: Boolean = false) {
         if (rows.isEmpty()) return
         val pad = 14 * density
-        val rowH = 30 * density
-        val iconW = 44 * density
+        val titleH = 26 * density
+        val rowH = 40 * density
+        val tileW = 52 * density
+        val tileH = 32 * density
         val textW = rows.maxOf { textPaint.measureText(it.text) }
-        val w = (pad * 2 + iconW + 10 * density + textW).coerceAtMost(width - 32 * density)
-        val h = pad * 2 + rowH * rows.size
+        val w = (pad * 2 + tileW + 12 * density + textW).coerceAtMost(width - 32 * density)
+        val h = pad * 2 + titleH + rowH * rows.size
         val room = height - 32 * density
         val scale = if (h > room && room > 0f) room / h else 1f
         val top = if (atBottom) height - h * scale - 16 * density else (height - h * scale) / 2
         // Se dibuja a tamaño natural en (left, top) y el lienzo se escala desde esa esquina.
         val left = (width - w * scale) / 2
+        val radius = GlassTheme.RADIUS_CARD * density
+
+        // Tarjeta de cristal: desenfoque de lo de detrás si se puede y, si no, color translúcido; después, borde y brillo superior.
+        val card = RectF(left, top, left + w * scale, top + h * scale)
+        val blurred = backdrop?.draw(canvas, card, radius * scale, 0f, 0f, width, height) == true
+        boxPaint.color = if (blurred) GlassTheme.CARD_FILL else GlassTheme.PANEL_SOLID
+        canvas.drawRoundRect(card, radius * scale, radius * scale, boxPaint)
         canvas.save()
         canvas.translate(left, top)
         canvas.scale(scale, scale)
         box.set(0f, 0f, w, h)
-        canvas.drawRoundRect(box, 14 * density, 14 * density, boxPaint)
+        shinePaint.shader = LinearGradient(0f, 0f, 0f, h, GlassTheme.SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        canvas.save()
+        canvas.clipRect(0f, 0f, w, h * 0.4f)
+        canvas.drawRoundRect(box, radius, radius, shinePaint)
+        canvas.restore()
+        canvas.drawRoundRect(box, radius, radius, borderPaint)
 
+        canvas.drawText("GESTOS BÁSICOS", pad, pad + titlePaint.textSize, titlePaint)
         val baselineOffset = -(textPaint.ascent() + textPaint.descent()) / 2
         rows.forEachIndexed { i, row ->
-            val cy = box.top + pad + rowH * i + rowH / 2
-            drawIcon(canvas, row.icon, box.left + pad + iconW / 2, cy)
-            canvas.drawText(row.text, box.left + pad + iconW + 10 * density, cy + baselineOffset, textPaint)
+            val cy = box.top + pad + titleH + rowH * i + rowH / 2
+            val tileLeft = box.left + pad
+            // Icono en baldosa, como en el PC.
+            canvas.drawRoundRect(tileLeft, cy - tileH / 2, tileLeft + tileW, cy + tileH / 2, GlassTheme.RADIUS_ROW * density, GlassTheme.RADIUS_ROW * density, tilePaint)
+            drawIcon(canvas, row.icon, tileLeft + tileW / 2, cy)
+            canvas.drawText(row.text, tileLeft + tileW + 12 * density, cy + baselineOffset, textPaint)
         }
         canvas.restore()
     }

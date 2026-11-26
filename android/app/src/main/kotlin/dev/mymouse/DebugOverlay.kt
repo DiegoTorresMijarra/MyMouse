@@ -23,10 +23,10 @@ class DebugOverlay(private val density: Float) {
     private val entries = ArrayDeque<Entry>()
     private var maxFingers = 0
 
-    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(230, 16, 24, 32) }
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(60, 110, 160)
+        color = GlassTheme.BORDER
         strokeWidth = 1.5f * density
     }
     private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -38,7 +38,7 @@ class DebugOverlay(private val density: Float) {
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 14 * density }
     private val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 11 * density
-        color = Color.rgb(140, 170, 200)
+        color = GlassTheme.TEXT_SECONDARY
     }
     private val panel = RectF()
 
@@ -124,7 +124,7 @@ class DebugOverlay(private val density: Float) {
             y += 20 * density
             val age = now - e.t
             val alpha = if (age < FADE_START_MS) 255 else (255 * (1 - (age - FADE_START_MS).toFloat() / FADE_MS)).toInt()
-            textPaint.color = Color.argb(alpha.coerceIn(0, 255), 230, 230, 230)
+            textPaint.color = Color.argb(alpha.coerceIn(0, 255), 0xEC, 0xEE, 0xF2)
             canvas.drawText(e.text, m, y, textPaint)
         }
     }

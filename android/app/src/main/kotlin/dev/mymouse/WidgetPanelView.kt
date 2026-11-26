@@ -101,9 +101,20 @@ class WidgetPanelView(
 
     // ---- Disposición ----
 
-    private val divider get() = dp(1f)
-    private val contentLeft get() = if (landscape) divider else 0f
-    private val contentTop get() = if (landscape) 0f else divider
+    /** Margen interior del panel de cristal: las tarjetas no tocan el borde. */
+    private val inset get() = dp(8f)
+    private val contentLeft get() = inset
+    private val contentTop get() = inset
+
+    /** Desenfoque de lo que hay detrás (Android 12+); sin él, el panel usa el color translúcido sin desenfoque. */
+    var backdrop: GlassTheme.BackdropBlur? = null
+
+    /** Modo ventana: panel de cristal con radio 16. En modo bloqueado, a pantalla completa y sin radio. */
+    var framed = true
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     private fun metrics(contentWidth: Float): WidgetLayout.Metrics {
         val gap = dp(6f)
@@ -120,8 +131,8 @@ class WidgetPanelView(
     }
 
     private fun relayout() {
-        val w = width - contentLeft
-        val h = height - contentTop
+        val w = width - 2 * contentLeft
+        val h = height - 2 * contentTop
         layout = if (w > 0f && h > 0f && entries.isNotEmpty()) {
             WidgetLayout.compute(entries, WidgetLayout.columnsFor(landscape), w, metrics(w))
         } else {
@@ -216,8 +227,12 @@ class WidgetPanelView(
 
     // ---- Dibujo ----
 
-    private val bgPaint = Paint().apply { color = Color.rgb(14, 14, 14) }
-    private val dividerPaint = Paint().apply { color = Color.rgb(70, 70, 70) }
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = GlassTheme.BORDER
+        strokeWidth = dp(1f)
+    }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -227,34 +242,31 @@ class WidgetPanelView(
     private val iconText = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER }
     private val labelText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        color = Color.rgb(215, 215, 215)
+        color = GlassTheme.TEXT
         textSize = dp(11f)
     }
     private val titleText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(235, 235, 235)
+        color = GlassTheme.TEXT
         textSize = dp(15f)
         isFakeBoldText = true
     }
     private val artistText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(150, 150, 150)
+        color = GlassTheme.TEXT_SECONDARY
         textSize = dp(12f)
     }
     private val valueText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        color = Color.rgb(220, 220, 220)
+        color = GlassTheme.TEXT
         textSize = dp(14f)
     }
     private val rect = RectF()
     private val path = Path()
 
     override fun onDraw(canvas: Canvas) {
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-        // Línea fina que separa el panel del trackpad.
-        if (landscape) canvas.drawRect(0f, 0f, divider, height.toFloat(), dividerPaint)
-        else canvas.drawRect(0f, 0f, width.toFloat(), divider, dividerPaint)
+        drawPanel(canvas)
 
         canvas.save()
-        canvas.clipRect(contentLeft, contentTop, width.toFloat(), height.toFloat())
+        canvas.clipRect(contentLeft, contentTop, width - contentLeft, height - contentTop)
         canvas.translate(contentLeft, contentTop - controller.scrollY)
         val revealElapsed = SystemClock.uptimeMillis() - revealStartedAt
         val revealing = revealStartedAt != 0L && revealElapsed < PanelReveal.totalMs(layout.rowOfCell.maxOrNull()?.plus(1) ?: 0)
@@ -277,37 +289,58 @@ class WidgetPanelView(
         if (revealing) postInvalidateOnAnimation()
 
         // Indicador de scroll discreto cuando no cabe todo.
-        val max = WidgetLayout.maxScroll(layout.contentHeight, height - contentTop)
+        val max = WidgetLayout.maxScroll(layout.contentHeight, height - 2 * contentTop)
         if (max > 0f) {
-            val viewH = height - contentTop
+            val viewH = height - 2 * contentTop
             val barH = viewH * viewH / layout.contentHeight
             val top = contentTop + (viewH - barH) * (controller.scrollY / max)
-            fill.color = Color.argb(110, 200, 200, 200)
+            fill.color = GlassTheme.TEXT_SECONDARY
             rect.set(width - dp(3f), top, width - dp(1f), top + barH)
             canvas.drawRoundRect(rect, dp(1f), dp(1f), fill)
         }
     }
 
-    private fun card(canvas: Canvas, box: Box, color: Int) {
-        fill.color = color
-        rect.set(box.x, box.y, box.right, box.bottom)
-        canvas.drawRoundRect(rect, dp(10f), dp(10f), fill)
+    /** El panel: cristal con el fondo desenfocado (Android 12+) o color translúcido sin desenfoque, más borde fino. */
+    private fun drawPanel(canvas: Canvas) {
+        val radius = if (framed) dp(GlassTheme.RADIUS_PANEL) else 0f
+        rect.set(0f, 0f, width.toFloat(), height.toFloat())
+        val parent = parent as? View
+        val blurred = parent != null && backdrop?.draw(
+            canvas, rect, radius, left + translationX, top + translationY, parent.width, parent.height,
+        ) == true
+        panelPaint.color = if (blurred) GlassTheme.PANEL_FILL else GlassTheme.PANEL_SOLID
+        canvas.drawRoundRect(rect, radius, radius, panelPaint)
+        if (framed) {
+            borderPaint.color = GlassTheme.BORDER
+            val half = borderPaint.strokeWidth / 2
+            rect.set(half, half, width - half, height - half)
+            canvas.drawRoundRect(rect, radius, radius, borderPaint)
+        }
     }
 
-    private fun buttonColor(active: Boolean, flashing: Boolean) = when {
-        flashing -> Color.rgb(70, 130, 200)
-        active -> Color.rgb(85, 85, 85)
-        else -> Color.rgb(44, 44, 44)
+    /** Tarjeta de cristal (radio 12) con el relleno dado; los botones activos van en el acento. */
+    private fun card(canvas: Canvas, box: Box, color: Int, border: Int = GlassTheme.BORDER) {
+        rect.set(box.x, box.y, box.right, box.bottom)
+        fill.color = color
+        canvas.drawRoundRect(rect, dp(GlassTheme.RADIUS_CARD), dp(GlassTheme.RADIUS_CARD), fill)
+        borderPaint.color = border
+        canvas.drawRoundRect(rect, dp(GlassTheme.RADIUS_CARD), dp(GlassTheme.RADIUS_CARD), borderPaint)
+    }
+
+    private fun buttonCard(canvas: Canvas, box: Box, active: Boolean, flashing: Boolean) = when {
+        flashing -> card(canvas, box, GlassTheme.SELECTED_FILL, GlassTheme.SELECTED_BORDER)
+        active -> card(canvas, box, GlassTheme.ELEVATED)
+        else -> card(canvas, box, GlassTheme.CARD_FILL)
     }
 
     private fun drawButton(canvas: Canvas, index: Int, cell: WidgetLayout.Cell) {
         val target = WidgetTarget.Button(index)
         val box = cell.box
-        card(canvas, box, buttonColor(controller.pressed == target, isFlashing(target)))
+        buttonCard(canvas, box, controller.pressed == target, isFlashing(target))
 
         // Icono grande arriba; sin icono, las 2 primeras letras de la etiqueta.
         val icon = cell.entry.icon.ifEmpty { firstLetters(cell.entry.label, 2) }
-        iconText.color = Color.rgb(235, 235, 235)
+        iconText.color = GlassTheme.TEXT
         iconText.textSize = box.height * 0.36f
         canvas.drawText(icon, box.centerX, box.y + box.height * 0.5f, iconText)
         canvas.drawText(ellipsize(cell.entry.label, box.width - dp(8f), labelText), box.centerX, box.bottom - dp(9f), labelText)
@@ -315,7 +348,7 @@ class WidgetPanelView(
 
     private fun drawMedia(canvas: Canvas, index: Int, cell: WidgetLayout.Cell) {
         val parts = cell.media ?: return
-        card(canvas, cell.box, Color.rgb(34, 34, 34))
+        card(canvas, cell.box, GlassTheme.CARD_FILL)
 
         val state = mediaState
         val text = parts.text
@@ -336,7 +369,7 @@ class WidgetPanelView(
     }
 
     private inline fun mediaButton(canvas: Canvas, box: Box, target: WidgetTarget, drawIcon: (Box) -> Unit) {
-        card(canvas, box, buttonColor(controller.pressed == target, isFlashing(target)))
+        buttonCard(canvas, box, controller.pressed == target, isFlashing(target))
         drawIcon(box)
     }
 
@@ -345,7 +378,7 @@ class WidgetPanelView(
 
     private fun drawPlay(canvas: Canvas, box: Box) {
         val s = iconSize(box)
-        fill.color = Color.rgb(235, 235, 235)
+        fill.color = GlassTheme.TEXT
         path.reset()
         path.moveTo(box.centerX - s * 0.7f, box.centerY - s)
         path.lineTo(box.centerX + s * 0.9f, box.centerY)
@@ -356,7 +389,7 @@ class WidgetPanelView(
 
     private fun drawPause(canvas: Canvas, box: Box) {
         val s = iconSize(box)
-        fill.color = Color.rgb(235, 235, 235)
+        fill.color = GlassTheme.TEXT
         canvas.drawRect(box.centerX - s * 0.8f, box.centerY - s, box.centerX - s * 0.2f, box.centerY + s, fill)
         canvas.drawRect(box.centerX + s * 0.2f, box.centerY - s, box.centerX + s * 0.8f, box.centerY + s, fill)
     }
@@ -365,7 +398,7 @@ class WidgetPanelView(
     private fun drawSkip(canvas: Canvas, box: Box, forward: Boolean) {
         val s = iconSize(box)
         val d = if (forward) 1f else -1f
-        fill.color = Color.rgb(235, 235, 235)
+        fill.color = GlassTheme.TEXT
         path.reset()
         path.moveTo(box.centerX - d * s * 0.9f, box.centerY - s)
         path.lineTo(box.centerX + d * s * 0.5f, box.centerY)
@@ -379,7 +412,7 @@ class WidgetPanelView(
 
     private fun drawVolume(canvas: Canvas, index: Int, cell: WidgetLayout.Cell) {
         val parts = cell.volume ?: return
-        card(canvas, cell.box, Color.rgb(34, 34, 34))
+        card(canvas, cell.box, GlassTheme.CARD_FILL)
 
         val state = volumeState
         val muted = state?.muted == true
@@ -388,8 +421,8 @@ class WidgetPanelView(
         // Icono de altavoz (pulsar = silenciar / quitar el silencio).
         val iconTarget = WidgetTarget.MuteIcon(index)
         if (controller.pressed == iconTarget || isFlashing(iconTarget)) {
-            card(canvas, Box(parts.icon.x + dp(4f), parts.icon.y + dp(4f), parts.icon.width - dp(8f), parts.icon.height - dp(8f)),
-                buttonColor(controller.pressed == iconTarget, isFlashing(iconTarget)))
+            buttonCard(canvas, Box(parts.icon.x + dp(4f), parts.icon.y + dp(4f), parts.icon.width - dp(8f), parts.icon.height - dp(8f)),
+                controller.pressed == iconTarget, isFlashing(iconTarget))
         }
         drawSpeaker(canvas, parts.icon, muted)
 
@@ -397,17 +430,17 @@ class WidgetPanelView(
         val bar = parts.bar
         val trackH = dp(6f)
         val cy = bar.centerY
-        fill.color = Color.rgb(70, 70, 70)
+        fill.color = GlassTheme.ELEVATED
         rect.set(bar.x, cy - trackH / 2, bar.right, cy + trackH / 2)
         canvas.drawRoundRect(rect, trackH / 2, trackH / 2, fill)
         val x = bar.x + bar.width * level / 100f
-        fill.color = if (muted) Color.rgb(120, 120, 120) else Color.rgb(80, 170, 255)
+        fill.color = if (muted) GlassTheme.TEXT_TERTIARY else GlassTheme.ACCENT
         rect.set(bar.x, cy - trackH / 2, x, cy + trackH / 2)
         canvas.drawRoundRect(rect, trackH / 2, trackH / 2, fill)
-        fill.color = Color.rgb(240, 240, 240)
+        fill.color = Color.WHITE
         canvas.drawCircle(x, cy, if (controller.draggingVolume) dp(11f) else dp(9f), fill)
 
-        valueText.color = if (muted) Color.rgb(130, 130, 130) else Color.rgb(220, 220, 220)
+        valueText.color = if (muted) GlassTheme.TEXT_TERTIARY else GlassTheme.TEXT
         canvas.drawText(level.toString(), parts.value.centerX, parts.value.centerY + dp(5f), valueText)
     }
 
@@ -415,7 +448,7 @@ class WidgetPanelView(
         val u = dp(1f)
         val cx = box.centerX - 3 * u
         val cy = box.centerY
-        fill.color = Color.rgb(235, 235, 235)
+        fill.color = GlassTheme.TEXT
         path.reset()
         path.moveTo(cx - 9 * u, cy - 4 * u)
         path.lineTo(cx - 4 * u, cy - 4 * u)
@@ -425,7 +458,7 @@ class WidgetPanelView(
         path.lineTo(cx - 9 * u, cy + 4 * u)
         path.close()
         canvas.drawPath(path, fill)
-        stroke.color = if (muted) Color.rgb(255, 120, 100) else Color.rgb(235, 235, 235)
+        stroke.color = if (muted) GlassTheme.RED else GlassTheme.TEXT
         if (muted) {
             canvas.drawLine(cx + 6 * u, cy - 5 * u, cx + 14 * u, cy + 5 * u, stroke)
             canvas.drawLine(cx + 14 * u, cy - 5 * u, cx + 6 * u, cy + 5 * u, stroke)
