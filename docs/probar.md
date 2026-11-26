@@ -66,6 +66,15 @@ Si algo no conecta:
    - Con el **modo depuración** verás anotadas las acciones (`Widget: Chrome`, `Volumen 55`, `⏭ Siguiente`).
 5. `MyMouse.TestClient.exe` (con el host abierto) imprime los widgets configurados y el estado actual de volumen y música.
 
+## Bluetooth (desde la v3.0)
+
+No hace falta MyMouse ni adb en el PC.
+1. En el móvil: modo ventana → Ajustes → **Conexión: Bluetooth** → **Emparejar por Bluetooth…** → dar permiso → **Hacer visible**.
+2. En Windows: Configuración → Bluetooth y dispositivos → Agregar dispositivo → Bluetooth → elegir el móvil y aceptar el código.
+3. Vuelve al trackpad: el punto de estado se pone verde al conectar.
+4. Si la pantalla de emparejar dice que el perfil HID no está disponible, ese móvil no puede hacer de ratón Bluetooth: apúntalo.
+5. Logs: `adb logcat -s MyMouse` (líneas "Bluetooth: …").
+
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
 - Qué hiciste y qué pasó (y qué esperabas).

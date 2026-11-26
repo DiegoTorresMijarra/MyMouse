@@ -24,6 +24,7 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/spec-v0.md](docs/spec-v0.md) | Especificación funcional de la v0 |
 | [docs/spec-v1-gestos.md](docs/spec-v1-gestos.md) | Modo gestos: formas, acciones y límites |
 | [docs/spec-v2-widgets.md](docs/spec-v2-widgets.md) | Panel de widgets: botones, multimedia y volumen |
+| [docs/spec-v3-bluetooth.md](docs/spec-v3-bluetooth.md) | Modo Bluetooth (sin cable ni programa en el PC) e inicio con Windows |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha

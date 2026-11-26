@@ -58,6 +58,30 @@ class SettingsActivity : Activity() {
             settings = settings.copy(tapToDrag = it)
         })
 
+        list.addView(header("Conexión"))
+        list.addView(choice(
+            "Conectar por",
+            listOf("USB (con MyMouse en el PC)", "Bluetooth (sin nada en el PC)"),
+            settings.connection.ordinal,
+        ) { settings = settings.copy(connection = AppSettings.Connection.entries[it]) })
+        list.addView(Button(this).apply {
+            text = "Emparejar por Bluetooth…"
+            isAllCaps = false
+            isEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P
+            setOnClickListener {
+                settings.save(this@SettingsActivity)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    startActivity(android.content.Intent(this@SettingsActivity, BluetoothActivity::class.java))
+                }
+            }
+        })
+        list.addView(TextView(this).apply {
+            text = "Por Bluetooth funcionan el trackpad, el zoom y un panel fijo de multimedia y volumen. " +
+                "El modo gestos y los widgets configurables necesitan MyMouse en el PC (USB)."
+            textSize = 13f
+            setTextColor(Color.rgb(150, 150, 150))
+        })
+
         list.addView(header("Modo gestos"))
         list.addView(choice(
             "Activar con",

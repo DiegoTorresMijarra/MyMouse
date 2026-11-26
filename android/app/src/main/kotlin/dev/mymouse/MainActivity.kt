@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -39,7 +40,10 @@ class MainActivity : Activity() {
 
     private enum class Mode { LOCKED, WINDOW }
 
-    private lateinit var connection: HostConnection
+    private lateinit var connection: Transport
+
+    /** Tipo de conexión con el que se creó [connection]; si cambia en Ajustes, se recrea la pantalla. */
+    private var connectionType = AppSettings.Connection.USB
     private lateinit var trackpad: TrackpadView
     private lateinit var panel: WidgetPanelView
     private lateinit var root: FrameLayout
@@ -67,7 +71,13 @@ class MainActivity : Activity() {
 
         settings = AppSettings.load(this)
         shapes = ShapeStore(this)
-        connection = HostConnection(port = Protocol.DEFAULT_PORT)
+        connectionType = settings.connection
+        connection = when (connectionType) {
+            AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT)
+            AppSettings.Connection.BLUETOOTH ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) BluetoothHidTransport.shared(this)
+                else HostConnection(port = Protocol.DEFAULT_PORT) // Android 8: sin Bluetooth HID
+        }
         trackpad = TrackpadView(this, buildEngine(), connection::send)
         trackpad.shapeStore = shapes
         panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
@@ -137,6 +147,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (AppSettings.load(this).connection != connectionType) {
+            recreate() // se ha cambiado entre USB y Bluetooth en Ajustes
+            return
+        }
         connection.start()
         applySettings()
         applyLayout()
@@ -160,7 +174,8 @@ class MainActivity : Activity() {
     // ---- Ajustes y atenuación ----
 
     private fun buildEngine(): TrackpadEngine {
-        val config = settings.trackpadConfig()
+        // Por Bluetooth no hay PC que ejecute las formas: sin modo gestos.
+        val config = settings.trackpadConfig().let { if (connection.supportsGestures) it else it.copy(gestureFingers = 0) }
         val recognizer = if (config.gestureFingers > 0) shapes.recognizer(minSizePx = 40 * density) else null
         return TrackpadEngine(config, recognizer)
     }
@@ -221,7 +236,7 @@ class MainActivity : Activity() {
         trackpad.framed = window
         trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS.mapNotNull { row ->
             if (row.icon != CheatSheet.Icon.THREE) row
-            else when (settings.gestureFingers) {
+            else when (if (connection.supportsGestures) settings.gestureFingers else 0) {
                 0 -> null
                 4 -> row.copy(text = "4 dedos quietos: modo gestos")
                 else -> row

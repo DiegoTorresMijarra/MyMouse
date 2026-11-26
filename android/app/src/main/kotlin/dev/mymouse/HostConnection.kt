@@ -25,21 +25,23 @@ import kotlin.concurrent.withLock
  * - Los movimientos consecutivos en cola se fusionan, para no acumular retraso si la red se atasca.
  * - Sin conexión, las acciones se descartan (no tiene sentido reproducir entrada antigua).
  */
-class HostConnection(private val port: Int) {
+class HostConnection(private val port: Int) : Transport {
 
-    var onConnectionChanged: (Boolean) -> Unit = {}
+    override val supportsGestures = true
+
+    override var onConnectionChanged: (Boolean) -> Unit = {}
 
     /** Lista de formas del PC (para la chuleta). Se llama desde el hilo de lectura. */
-    var onGestureList: (Message.GestureList) -> Unit = {}
+    override var onGestureList: (Message.GestureList) -> Unit = {}
 
     /** Respuesta del PC a una forma enviada. Se llama desde el hilo de lectura. */
-    var onGestureResult: (GestureStatus) -> Unit = {}
+    override var onGestureResult: (GestureStatus) -> Unit = {}
 
     /** Widgets del PC (protocolo v3). Se llaman desde el hilo de lectura. */
-    var onWidgetLayout: (Message.WidgetLayout) -> Unit = {}
-    var onVolumeState: (Message.VolumeState) -> Unit = {}
-    var onMediaState: (Message.MediaState) -> Unit = {}
-    var onWidgetResult: (Message.WidgetResult) -> Unit = {}
+    override var onWidgetLayout: (Message.WidgetLayout) -> Unit = {}
+    override var onVolumeState: (Message.VolumeState) -> Unit = {}
+    override var onMediaState: (Message.MediaState) -> Unit = {}
+    override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
 
     /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
     @Volatile var protocolVersion = 0
@@ -57,21 +59,21 @@ class HostConnection(private val port: Int) {
 
     private val isActive get() = worker === Thread.currentThread()
 
-    fun start() {
+    override fun start() {
         if (worker != null) return
         val t = thread(name = "MyMouse-connection", isDaemon = true, start = false) { runLoop() }
         worker = t // asignar antes de arrancar: runLoop comprueba isActive
         t.start()
     }
 
-    fun stop() {
+    override fun stop() {
         val old = worker ?: return
         worker = null
         closeSocket(socket)
         old.interrupt()
     }
 
-    fun send(action: OutputAction) {
+    override fun send(action: OutputAction) {
         if (!connected) return
         lock.withLock {
             enqueue(action)
@@ -83,7 +85,7 @@ class HostConnection(private val port: Int) {
      * Envía una orden del panel de widgets. Solo con versión ≥ 3: un host anterior no la entiende y cerraría la conexión.
      * Dos `VOLUME_SET` seguidos en cola se fusionan: solo importa el último nivel.
      */
-    fun sendWidget(message: Message) {
+    override fun sendWidget(message: Message) {
         require(message is Message.WidgetPress || message is Message.VolumeSet ||
             message is Message.MediaControl || message is Message.VolumeMute) { "No es una orden de widget: $message" }
         if (!connected || protocolVersion < Protocol.WIDGETS_VERSION) return

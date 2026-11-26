@@ -31,6 +31,28 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(_pauseItem);
         menu.Items.Add("Editar gestos y widgets…", null, (_, _) => EditGestures());
         menu.Items.Add("Abrir carpeta de logs", null, (_, _) => OpenLogs());
+        var autostartItem = new ToolStripMenuItem("Iniciar con Windows") { CheckOnClick = true };
+        try
+        {
+            autostartItem.Checked = Autostart.IsEnabled;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+        {
+            autostartItem.Enabled = false;
+        }
+        autostartItem.CheckedChanged += (_, _) =>
+        {
+            try
+            {
+                Autostart.Set(autostartItem.Checked);
+                FileLog.Write($"Iniciar con Windows: {(autostartItem.Checked ? "sí" : "no")}");
+            }
+            catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+            {
+                FileLog.Write($"No se pudo cambiar el inicio con Windows: {ex.Message}");
+            }
+        };
+        menu.Items.Add(autostartItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Salir", null, (_, _) => ExitThread());
 

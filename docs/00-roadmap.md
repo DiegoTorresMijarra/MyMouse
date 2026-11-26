@@ -88,11 +88,20 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 **Objetivo:** usar MyMouse sin depuración USB y, a ser posible, sin instalar nada en el PC.
 
-**Opciones a evaluar:**
-- **Bluetooth HID** (Android 9+): el móvil se anuncia como ratón y teclado; Windows no necesita programa. Depende de que EMUI lo permita.
-- **AOA por USB**: sin depuración USB, pero con un driver WinUSB y el programa en el PC.
+**Alcance:**
+- Modo **Bluetooth HID**: el móvil se empareja como ratón y teclado; el PC no necesita programa. Trackpad, clics, scroll, zoom y un panel fijo de multimedia y volumen.
+- Elegir USB o Bluetooth en Ajustes; pantalla para emparejar.
+- Host de Windows: "Iniciar con Windows".
+- AOA descartado: exige un driver en el PC.
+- Detalle: [spec-v3-bluetooth.md](spec-v3-bluetooth.md).
 
-**Criterio de "hecho":** por definir.
+**Criterios de "hecho":**
+1. Emparejar por Bluetooth y mover el cursor sin cable ni programa en el PC.
+2. Scroll, clics, arrastrar, zoom y multimedia por Bluetooth.
+3. Cambiar entre USB y Bluetooth sin reinstalar.
+4. Tests del traductor a informes HID.
+
+> Estado: implementada en la release `v3.0`, sin probar en dispositivos reales. Pendiente: comprobar que EMUI (P10) permite el perfil HID.
 
 ---
 

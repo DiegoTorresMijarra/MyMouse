@@ -23,6 +23,8 @@ data class AppSettings(
     val debug: Boolean = false,
     /** Dedos que activan el modo gestos: 3, 4 o 0 (desactivado). */
     val gestureFingers: Int = 3,
+    /** USB (MyMouse en el PC) o Bluetooth (el móvil como ratón, sin nada en el PC). */
+    val connection: Connection = Connection.USB,
     /** Segundos para empezar a dibujar la forma tras levantar los dedos de la activación. */
     val gestureStrokeTimeoutSeconds: Int = 5,
     /** Panel de widgets junto al trackpad (solo aparece si el PC ha enviado widgets). */
@@ -55,11 +57,14 @@ data class AppSettings(
             .putBoolean("autoRelock", autoRelock)
             .putBoolean("debug", debug)
             .putInt("gestureFingers", gestureFingers)
+            .putString("connection", connection.name)
             .putInt("gestureStrokeTimeoutSeconds", gestureStrokeTimeoutSeconds)
             .putBoolean("showWidgets", showWidgets)
             .putString("widgetPanelSize", widgetPanelSize.name)
             .apply()
     }
+
+    enum class Connection { USB, BLUETOOTH }
 
     companion object {
         const val MIN_STROKE_TIMEOUT_S = 2
@@ -87,6 +92,8 @@ data class AppSettings(
                 gestureFingers = p.getInt("gestureFingers", d.gestureFingers).takeIf { it in setOf(0, 3, 4) } ?: d.gestureFingers,
                 gestureStrokeTimeoutSeconds = p.getInt("gestureStrokeTimeoutSeconds", d.gestureStrokeTimeoutSeconds)
                     .coerceIn(MIN_STROKE_TIMEOUT_S, MAX_STROKE_TIMEOUT_S),
+                connection = p.getString("connection", null)
+                    ?.let { name -> Connection.entries.firstOrNull { it.name == name } } ?: d.connection,
                 showWidgets = p.getBoolean("showWidgets", d.showWidgets),
                 widgetPanelSize = p.getString("widgetPanelSize", null)
                     ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,
