@@ -8,11 +8,11 @@
 
 1. **Activar:** apoyar **3 dedos** a la vez (con menos de 150 ms entre el primero y el último) y mantenerlos quietos **300 ms**. El móvil vibra y la pantalla muestra un borde de color: el modo gestos está activo, y la chuleta del centro se amplía con todas las formas disponibles (ver §6).
 2. **Levantar** los 3 dedos.
-3. **Dibujar** la forma con **un dedo**, de un solo trazo, empezando en menos de 3 s desde que se levantan los dedos. El trazo se dibuja en pantalla mientras se hace.
+3. **Dibujar** la forma con **un dedo**, de un solo trazo, empezando antes de que pase el tiempo configurado desde que se levantan los dedos (Ajustes → Modo gestos; por defecto 5 s, de 2 a 15 s). El trazo se dibuja en pantalla mientras se hace.
 4. **Levantar** el dedo. El móvil reconoce la forma y muestra durante 1,5 s su nombre y la acción asignada, o "No reconocido".
 5. El modo gestos termina solo; se vuelve al trackpad.
 
-**Cancelar:** no empezar a dibujar en 3 s, o apoyar un segundo dedo en cualquier momento del modo gestos (incluido volver a apoyar los 3).
+**Cancelar:** no empezar a dibujar en el tiempo configurado, o apoyar un segundo dedo en cualquier momento del modo gestos (incluido volver a apoyar los 3).
 
 Por qué así:
 - **3 dedos mantenidos** no choca con nada de la v0 (1 dedo = mover, 2 = scroll/clic derecho; 3 ya está reservado). Mantenerlos quietos evita activaciones accidentales al apoyar la mano. N es configurable (3 o 4).

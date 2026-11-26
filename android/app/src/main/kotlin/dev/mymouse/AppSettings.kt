@@ -23,6 +23,8 @@ data class AppSettings(
     val debug: Boolean = false,
     /** Dedos que activan el modo gestos: 3, 4 o 0 (desactivado). */
     val gestureFingers: Int = 3,
+    /** Segundos para empezar a dibujar la forma tras levantar los dedos de la activación. */
+    val gestureStrokeTimeoutSeconds: Int = 5,
     /** Panel de widgets junto al trackpad (solo aparece si el PC ha enviado widgets). */
     val showWidgets: Boolean = true,
     val widgetPanelSize: WidgetPanelSize = WidgetPanelSize.MEDIUM,
@@ -36,6 +38,7 @@ data class AppSettings(
         naturalScroll = naturalScroll,
         tapToDrag = tapToDrag,
         gestureFingers = gestureFingers,
+        gestureStrokeTimeoutMs = gestureStrokeTimeoutSeconds * 1000L,
     )
 
     fun save(context: Context) {
@@ -52,12 +55,15 @@ data class AppSettings(
             .putBoolean("autoRelock", autoRelock)
             .putBoolean("debug", debug)
             .putInt("gestureFingers", gestureFingers)
+            .putInt("gestureStrokeTimeoutSeconds", gestureStrokeTimeoutSeconds)
             .putBoolean("showWidgets", showWidgets)
             .putString("widgetPanelSize", widgetPanelSize.name)
             .apply()
     }
 
     companion object {
+        const val MIN_STROKE_TIMEOUT_S = 2
+        const val MAX_STROKE_TIMEOUT_S = 15
         private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
         fun load(context: Context): AppSettings {
@@ -79,6 +85,8 @@ data class AppSettings(
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
                 debug = p.getBoolean("debug", d.debug),
                 gestureFingers = p.getInt("gestureFingers", d.gestureFingers).takeIf { it in setOf(0, 3, 4) } ?: d.gestureFingers,
+                gestureStrokeTimeoutSeconds = p.getInt("gestureStrokeTimeoutSeconds", d.gestureStrokeTimeoutSeconds)
+                    .coerceIn(MIN_STROKE_TIMEOUT_S, MAX_STROKE_TIMEOUT_S),
                 showWidgets = p.getBoolean("showWidgets", d.showWidgets),
                 widgetPanelSize = p.getString("widgetPanelSize", null)
                     ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,

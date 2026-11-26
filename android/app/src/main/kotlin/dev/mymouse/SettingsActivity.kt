@@ -64,6 +64,11 @@ class SettingsActivity : Activity() {
             listOf("3 dedos quietos", "4 dedos quietos", "Desactivado"),
             when (settings.gestureFingers) { 4 -> 1; 0 -> 2; else -> 0 },
         ) { settings = settings.copy(gestureFingers = listOf(3, 4, 0)[it]) })
+        list.addView(slider(
+            "Tiempo para empezar a dibujar",
+            AppSettings.MIN_STROKE_TIMEOUT_S.toFloat(), AppSettings.MAX_STROKE_TIMEOUT_S.toFloat(), 1f,
+            settings.gestureStrokeTimeoutSeconds.toFloat(), { "${it.roundToInt()} s" },
+        ) { settings = settings.copy(gestureStrokeTimeoutSeconds = it.roundToInt()) })
         list.addView(Button(this).apply {
             text = "Formas…"
             isAllCaps = false
