@@ -36,6 +36,14 @@ class BluetoothActivity : Activity() {
     private lateinit var devicesBody: LinearLayout
     private lateinit var diagCard: LinearLayout
     private lateinit var diagBody: LinearLayout
+    private lateinit var statsText: TextView
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+    private val statsTick = object : Runnable {
+        override fun run() {
+            updateStats()
+            ui.postDelayed(this, 1_000)
+        }
+    }
     private val density get() = resources.displayMetrics.density
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,9 +72,17 @@ class BluetoothActivity : Activity() {
         transport.eventListener = { runOnUiThread { refresh() } }
         if (hasPermissions()) transport.start()
         refresh()
+        ui.post(statsTick)
     }
 
+    private fun updateStats() {
+        if (::statsText.isInitialized) statsText.text = statsLine()
+    }
+
+    private fun statsLine(): String = "Envío: " + transport.stats.snapshot(android.os.SystemClock.uptimeMillis()).detail()
+
     override fun onPause() {
+        ui.removeCallbacks(statsTick)
         transport.statusListener = {}
         transport.eventListener = {}
         if (hasPermissions()) transport.stop()
@@ -155,6 +171,16 @@ class BluetoothActivity : Activity() {
             ).apply { setPadding(0, (8 * density).toInt(), 0, 0) })
         }
 
+        statsText = GlassTheme.text(this, statsLine(), 12f, GlassTheme.TEXT_SECONDARY).apply {
+            typeface = Typeface.MONOSPACE
+            setPadding(0, (8 * density).toInt(), 0, 0)
+        }
+        diagBody.addView(statsText)
+        diagBody.addView(GlassTheme.note(
+            this,
+            "El puntero va tan fluido como los informes por segundo: el intervalo real entre informes (no es un ping: " +
+                "Bluetooth HID no confirma lo que envía). Ajustes → Intervalo Bluetooth cambia la cadencia (6–20 ms).",
+        ))
         diagBody.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(GlassTheme.button(this@BluetoothActivity, "Reintentar conexión") { transport.retryConnection() })
@@ -183,7 +209,10 @@ class BluetoothActivity : Activity() {
             "?"
         }
         val info = "MyMouse $version · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
-        val text = BluetoothDiagnostics.report(transport.facts(hasPermissions()), transport.events.entries(), info)
+        val text = BluetoothDiagnostics.report(
+            transport.facts(hasPermissions()), transport.events.entries(),
+            "$info\n${statsLine()}\nIntervalo de envío configurado: ${transport.intervalMs} ms",
+        )
         getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Diagnóstico de MyMouse", text))
         Toast.makeText(this, "Diagnóstico copiado", Toast.LENGTH_SHORT).show()
     }

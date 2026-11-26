@@ -117,6 +117,13 @@ Segunda prueba: "Agregar un dispositivo" de Windows muestra el Poco como teléfo
 - **Registro de eventos ampliado:** cambios de emparejado (`ACTION_BOND_STATE_CHANGED`, con nombre del dispositivo y si la app HID estaba registrada en ese instante), registro y anulación del registro con su motivo, `getProfileProxy`, `registerApp`, `connect` y cambios de conexión. Así se ve si el servicio estaba registrado cuando Windows emparejó.
 - **Ayuda:** que Windows muestre el móvil con icono de teléfono al emparejar es normal (usa la clase del dispositivo); al terminar debe aparecer como conectado; si solo pone "Emparejado", quitarlo y volver a emparejar con MyMouse abierto en la pantalla Bluetooth.
 
+### 4.2 Latencia por Bluetooth
+Tercera prueba: el emparejado ya funciona, pero el puntero va con retraso comparado con un ratón real. Causa probable: `BluetoothHidTransport.send()` llamaba a `sendReport` por cada `PointerMove` en el hilo principal, y los informes se acumulan en la pila Bluetooth más deprisa que el intervalo del enlace, de modo que el retraso crece.
+- **Envío agrupado.** Un hilo emisor propio (`HandlerThread`) acumula dx, dy, rueda y desplazamiento horizontal y saca **un solo informe de ratón por tic** (8 ms por defecto) con el último estado de los botones. Cambios de botones, teclado y multimedia salen enseguida y en orden, soltando antes el movimiento pendiente (un clic cae donde estaba el puntero). Si `sendReport` devuelve false, el movimiento no se pierde: vuelve a la cuenta para el siguiente tic. La lógica es `HidMotionCoalescer` (en `core`, pura, con tests: sumas, troceado en ±127 a lo largo de varios tics, orden de botones, rueda, reintento). El tic solo corre mientras hay movimiento pendiente (sin despertar el hilo en reposo).
+- **Ajuste avanzado "Intervalo Bluetooth"** (Ajustes → Conexión): 6–20 ms, 8 por defecto.
+- **QoS.** `registerApp` recibe `BluetoothHidDeviceAppQosSettings` para el canal de salida (interrupción): mejor esfuerzo, tasa de fichas 800 B/s, cubo 9, ancho de banda de pico 0, latencia 11 250 µs, variación de retardo `MAX`; la de entrada sigue en `null`. El registro de eventos anota los valores usados.
+- **Métrica honesta.** Por HID no hay confirmaciones, así que no existe un ping real. Se muestra lo que sí se puede medir: informes por segundo, el **intervalo real entre informes** y lo que tarda cada `sendReport`, en el último segundo (`HidSendStats` en `core`, con tests). En modo Bluetooth aparece junto al punto de estado ("Bluetooth · 120 inf/s · 8 ms"), en la sección Diagnóstico (con "Copiar diagnóstico") y en el modo depuración. Es el intervalo entre informes, no un ping.
+
 ## 5. Criterios de "hecho" de la v4.5
 1. Toolbox: barra superior con ⚙ ⤢ ✕; maximizar a ventana con dos columnas y restaurar; 8 px sobre la barra de tareas.
 2. Tarjeta Gestos con filas alineadas, chips y secciones; sin rutas largas.
@@ -127,7 +134,7 @@ Segunda prueba: "Agregar un dispositivo" de Windows muestra el Poco como teléfo
 
 ## 6. Notas de implementación
 
-Implementado: la lógica nueva con tests (diagnóstico de Bluetooth y registro de eventos en `core`; chips de acción, secciones de la tarjeta Gestos, reparto en dos columnas, tamaño de la ventana maximizada y ajustes `glass`/`maximized` de `toolbox.json` en `MyMouse.HostCore`), el estilo glass en Windows y en el móvil y la ampliación §4.1. Desviaciones y lo que **no se ha podido verificar**:
+Implementado: la lógica nueva con tests (diagnóstico de Bluetooth y registro de eventos en `core`; chips de acción, secciones de la tarjeta Gestos, reparto en dos columnas, tamaño de la ventana maximizada y ajustes `glass`/`maximized` de `toolbox.json` en `MyMouse.HostCore`), el estilo glass en Windows y en el móvil y las ampliaciones §4.1 y §4.2 (`HidMotionCoalescer`, `HidSendStats`). Desviaciones y lo que **no se ha podido verificar**:
 
 ### Desviaciones
 - **Esquinas del Acrylic:** con el cristal del sistema las esquinas las redondea Windows (`DWMWCP_ROUND`, ~8 px), no los 16 px del token de panel. Con la alternativa sólida (Windows 10 o "Efecto cristal" desactivado) sí se dibuja el radio 16 y la sombra anterior (blur 18, con 16 px de margen transparente). La sombra "0 12 40" de la tabla solo se aproxima ahí.
@@ -143,7 +150,10 @@ Implementado: la lógica nueva con tests (diagnóstico de Bluetooth y registro d
 - **Android, botón "Hacer visible":** 3 minutos (antes 2) y mantiene el registro HID 180 s (§4.1).
 - **Ayuda de Bluetooth:** además del texto de la spec se muestra el aviso de la §4.1 sobre el icono de teléfono y el estado "Emparejado".
 
+- **Latencia por Bluetooth (§4.2):** el "8 ms" de la etiqueta es el intervalo real medio entre informes, y el tiempo de cada `sendReport` solo se ve en el diagnóstico. El envío del movimiento corre en el hilo emisor, pero el `HidMapper` (con sus acumuladores de rueda y zoom) sigue en el hilo principal, que es de donde llegan las acciones.
+
 ### Sin verificar
+- **Latencia por Bluetooth (§4.2):** nada de esto se ha probado en un móvil. Que el agrupado y el QoS quiten el retraso es una hipótesis: si no, pegar "Copiar diagnóstico" (informes por segundo, intervalo real y `sendReport` medio) y probar con intervalos de 12–16 ms. El constructor de `BluetoothHidDeviceAppQosSettings` y `registerApp` con QoS de salida no se han compilado.
 - **Todo lo que dibuja en Windows:** ninguna ventana se ha ejecutado. En concreto: que `WindowChrome` con `GlassFrameThickness = -1` + `DWMWA_SYSTEMBACKDROP_TYPE` dé Acrylic en una ventana sin `AllowsTransparency`; el aspecto de las esquinas y el borde; la plantilla de la barra de desplazamiento (se carga de una cadena XAML; si falla, se apunta en el log y se usa la de Windows); `DragMove` en la barra de la toolbox maximizada; el reparto en dos columnas medido antes de mostrar la ventana; el hover del "›" y de las filas; Mica en el editor con marco normal.
 - **El módulo `app` de Android no se ha compilado** (sin Android SDK local): solo se ha pasado el compilador de Kotlin sobre las fuentes para descartar errores de sintaxis (los únicos errores son de las clases de Android que faltan). Riesgos: `RenderNode`/`drawRenderNode`, `ViewCompat` con `setDecorFitsSystemWindows(false)` en versiones < 15, los atributos de `themes.xml`, y el aspecto de los diálogos con `Theme.DeviceDefault.Dialog.Alert`.
 - **Bluetooth:** que mantener el registro HID 60 s/180 s resuelva el "Esperando al PC"; es una hipótesis (§4.1). El diagnóstico existe para comprobarlo: pide a quien lo pruebe que pegue el resultado de "Copiar diagnóstico".

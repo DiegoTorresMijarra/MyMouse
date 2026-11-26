@@ -75,6 +75,14 @@ class TrackpadView(
         }
     private var dotTouch = false
 
+    /** Texto junto al punto de estado en modo Bluetooth: "Bluetooth · 120 inf/s · 8 ms" (intervalo real entre informes, no un ping). */
+    var linkInfo: (() -> String?)? = null
+    private val linkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = GlassTheme.TEXT_SECONDARY
+        textSize = 11 * resources.displayMetrics.density
+        textAlign = Paint.Align.RIGHT
+    }
+
     private fun inStatusDot(x: Float, y: Float): Boolean {
         val r = 28 * density
         val dx = x - (width - 16 * density)
@@ -358,6 +366,10 @@ class TrackpadView(
         statusPaint.color = if (connected) GlassTheme.GREEN else GlassTheme.TEXT_TERTIARY
         val r = 5 * density
         canvas.drawCircle(width - 16 * density, 16 * density, r, statusPaint)
+        val info = if (connected) linkInfo?.invoke() else null
+        debugOverlay?.linkInfo = info
+        if (info != null) canvas.drawText(info, width - 30 * density, 16 * density + linkPaint.textSize / 3, linkPaint)
+        if (linkInfo != null) postInvalidateDelayed(500) // la cifra se refresca sola
         if (onStatusDotTap != null) canvas.drawCircle(width - 16 * density, 16 * density, r + 4 * density, framePaint) // se puede tocar
     }
 

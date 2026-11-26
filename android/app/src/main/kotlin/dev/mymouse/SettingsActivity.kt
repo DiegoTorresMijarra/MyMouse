@@ -60,6 +60,11 @@ class SettingsActivity : Activity() {
             listOf("USB (con MyMouse en el PC)", "Bluetooth (sin nada en el PC)"),
             settings.connection.ordinal,
         ) { settings = settings.copy(connection = AppSettings.Connection.entries[it]) })
+        list.addView(slider(
+            "Intervalo Bluetooth (avanzado)",
+            AppSettings.MIN_BLUETOOTH_INTERVAL_MS.toFloat(), AppSettings.MAX_BLUETOOTH_INTERVAL_MS.toFloat(), 1f,
+            settings.bluetoothIntervalMs.toFloat(), { "${it.roundToInt()} ms" },
+        ) { settings = settings.copy(bluetoothIntervalMs = it.roundToInt()) })
         list.addView(GlassTheme.button(this, "Emparejar por Bluetooth…") {
             settings.save(this@SettingsActivity)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -68,7 +73,9 @@ class SettingsActivity : Activity() {
         }.apply { isEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P })
         list.addView(TextView(this).apply {
             text = "Por Bluetooth funcionan el trackpad, el zoom y un panel fijo de multimedia y volumen. " +
-                "El modo gestos y los widgets configurables necesitan MyMouse en el PC (USB)."
+                "El modo gestos y los widgets configurables necesitan MyMouse en el PC (USB). " +
+                "El intervalo es cada cuánto se envía el movimiento: menos ms = puntero más fluido y más tráfico " +
+                "(8 ms va bien; sube a 12–16 si se nota retraso acumulado). En el trackpad se ve el intervalo real entre informes, no un ping."
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })

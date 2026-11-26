@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
+import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -13,7 +14,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -23,6 +26,8 @@ import dev.mymouse.core.bluetooth.HidLinkState
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.hid.ConsumerKey
 import dev.mymouse.core.hid.HidMapper
+import dev.mymouse.core.hid.HidMotionCoalescer
+import dev.mymouse.core.hid.HidSendStats
 import dev.mymouse.core.hid.HidReport
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.MediaCommand
@@ -45,6 +50,26 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private val handler = Handler(Looper.getMainLooper())
     private val adapter: BluetoothAdapter? = app.getSystemService(BluetoothManager::class.java)?.adapter
     private val mapper = HidMapper()
+
+    // ---- Envío agrupado (docs/spec-v4.5-estilo.md §4.2) ----
+    // Un hilo propio saca UN informe de ratón por tic con el movimiento acumulado; botones, teclado y multimedia salen enseguida y en orden.
+    private val coalescer = HidMotionCoalescer()
+    private val senderThread = HandlerThread("mymouse-bt-sender", Process.THREAD_PRIORITY_URGENT_DISPLAY).also { it.start() }
+    private val sender = Handler(senderThread.looper)
+    @Volatile private var tickScheduled = false
+    private var lastMouseSendAt = 0L
+
+    /** Cadencia del envío de movimiento, en ms (6–20; 8 por defecto). */
+    @Volatile var intervalMs: Long = DEFAULT_INTERVAL_MS
+        set(value) {
+            field = value.coerceIn(MIN_INTERVAL_MS, MAX_INTERVAL_MS)
+        }
+
+    /** Estadística del último segundo: informes por segundo y tiempo medio de `sendReport` (no es un ping: HID no tiene confirmaciones). */
+    val stats = HidSendStats()
+
+    /** "Bluetooth · 120 inf/s · 8 ms" mientras haya conexión: el intervalo real entre informes. */
+    fun linkInfo(): String? = if (host == null) null else "Bluetooth · " + stats.snapshot(SystemClock.uptimeMillis()).label()
 
     private var users = 0
     private var hid: BluetoothHidDevice? = null
@@ -80,9 +105,14 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         }
     var statusListener: (String) -> Unit = {}
 
+    /** Se puede llamar desde el hilo emisor: el registro solo se toca desde el principal. */
     private fun log(text: String) {
-        events.add(System.currentTimeMillis(), text)
-        eventListener()
+        val time = System.currentTimeMillis()
+        val add = Runnable {
+            events.add(time, text)
+            eventListener()
+        }
+        if (Looper.myLooper() === Looper.getMainLooper()) add.run() else handler.post(add)
     }
 
     // El emparejado lo hace Windows, no la app: se anota cada cambio para saber si el servicio HID estaba registrado en ese momento.
@@ -243,7 +273,11 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     private fun releaseNow() {
         val h = hid ?: return
-        host?.let { device -> mapper.releaseAll().forEach { sendReport(device, it) } }
+        // Se descarta lo pendiente del hilo emisor y se sueltan botones y teclas directamente.
+        sender.removeCallbacksAndMessages(null)
+        tickScheduled = false
+        coalescer.reset()
+        host?.let { device -> mapper.releaseAll().forEach { transmit(device, it) } }
         log("anulando el registro HID: ninguna pantalla lo usa desde hace un rato")
         try {
             if (registered) h.unregisterApp()
@@ -263,8 +297,13 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             "MyMouse", "Trackpad MyMouse", "MyMouse", BluetoothHidDevice.SUBCLASS1_COMBO, HidMapper.DESCRIPTOR,
         )
         try {
-            val ok = h.registerApp(sdp, null, null, app.mainExecutor, callback)
-            log("registerApp() devolvió $ok")
+            // QoS del canal de salida (interrupción, del móvil al PC): mejor esfuerzo con poco retardo (11,25 ms).
+            val outQos = BluetoothHidDeviceAppQosSettings(
+                BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT, QOS_TOKEN_RATE, QOS_TOKEN_BUCKET, 0, QOS_LATENCY_US,
+                BluetoothHidDeviceAppQosSettings.MAX,
+            )
+            val ok = h.registerApp(sdp, null, outQos, app.mainExecutor, callback)
+            log("registerApp() devolvió $ok (QoS de salida: mejor esfuerzo, tasa $QOS_TOKEN_RATE B/s, cubo $QOS_TOKEN_BUCKET, latencia $QOS_LATENCY_US µs; entrada: sin QoS)")
             status = if (ok) "Registrando como ratón Bluetooth…" else "No se pudo registrar como ratón Bluetooth"
         } catch (e: SecurityException) {
             status = "Falta el permiso de Bluetooth"
@@ -352,6 +391,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         val changed = host?.address != device?.address
         host = device
         if (!changed) return
+        stats.reset()
+        if (device == null) sender.post { coalescer.reset() }
         onConnectionChanged(device != null)
         if (device != null) replayState() else onWidgetLayout(Message.WidgetLayout(emptyList()))
     }
@@ -366,7 +407,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     override fun send(action: OutputAction) {
         val device = host ?: return
-        mapper.map(action).forEach { sendReport(device, it) }
+        val reports = mapper.map(action)
+        if (reports.isEmpty()) return
+        sender.post { process(device, reports) }
     }
 
     override fun sendWidget(message: Message) {
@@ -385,17 +428,53 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             }
             else -> null // sin volumen absoluto por Bluetooth
         } ?: return
-        mapper.consumer(key).forEach { sendReport(device, it) }
+        val reports = mapper.consumer(key)
+        sender.post { process(device, reports) }
     }
 
     override fun sendShapes(messages: List<Message>) = Unit // sin PC no hay con quién sincronizar las formas
 
-    private fun sendReport(device: BluetoothDevice, report: HidReport) {
-        try {
-            hid?.sendReport(device, report.id, report.data)
+    /** En el hilo emisor: lo que no es movimiento sale ya (tras soltar el movimiento pendiente) y el movimiento espera a su tic. */
+    private fun process(device: BluetoothDevice, reports: List<HidReport>) {
+        if (host?.address != device.address) return // se desconectó entre tanto
+        for (report in reports) coalescer.offer(report).forEach { transmit(device, it) }
+        if (coalescer.hasPending) scheduleTick()
+    }
+
+    private fun scheduleTick() {
+        if (tickScheduled) return
+        tickScheduled = true
+        val wait = (lastMouseSendAt + intervalMs - SystemClock.uptimeMillis()).coerceAtLeast(0L)
+        sender.postDelayed(tick, wait)
+    }
+
+    private val tick = Runnable {
+        tickScheduled = false
+        val device = host
+        if (device == null) {
+            coalescer.reset()
+            return@Runnable
+        }
+        val report = coalescer.tick() ?: return@Runnable
+        // Si el sistema rechaza el informe, el movimiento no se pierde: vuelve a la cuenta para el siguiente tic.
+        if (!transmit(device, report)) coalescer.restore(report)
+        if (coalescer.hasPending) scheduleTick()
+    }
+
+    /** Un `sendReport`, medido. Devuelve false si el sistema lo rechazó. */
+    private fun transmit(device: BluetoothDevice, report: HidReport): Boolean {
+        val started = System.nanoTime()
+        val ok = try {
+            hid?.sendReport(device, report.id, report.data) ?: false
         } catch (e: SecurityException) {
             status = "Falta el permiso de Bluetooth"
+            false
         }
+        val now = SystemClock.uptimeMillis()
+        stats.record(now, (System.nanoTime() - started) / 1_000L, ok)
+        if (report.id == HidMapper.MOUSE_ID) lastMouseSendAt = now
+        if (!ok && report.id != HidMapper.MOUSE_ID) log("sendReport rechazado (informe ${report.id})")
+        return ok
     }
 
     private fun prefs() = app.getSharedPreferences("bluetooth", Context.MODE_PRIVATE)
@@ -414,6 +493,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     companion object {
         private const val TAG = "MyMouse"
         private const val KEY_HOST = "host"
+        const val DEFAULT_INTERVAL_MS = 8L
+        const val MIN_INTERVAL_MS = 6L
+        const val MAX_INTERVAL_MS = 20L
+        private const val QOS_TOKEN_RATE = 800
+        private const val QOS_TOKEN_BUCKET = 9
+        private const val QOS_LATENCY_US = 11_250
         private const val RELEASE_DELAY_MS = 60_000L // spec v4.5 §4: no cortar el registro HID mientras Windows empareja
         private const val ID_VOLUME_DOWN = 1
         private const val ID_VOLUME_UP = 2

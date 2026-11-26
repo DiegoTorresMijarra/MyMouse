@@ -23,6 +23,9 @@ class DebugOverlay(private val density: Float) {
     private val entries = ArrayDeque<Entry>()
     private var maxFingers = 0
 
+    /** Estado del enlace Bluetooth (informes por segundo e intervalo real), si lo hay. */
+    var linkInfo: String? = null
+
     private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -117,7 +120,7 @@ class DebugOverlay(private val density: Float) {
         var y = panel.bottom + 16 * density
         canvas.drawText(
             "${down.size} dedo${if (down.size == 1) "" else "s"} · " +
-                if (connected) "enviando al PC" else "sin conexión: no se envía nada",
+                (if (connected) "enviando al PC" else "sin conexión: no se envía nada") + (linkInfo?.let { " · $it" } ?: ""),
             m, y, smallPaint,
         )
         for (e in entries) {

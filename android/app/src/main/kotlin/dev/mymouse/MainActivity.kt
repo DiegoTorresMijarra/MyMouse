@@ -105,6 +105,7 @@ class MainActivity : Activity() {
         trackpad.toolboxUnavailableText = { connection.toolboxUnavailableText }
         // En modo Bluetooth, un toque en el punto de estado abre el diagnóstico (docs/spec-v4.5-estilo.md §4).
         if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            trackpad.linkInfo = { (connection as? BluetoothHidTransport)?.linkInfo() }
             trackpad.onStatusDotTap = {
                 startActivity(Intent(this, BluetoothActivity::class.java).putExtra(BluetoothActivity.EXTRA_SHOW_DIAGNOSTICS, true))
             }
@@ -228,6 +229,9 @@ class MainActivity : Activity() {
         trackpad.shapeStore = shapes
         trackpad.interpreter = buildEngine()
         trackpad.showCheatSheet = settings.showCheatSheet
+        if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            (connection as? BluetoothHidTransport)?.intervalMs = settings.bluetoothIntervalMs.toLong()
+        }
         applyMargins() // "Mostrar panel de widgets" y "Tamaño del panel" pueden haber cambiado
         if (settings.debug != (trackpad.debugOverlay != null)) {
             trackpad.debugOverlay = if (settings.debug) DebugOverlay(density) else null

@@ -36,6 +36,8 @@ data class AppSettings(
     /** Panel de widgets junto al trackpad (solo aparece si el PC ha enviado widgets). */
     val showWidgets: Boolean = true,
     val widgetPanelSize: WidgetPanelSize = WidgetPanelSize.MEDIUM,
+    /** Cadencia del envío del movimiento por Bluetooth, en ms (ajuste avanzado, docs/spec-v4.5-estilo.md §4.2). */
+    val bluetoothIntervalMs: Int = 8,
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -73,6 +75,7 @@ data class AppSettings(
             .putInt("gestureStrokeTimeoutSeconds", gestureStrokeTimeoutSeconds)
             .putBoolean("showWidgets", showWidgets)
             .putString("widgetPanelSize", widgetPanelSize.name)
+            .putInt("bluetoothIntervalMs", bluetoothIntervalMs)
             .apply()
     }
 
@@ -81,6 +84,8 @@ data class AppSettings(
     companion object {
         const val MIN_STROKE_TIMEOUT_S = 2
         const val MAX_STROKE_TIMEOUT_S = 15
+        const val MIN_BLUETOOTH_INTERVAL_MS = 6
+        const val MAX_BLUETOOTH_INTERVAL_MS = 20
         const val MIN_ZOOM_SPEED = 0.5f
         const val MAX_ZOOM_SPEED = 4f
         private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -118,6 +123,8 @@ data class AppSettings(
                 showWidgets = p.getBoolean("showWidgets", d.showWidgets),
                 widgetPanelSize = p.getString("widgetPanelSize", null)
                     ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,
+                bluetoothIntervalMs = p.getInt("bluetoothIntervalMs", d.bluetoothIntervalMs)
+                    .coerceIn(MIN_BLUETOOTH_INTERVAL_MS, MAX_BLUETOOTH_INTERVAL_MS),
             )
         }
     }

@@ -114,7 +114,8 @@ Si el móvil dice **"Esperando al PC"** y el PC no lo usa como ratón:
    - En el móvil, **con MyMouse abierto en la pantalla Bluetooth** (déjala abierta durante todo el emparejado), pulsa **Hacer visible** (mantiene el registro HID 3 minutos).
    - En Windows: Agregar dispositivo → Bluetooth → el móvil; acepta el PIN en los dos lados.
 4. Que Windows muestre el móvil con **icono de teléfono** mientras empareja es normal. Al terminar, debe aparecer **como conectado**; si solo pone "Emparejado", quítalo y repite el paso 3.
-5. Pulsa **Copiar diagnóstico** y pégalo al contarlo: incluye las comprobaciones y los últimos 30 eventos, con los cambios de emparejado y si la app HID estaba registrada en ese momento.
+5. **Retraso del puntero (v4.5):** el movimiento por Bluetooth se envía agrupado, un informe cada 8 ms. En el trackpad, junto al punto de estado, se lee "Bluetooth · 120 inf/s · 8 ms": informes por segundo e **intervalo real entre informes** (no es un ping; Bluetooth HID no confirma nada). También sale en el diagnóstico y en el modo depuración. Si aún se nota retraso, prueba *Ajustes → Intervalo Bluetooth* con 12–16 ms y compara; apunta cuál va mejor.
+6. Pulsa **Copiar diagnóstico** y pégalo al contarlo: incluye las comprobaciones y los últimos 30 eventos, con los cambios de emparejado y si la app HID estaba registrada en ese momento.
 
 ## Bluetooth (desde la v3.0)
 

@@ -139,7 +139,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 - **Tokens glass** (fondo degradado, cristal de panel y de tarjeta, radios, acento) en `Theme.cs` y en `GlassTheme.kt`.
 - **Windows:** Acrylic del sistema con `WindowChrome` (alternativa sólida en Windows 10 y ajuste "Efecto cristal"), barra superior de 40 px (⚙ ⤢ ✕), maximizar a una ventana de dos columnas, 8 px sobre la barra de tareas, tarjeta Gestos rediseñada (filas alineadas, chips, secciones Fijadas / Asignadas / Sin acción), Opciones, Música, gesto en vivo y editor con el mismo cristal.
 - **Móvil:** la misma capa en el trackpad, la chuleta, el panel de widgets, Ajustes, Formas, Grabar forma y Bluetooth (con desenfoque en Android 12+); solo estilo.
-- **Bluetooth:** sección "Diagnóstico" (comprobaciones, últimos 30 eventos, reintentar, volver a registrar, copiar), el registro HID aguanta el emparejado (60 s; 180 s al hacerse visible) y aviso en el PC si dice "Sin dispositivo" estando en modo Bluetooth.
+- **Bluetooth:** sección "Diagnóstico" (comprobaciones, últimos 30 eventos, reintentar, volver a registrar, copiar), el registro HID aguanta el emparejado (60 s; 180 s al hacerse visible) envío del movimiento agrupado y QoS para reducir el retraso, métrica de informes por segundo e intervalo real, y aviso en el PC si dice "Sin dispositivo" estando en modo Bluetooth.
 - Detalle: [spec-v4.5-estilo.md](spec-v4.5-estilo.md).
 
 > Estado: implementada en la rama de desarrollo (release `v4.5` pendiente). La lógica nueva tiene tests; las ventanas de Windows y el módulo `app` no se han ejecutado ni compilado aquí: ver las [notas de la spec](spec-v4.5-estilo.md#6-notas-de-implementación).
