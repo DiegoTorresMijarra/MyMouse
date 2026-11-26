@@ -7,12 +7,19 @@ import android.bluetooth.BluetoothHidDevice
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
+import dev.mymouse.core.bluetooth.BluetoothEventLog
+import dev.mymouse.core.bluetooth.BluetoothFacts
+import dev.mymouse.core.bluetooth.HidLinkState
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.hid.ConsumerKey
 import dev.mymouse.core.hid.HidMapper
@@ -42,6 +49,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private var users = 0
     private var hid: BluetoothHidDevice? = null
     private var registered = false
+    private var holdUntil = 0L // elapsedRealtime hasta el que se mantiene el registro HID aunque no haya pantallas
     @Volatile private var host: BluetoothDevice? = null
 
     override var onConnectionChanged: (Boolean) -> Unit = {}
@@ -58,14 +66,133 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
     override val toolboxUnavailableText = "La toolbox del PC solo funciona por USB"
 
+    /** Registro de depuración (spec v4.5 §4): los últimos 30 eventos, para la sección "Diagnóstico". */
+    val events = BluetoothEventLog()
+    var eventListener: () -> Unit = {}
+
     /** Estado legible para la pantalla de emparejar. */
     var status: String = "Sin iniciar"
         private set(value) {
             field = value
             Log.i(TAG, "Bluetooth: $value")
+            log("estado: $value")
             statusListener(value)
         }
     var statusListener: (String) -> Unit = {}
+
+    private fun log(text: String) {
+        events.add(System.currentTimeMillis(), text)
+        eventListener()
+    }
+
+    // El emparejado lo hace Windows, no la app: se anota cada cambio para saber si el servicio HID estaba registrado en ese momento.
+    private val bondReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
+            @Suppress("DEPRECATION")
+            val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            } else {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            }
+            val state = when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
+                BluetoothDevice.BOND_BONDED -> "emparejado"
+                BluetoothDevice.BOND_BONDING -> "emparejando…"
+                BluetoothDevice.BOND_NONE -> "sin emparejar"
+                else -> "desconocido"
+            }
+            val name = device?.let { nameOf(it) } ?: "?"
+            log("emparejado con $name: $state (app HID registrada: ${if (registered) "sí" else "no"})")
+        }
+    }
+
+    init {
+        val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                app.registerReceiver(bondReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                app.registerReceiver(bondReceiver, filter)
+            }
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "No se pudo escuchar el emparejado: ${e.message}")
+        }
+    }
+
+    /**
+     * Mantiene el registro HID al menos [millis] ms aunque ninguna pantalla lo use (por ejemplo, mientras Windows empareja y
+     * salen diálogos del sistema): si se libera, Windows no ve el servicio HID al consultar el móvil.
+     */
+    fun holdRegistration(millis: Long) {
+        holdUntil = maxOf(holdUntil, SystemClock.elapsedRealtime() + millis)
+        log("registro HID mantenido ${millis / 1000} s")
+        if (users == 0 && hid != null) scheduleRelease()
+    }
+
+    private fun scheduleRelease() {
+        handler.removeCallbacks(release)
+        val wait = maxOf(RELEASE_DELAY_MS, holdUntil - SystemClock.elapsedRealtime())
+        handler.postDelayed(release, wait)
+    }
+
+    /** Lo que el móvil sabe ahora, para evaluar las comprobaciones del diagnóstico. */
+    fun facts(permissionsGranted: Boolean): BluetoothFacts {
+        val a = adapter
+        val preferred = preferredAddress()
+        val bonded = bondedDevices().firstOrNull { it.address == preferred }
+        val link = bonded?.let { device ->
+            try {
+                when (hid?.getConnectionState(device)) {
+                    BluetoothProfile.STATE_CONNECTED -> HidLinkState.CONNECTED
+                    BluetoothProfile.STATE_CONNECTING -> HidLinkState.CONNECTING
+                    BluetoothProfile.STATE_DISCONNECTED -> HidLinkState.DISCONNECTED
+                    else -> null
+                }
+            } catch (e: SecurityException) {
+                null
+            }
+        }
+        return BluetoothFacts(
+            adapterPresent = a != null,
+            adapterEnabled = a?.isEnabled,
+            permissionsGranted = permissionsGranted,
+            profileAvailable = if (hid != null) true else null,
+            appRegistered = if (hid != null) registered else null,
+            preferredHostName = bonded?.let { nameOf(it) } ?: preferred,
+            preferredHostBonded = bonded != null,
+            link = link,
+        )
+    }
+
+    /** "Reintentar conexión": vuelve a llamar a `connect` con el PC preferido. */
+    fun retryConnection() {
+        val target = preferredHost()
+        if (target == null) {
+            log("reintentar: no hay PC preferido emparejado")
+            return
+        }
+        if (hid == null || !registered) log("reintentar: la app aún no está registrada como ratón")
+        connect(target)
+    }
+
+    /** "Volver a registrar": anula el registro HID y lo repite. */
+    fun reregister() {
+        val h = hid
+        if (h == null) {
+            log("volver a registrar: sin perfil HID, se reinicia")
+            return
+        }
+        try {
+            if (registered) {
+                log("anulando el registro HID (a petición del usuario)")
+                h.unregisterApp()
+                registered = false
+            }
+        } catch (e: SecurityException) {
+            log("error al anular el registro: sin permiso")
+        }
+        handler.postDelayed({ register() }, 500)
+    }
 
     val connectedHost: BluetoothDevice? get() = host
 
@@ -74,6 +201,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override fun start() {
         handler.removeCallbacks(release)
         users++
+        log("pantalla en uso (usuarios: $users)")
         if (hid != null || users > 1) {
             replayState()
             return
@@ -86,6 +214,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                 val ok = a.getProfileProxy(app, object : BluetoothProfile.ServiceListener {
                     override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                         hid = proxy as BluetoothHidDevice
+                        log("perfil HID disponible")
                         register()
                     }
 
@@ -93,9 +222,11 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                         hid = null
                         registered = false
                         setHost(null)
+                        log("registro HID perdido: el sistema cerró el perfil")
                         status = "El sistema cerró el perfil Bluetooth HID"
                     }
                 }, BluetoothProfile.HID_DEVICE)
+                log("getProfileProxy(HID_DEVICE) devolvió $ok")
                 status = if (ok) "Iniciando el perfil Bluetooth HID…" else "Este móvil no permite hacer de ratón Bluetooth (perfil HID no disponible)"
             } catch (e: SecurityException) {
                 status = "Falta el permiso de Bluetooth"
@@ -106,12 +237,14 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override fun stop() {
         if (users == 0) return
         users--
-        if (users == 0) handler.postDelayed(release, RELEASE_DELAY_MS)
+        log("pantalla liberada (usuarios: $users)")
+        if (users == 0) scheduleRelease()
     }
 
     private fun releaseNow() {
         val h = hid ?: return
         host?.let { device -> mapper.releaseAll().forEach { sendReport(device, it) } }
+        log("anulando el registro HID: ninguna pantalla lo usa desde hace un rato")
         try {
             if (registered) h.unregisterApp()
             adapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, h)
@@ -131,6 +264,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         )
         try {
             val ok = h.registerApp(sdp, null, null, app.mainExecutor, callback)
+            log("registerApp() devolvió $ok")
             status = if (ok) "Registrando como ratón Bluetooth…" else "No se pudo registrar como ratón Bluetooth"
         } catch (e: SecurityException) {
             status = "Falta el permiso de Bluetooth"
@@ -140,6 +274,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private val callback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             this@BluetoothHidTransport.registered = registered
+            log("onAppStatusChanged registered=$registered, dispositivo=${pluggedDevice?.let { nameOf(it) } ?: "ninguno"}")
             if (!registered) {
                 setHost(null)
                 status = "Registro Bluetooth cancelado"
@@ -151,6 +286,14 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         }
 
         override fun onConnectionStateChanged(device: BluetoothDevice, state: Int) {
+            val label = when (state) {
+                BluetoothProfile.STATE_CONNECTED -> "conectado"
+                BluetoothProfile.STATE_CONNECTING -> "conectando"
+                BluetoothProfile.STATE_DISCONNECTING -> "desconectando"
+                BluetoothProfile.STATE_DISCONNECTED -> "desconectado"
+                else -> "estado $state"
+            }
+            log("onConnectionStateChanged ${nameOf(device)}: $label")
             when (state) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     setHost(device)
@@ -185,7 +328,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     /** Conecta con un PC ya emparejado. */
     fun connect(device: BluetoothDevice) {
         try {
-            hid?.connect(device)
+            val ok = hid?.connect(device)
+            log("connect(${nameOf(device)}) devolvió $ok")
             savePreferredHost(device.address)
         } catch (e: SecurityException) {
             status = "Falta el permiso de Bluetooth"
@@ -256,8 +400,10 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     private fun prefs() = app.getSharedPreferences("bluetooth", Context.MODE_PRIVATE)
 
+    private fun preferredAddress(): String? = prefs().getString(KEY_HOST, null)
+
     private fun preferredHost(): BluetoothDevice? {
-        val address = prefs().getString(KEY_HOST, null) ?: return null
+        val address = preferredAddress() ?: return null
         return bondedDevices().firstOrNull { it.address == address }
     }
 
@@ -268,7 +414,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     companion object {
         private const val TAG = "MyMouse"
         private const val KEY_HOST = "host"
-        private const val RELEASE_DELAY_MS = 3_000L
+        private const val RELEASE_DELAY_MS = 60_000L // spec v4.5 §4: no cortar el registro HID mientras Windows empareja
         private const val ID_VOLUME_DOWN = 1
         private const val ID_VOLUME_UP = 2
         private const val ID_MUTE = 3

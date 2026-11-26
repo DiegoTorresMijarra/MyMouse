@@ -62,6 +62,12 @@ object BluetoothDiagnostics {
         "Si emparejaste el móvil antes de elegir Bluetooth en MyMouse: en Windows, Configuración → Bluetooth → " +
             "el móvil → Quitar dispositivo; aquí, Hacer visible; y vuelve a añadirlo desde Windows."
 
+    /** Aclaración sobre lo que se ve en Windows al emparejar (spec v4.5 §4). */
+    const val PAIRING_NOTE =
+        "Mientras se empareja, Windows muestra el móvil con icono de teléfono: es normal (usa la clase del dispositivo). " +
+            "Al terminar, el móvil debe aparecer en Windows como conectado; si solo pone «Emparejado», quítalo y vuelve a " +
+            "emparejar con MyMouse abierto en esta pantalla de Bluetooth."
+
     /** Las seis comprobaciones de la spec, en orden. */
     fun evaluate(f: BluetoothFacts): List<DiagnosticCheck> {
         fun check(id: String, label: String, value: Boolean?, ok: String = "", fail: String = "") =

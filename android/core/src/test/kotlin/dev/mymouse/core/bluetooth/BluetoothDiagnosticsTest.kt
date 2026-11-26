@@ -86,4 +86,11 @@ class BluetoothDiagnosticsTest {
     fun emptyLogReport() {
         assertTrue(BluetoothDiagnostics.report(good, emptyList(), zone = ZoneOffset.UTC).contains("(ninguno)"))
     }
+
+    @Test
+    fun helpTextsMentionTheKeySteps() {
+        assertTrue(BluetoothDiagnostics.REPAIR_HELP.contains("Quitar dispositivo"))
+        assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("teléfono"))
+        assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("Emparejado"))
+    }
 }

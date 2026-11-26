@@ -110,6 +110,13 @@ Hay dos causas probables:
 - **Lógica**: el registro de eventos y la evaluación de las comprobaciones van en `core` (clase pura con tests); la app solo los alimenta.
 - **PC**: si la toolbox muestra "Sin dispositivo", añade una línea secundaria: "¿Usas el modo Bluetooth? En ese modo el móvil funciona como ratón sin MyMouse en el PC". Es normal que el host diga "Sin dispositivo" en ese modo.
 
+### 4.1 Ampliación: que el registro HID no se corte mientras se empareja
+Segunda prueba: "Agregar un dispositivo" de Windows muestra el Poco como teléfono con confirmación de PIN. Causa probable: durante el emparejado, los diálogos del sistema (hacerse visible, confirmar el PIN) o ir a los ajustes de Android mandan MyMouse a segundo plano y `BluetoothHidTransport` liberaba el registro HID a los 3 s, así que Windows no veía el servicio HID al consultar el móvil.
+- **Retardo de liberación: 60 s** (antes 3 s).
+- **"Hacer visible" mantiene el registro al menos 180 s** (`holdRegistration`), pase lo que pase con el ciclo de vida de las pantallas.
+- **Registro de eventos ampliado:** cambios de emparejado (`ACTION_BOND_STATE_CHANGED`, con nombre del dispositivo y si la app HID estaba registrada en ese instante), registro y anulación del registro con su motivo, `getProfileProxy`, `registerApp`, `connect` y cambios de conexión. Así se ve si el servicio estaba registrado cuando Windows emparejó.
+- **Ayuda:** que Windows muestre el móvil con icono de teléfono al emparejar es normal (usa la clase del dispositivo); al terminar debe aparecer como conectado; si solo pone "Emparejado", quitarlo y volver a emparejar con MyMouse abierto en la pantalla Bluetooth.
+
 ## 5. Criterios de "hecho" de la v4.5
 1. Toolbox: barra superior con ⚙ ⤢ ✕; maximizar a ventana con dos columnas y restaurar; 8 px sobre la barra de tareas.
 2. Tarjeta Gestos con filas alineadas, chips y secciones; sin rutas largas.
