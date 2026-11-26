@@ -86,6 +86,28 @@ public static class KeyChord
         or 0x6F // Divide
         or >= 0xA6 and <= 0xB7; // navegador, volumen, multimedia
 
+    /// <summary>Nombre con el que se escribe una tecla en un atajo (<c>T</c>, <c>F5</c>, <c>PageUp</c>…), o null si no tiene (Parse la entendería con ese nombre).</summary>
+    public static string? NameFor(ushort vk)
+    {
+        if (vk is >= 0x41 and <= 0x5A or >= 0x30 and <= 0x39) return ((char)vk).ToString();
+        if (vk is >= 0x70 and <= 0x87) return $"F{vk - 0x70 + 1}";
+        return NamesByKey.GetValueOrDefault(vk);
+    }
+
+    /// <summary>¿Es una tecla modificadora (Ctrl, Mayús, Alt o Win, izquierda o derecha)? Devuelve cuál.</summary>
+    public static bool TryModifier(ushort vk, out Modifiers modifier)
+    {
+        modifier = vk switch
+        {
+            0x10 or 0xA0 or 0xA1 => Modifiers.Shift,
+            0x11 or 0xA2 or 0xA3 => Modifiers.Ctrl,
+            0x12 or 0xA4 or 0xA5 => Modifiers.Alt,
+            0x5B or 0x5C => Modifiers.Win,
+            _ => Modifiers.None,
+        };
+        return modifier != Modifiers.None;
+    }
+
     private static bool TryKey(string token, out ushort vk, out string canonical)
     {
         canonical = Canonical(token);
@@ -136,6 +158,10 @@ public static class KeyChord
 
     private static readonly Dictionary<string, (ushort Vk, string Name)> NamedKeys = BuildNamedKeys();
 
+    // Debe ir después de NamedKeys: los inicializadores estáticos se ejecutan en orden.
+    private static readonly Dictionary<ushort, string> NamesByKey =
+        NamedKeys.Values.GroupBy(v => v.Vk).ToDictionary(g => g.Key, g => g.First().Name);
+
     private static Dictionary<string, (ushort, string)> BuildNamedKeys()
     {
         var d = new Dictionary<string, (ushort, string)>(StringComparer.OrdinalIgnoreCase);
@@ -175,6 +201,13 @@ public static class KeyChord
         Add(0xA6, "BrowserBack");
         Add(0xA7, "BrowserForward");
         Add(0xA8, "BrowserRefresh");
+        Add(0xBA, "Semicolon");
+        Add(0xBF, "Slash");
+        Add(0xC0, "Backtick", "Grave");
+        Add(0xDB, "OpenBracket");
+        Add(0xDC, "Backslash");
+        Add(0xDD, "CloseBracket");
+        Add(0xDE, "Quote");
         return d;
     }
 

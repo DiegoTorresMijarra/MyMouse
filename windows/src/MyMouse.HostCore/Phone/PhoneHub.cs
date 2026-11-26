@@ -1,0 +1,79 @@
+using MyMouse.Protocol;
+
+namespace MyMouse.HostCore.Phone;
+
+/// <summary>
+/// Punto de unión entre la sesión del móvil (<see cref="ClientSession"/>) y la toolbox (protocolo v5): recibe los
+/// mensajes <c>TOOLBOX</c>, <c>GESTURE_MODE</c>, <c>STROKE_*</c> y <c>SHAPE_*</c> del móvil y permite enviarle
+/// <c>SHAPE_ADD</c> y <c>SHAPE_DELETE</c>. Los eventos se disparan en el hilo de la sesión: quien los recibe debe
+/// pasar al hilo de la interfaz si hace falta.
+/// </summary>
+public sealed class PhoneHub
+{
+    private readonly object _lock = new();
+    private Attachment? _current;
+
+    /// <summary>Versión negociada con el móvil conectado; 0 si no hay móvil.</summary>
+    public byte Version
+    {
+        get { lock (_lock) return _current?.Version ?? 0; }
+    }
+
+    /// <summary>¿Hay un móvil conectado que entienda la toolbox (versión ≥ 5)?</summary>
+    public bool SupportsToolbox => Version >= ProtocolInfo.ToolboxVersion;
+
+    /// <summary>Se conecta o desconecta un móvil de la versión 5 o posterior.</summary>
+    public event Action? Changed;
+
+    /// <summary>Mensaje de la v5 recibido del móvil.</summary>
+    public event Action<Message>? Received;
+
+    /// <summary>Lo llama <see cref="ClientSession"/> tras el handshake con versión ≥ 5. Desechar el resultado al terminar la sesión.</summary>
+    public IDisposable Attach(byte version, Func<Message, CancellationToken, ValueTask> send)
+    {
+        var attachment = new Attachment(this, version, send);
+        lock (_lock) _current = attachment;
+        Changed?.Invoke();
+        return attachment;
+    }
+
+    /// <summary>Lo llama <see cref="ClientSession"/> con cada mensaje de la v5 que llega.</summary>
+    public void Dispatch(Message message) => Received?.Invoke(message);
+
+    /// <summary>Envía un mensaje al móvil. <c>false</c> si no hay móvil v5 conectado o el envío falla.</summary>
+    public async Task<bool> SendAsync(Message message, CancellationToken cancellationToken = default)
+    {
+        Attachment? attachment;
+        lock (_lock) attachment = _current;
+        if (attachment is null) return false;
+        try
+        {
+            await attachment.Send(message, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    private void Detach(Attachment attachment)
+    {
+        lock (_lock)
+        {
+            // Una sesión nueva puede haber sustituido ya a la anterior.
+            if (!ReferenceEquals(_current, attachment)) return;
+            _current = null;
+        }
+        Changed?.Invoke();
+    }
+
+    private sealed class Attachment(PhoneHub hub, byte version, Func<Message, CancellationToken, ValueTask> send) : IDisposable
+    {
+        public byte Version { get; } = version;
+
+        public ValueTask Send(Message message, CancellationToken cancellationToken) => send(message, cancellationToken);
+
+        public void Dispose() => hub.Detach(this);
+    }
+}

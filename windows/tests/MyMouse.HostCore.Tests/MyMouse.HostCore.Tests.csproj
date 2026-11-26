@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- El mismo fichero que lee el test de Kotlin: coordenadas de las 15 formas del catálogo. -->
+    <None Include="..\..\..\android\core\src\test\resources\shape-catalog.txt" Link="shape-catalog.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\MyMouse.HostCore\MyMouse.HostCore.csproj" />
   </ItemGroup>
 

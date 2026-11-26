@@ -1,3 +1,4 @@
+using MyMouse.HostCore.Phone;
 using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
 
@@ -25,6 +26,7 @@ public sealed class ClientSession
     private readonly TimeSpan _idleTimeout;
     private readonly IGestureService? _gestures;
     private readonly IWidgetService? _widgets;
+    private readonly PhoneHub? _phone;
     private readonly HashSet<MouseButton> _pressed = [];
 
     /// <summary>Cambio de app en curso: el inyector tiene Alt pulsado y hay que soltarlo si la sesión se corta.</summary>
@@ -35,7 +37,7 @@ public sealed class ClientSession
 
     public ClientSession(Stream input, Stream output, IInputInjector injector,
         Func<bool>? isPaused = null, TimeSpan? idleTimeout = null, IGestureService? gestures = null,
-        IWidgetService? widgets = null)
+        IWidgetService? widgets = null, PhoneHub? phone = null)
     {
         _input = input;
         _output = output;
@@ -44,11 +46,12 @@ public sealed class ClientSession
         _idleTimeout = idleTimeout ?? ProtocolInfo.IdleTimeout;
         _gestures = gestures;
         _widgets = widgets;
+        _phone = phone;
     }
 
     public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null,
-        IGestureService? gestures = null, IWidgetService? widgets = null)
-        : this(duplex, duplex, injector, isPaused, gestures: gestures, widgets: widgets) { }
+        IGestureService? gestures = null, IWidgetService? widgets = null, PhoneHub? phone = null)
+        : this(duplex, duplex, injector, isPaused, gestures: gestures, widgets: widgets, phone: phone) { }
 
     /// <summary>Último error de protocolo, si la sesión terminó por uno.</summary>
     public string? Error { get; private set; }
@@ -64,6 +67,7 @@ public sealed class ClientSession
         Action? onLayoutChanged = null;
         Action<VolumeStateMessage>? onVolume = null;
         Action<MediaStateMessage>? onMedia = null;
+        IDisposable? phoneAttachment = null;
         using var sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         try
@@ -118,6 +122,10 @@ public sealed class ClientSession
                         _widgets.MediaChanged += onMedia;
                         await SendWidgetsAsync(cancellationToken).ConfigureAwait(false);
                     }
+
+                    // La toolbox (v5) recibe lo que llega del móvil y puede escribirle (SHAPE_ADD, SHAPE_DELETE).
+                    if (_phone is not null && Version >= ProtocolInfo.ToolboxVersion)
+                        phoneAttachment = _phone.Attach(Version, SendAsync);
                     continue;
                 }
 
@@ -143,6 +151,7 @@ public sealed class ClientSession
             if (onLayoutChanged is not null) _widgets!.LayoutChanged -= onLayoutChanged;
             if (onVolume is not null) _widgets!.VolumeChanged -= onVolume;
             if (onMedia is not null) _widgets!.MediaChanged -= onMedia;
+            phoneAttachment?.Dispose();
             sessionCts.Cancel();
             ReleaseAll();
         }
@@ -196,6 +205,16 @@ public sealed class ClientSession
                 throw new ProtocolException("GESTURE con protocolo v1");
             var status = _isPaused() || _gestures is null ? GestureStatus.Error : _gestures.Execute(gesture.Name);
             await SendAsync(new GestureResultMessage(status), cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (message is ToolboxMessage or GestureModeMessage or StrokePointsMessage or StrokeEndMessage
+            or ShapeInfoMessage or ShapeListEndMessage or ShapeResultMessage)
+        {
+            // Entran en la versión 5. Se atienden aunque el PC esté en pausa: la toolbox sigue siendo útil.
+            if (Version < ProtocolInfo.ToolboxVersion)
+                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            _phone?.Dispatch(message);
             return;
         }
 

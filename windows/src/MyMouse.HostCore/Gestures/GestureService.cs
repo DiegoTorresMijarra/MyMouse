@@ -9,6 +9,9 @@ public interface IActionExecutor
     void Execute(GestureAction action);
 }
 
+/// <summary>Qué pasó al ejecutar una forma recibida: para el gesto en vivo del PC. <paramref name="Binding"/> es null si no tiene acción.</summary>
+public sealed record GestureOutcome(string Name, GestureStatus Status, GestureBinding? Binding, Exception? Error);
+
 /// <summary>
 /// Implementación de <see cref="IGestureService"/>: busca la regla según la ventana activa y la ejecuta.
 /// La configuración se cambia en caliente con <see cref="SetConfig"/>; la ventana activa se informa con
@@ -24,6 +27,9 @@ public sealed class GestureService(IActionExecutor executor) : IGestureService
 
     /// <summary>Forma recibida sin regla. Útil para avisar al usuario.</summary>
     public event Action<string>? Unassigned;
+
+    /// <summary>Resultado de cada forma ejecutada (con acción, sin ella o con error).</summary>
+    public event Action<GestureOutcome>? Outcome;
 
     /// <summary>Error al ejecutar una acción.</summary>
     public event Action<string, Exception>? Failed;
@@ -61,16 +67,19 @@ public sealed class GestureService(IActionExecutor executor) : IGestureService
         if (binding is null)
         {
             Unassigned?.Invoke(name);
+            Outcome?.Invoke(new GestureOutcome(name, GestureStatus.Unassigned, null, null));
             return GestureStatus.Unassigned;
         }
         try
         {
             executor.Execute(binding.Action);
+            Outcome?.Invoke(new GestureOutcome(name, GestureStatus.Executed, binding, null));
             return GestureStatus.Executed;
         }
         catch (Exception ex)
         {
             Failed?.Invoke(name, ex);
+            Outcome?.Invoke(new GestureOutcome(name, GestureStatus.Error, binding, ex));
             return GestureStatus.Error;
         }
     }

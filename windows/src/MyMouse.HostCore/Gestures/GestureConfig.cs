@@ -12,6 +12,14 @@ public abstract record GestureAction
 public sealed record KeysAction(IReadOnlyList<KeyStroke> Strokes) : GestureAction
 {
     public override string DefaultHelp => string.Join(", ", Strokes);
+
+    /// <summary>Atajo en el formato del fichero (<c>Ctrl+K, Ctrl+C</c>).</summary>
+    public string Text => string.Join(", ", Strokes);
+
+    // Igualdad por contenido (los records comparan listas por referencia).
+    public bool Equals(KeysAction? other) => other is not null && Strokes.SequenceEqual(other.Strokes);
+
+    public override int GetHashCode() => Strokes.Count == 0 ? 0 : Strokes[0].GetHashCode();
 }
 
 public sealed record LaunchAction(string Target, string? Arguments, bool FocusIfRunning) : GestureAction
@@ -89,6 +97,55 @@ public sealed class GestureConfig
     }
 
     public static GestureConfig Empty { get; } = new([]);
+
+    // ---- Edición (docs/spec-v4-toolbox.md §4): la configuración es inmutable; cada cambio devuelve una nueva ----
+
+    /// <summary>Reglas de una forma: la general (sin app) y las de aplicaciones concretas, en el orden del fichero.</summary>
+    public (GestureBinding? General, IReadOnlyList<GestureBinding> AppRules) RulesOf(string gesture)
+    {
+        var rules = Bindings.Where(b => string.Equals(b.Gesture, gesture, StringComparison.Ordinal)).ToList();
+        return (rules.FirstOrDefault(b => b.App is null), [.. rules.Where(b => b.App is not null)]);
+    }
+
+    /// <summary>¿Tiene la forma alguna regla (general o por aplicación)?</summary>
+    public bool HasAction(string gesture) => Bindings.Any(b => string.Equals(b.Gesture, gesture, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Sustituye todas las reglas de <paramref name="gesture"/> por <paramref name="rules"/>. Si ya había reglas, las nuevas
+    /// ocupan el sitio de la primera (el orden del fichero se respeta); si no, van al final. Sin reglas, se borran.
+    /// </summary>
+    public GestureConfig WithRules(string gesture, IEnumerable<GestureBinding> rules)
+    {
+        var replacement = rules.Select(r => r with { Gesture = gesture }).ToList();
+        var result = new List<GestureBinding>();
+        var placed = false;
+        foreach (var b in Bindings)
+        {
+            if (!string.Equals(b.Gesture, gesture, StringComparison.Ordinal))
+            {
+                result.Add(b);
+            }
+            else if (!placed)
+            {
+                result.AddRange(replacement);
+                placed = true;
+            }
+        }
+        if (!placed) result.AddRange(replacement);
+        return new GestureConfig(result, [], Widgets, HasWidgetsSection);
+    }
+
+    /// <summary>Quita todas las reglas de una forma (p. ej. al borrarla).</summary>
+    public GestureConfig WithoutGesture(string gesture) => WithRules(gesture, []);
+
+    /// <summary>Sustituye la lista de widgets.</summary>
+    public GestureConfig WithWidgets(IReadOnlyList<WidgetDefinition> widgets) => new(Bindings, [], widgets, hasWidgetsSection: true);
+
+    /// <summary>
+    /// El fichero <c>gestures.json</c> con formato limpio. Se pierden los comentarios y lo que no es una regla ni un widget
+    /// (docs/spec-v4-toolbox.md §4.1). <c>Parse(ToJson())</c> da una configuración equivalente.
+    /// </summary>
+    public string ToJson() => GestureConfigWriter.Write(this);
 
     public bool HasAppRules => Bindings.Any(b => b.App is not null);
 
