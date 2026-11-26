@@ -149,10 +149,11 @@ internal sealed class MiniSlider : FrameworkElement
 }
 
 /// <summary>
-/// Ventana flotante sin bordes con el cristal de la v4.5 (docs/spec-v4.5-estilo.md §2.1). Con Windows 11 22H2 o posterior y el
-/// "Efecto cristal" activado usa el Acrylic del sistema: <c>WindowChrome</c> con marco de cristal, sin <c>AllowsTransparency</c> y con
-/// la sombra y las esquinas del sistema. Si no, un color sólido translúcido con la sombra de siempre (la ventana lleva entonces un
-/// margen transparente para dibujarla). Hay que decidirlo al crear la ventana: si cambia el ajuste, se crea otra.
+/// Ventana flotante sin bordes sobre el fondo "universo" (docs/spec-v4.7-universo.md §3.1). Ya no usa el Acrylic ni el Mica del
+/// sistema (daban un gris plano). En Windows 11 es una ventana opaca con el marco del sistema (<c>WindowChrome</c> con marco de cristal,
+/// sin <c>AllowsTransparency</c>), con sus esquinas redondeadas (<c>DWMWA_WINDOW_CORNER_PREFERENCE</c>) y su sombra. Antes de Windows 11,
+/// una ventana transparente con esquinas de radio 16 y una sombra propia, que va en un elemento aparte para que ningún texto pase por
+/// un efecto de desenfoque. Dentro, <see cref="Universe"/> detrás y el contenido (<see cref="CardContent"/>) encima.
 /// </summary>
 internal abstract class FloatingWindow : Window
 {
@@ -161,13 +162,15 @@ internal abstract class FloatingWindow : Window
     private const double FallbackShadow = 16;
 
     private readonly TranslateTransform _slide = new();
+    private readonly Grid _stack = new();
+    private readonly Border _host = new();
     private int _animationVersion;
     private (int X, int Y, int W, int H) _placement;
 
-    protected FloatingWindow(double cardWidth, bool glass)
+    protected FloatingWindow(double cardWidth)
     {
-        UseBackdrop = glass && NativeUi.BackdropSupported;
-        ShadowMargin = UseBackdrop ? 0 : FallbackShadow;
+        SystemFrame = NativeUi.RoundedCornersSupported;
+        ShadowMargin = SystemFrame ? 0 : FallbackShadow;
 
         WindowStyle = WindowStyle.None;
         ShowInTaskbar = false;
@@ -178,53 +181,76 @@ internal abstract class FloatingWindow : Window
         Width = cardWidth + 2 * ShadowMargin;
         UseLayoutRounding = true;
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
-        Background = Theme.Transparent;
-        if (!UseBackdrop) AllowsTransparency = true;
+        Background = SystemFrame ? Theme.Bg : Theme.Transparent;
+        if (!SystemFrame) AllowsTransparency = true;
+        if (AppIcon.Frame is { } icon) Icon = icon;
 
         Chrome = new WindowChrome
         {
             CaptionHeight = 0,
             ResizeBorderThickness = new Thickness(0),
-            GlassFrameThickness = UseBackdrop ? new Thickness(-1) : new Thickness(0),
+            GlassFrameThickness = SystemFrame ? new Thickness(-1) : new Thickness(0),
             UseAeroCaptionButtons = false,
             CornerRadius = new CornerRadius(0),
         };
         WindowChrome.SetWindowChrome(this, Chrome);
 
-        Card = UseBackdrop
-            ? new Border { Background = Theme.GlassPanel, ClipToBounds = false, RenderTransform = _slide }
+        Universe = new UniverseBackground { CornerRadius = SystemFrame ? 0 : Theme.PanelRadius - 1 };
+        var layers = new Grid();
+        layers.Children.Add(Universe);
+        layers.Children.Add(_host);
+        Card = SystemFrame
+            ? new Border { Background = Theme.Bg, Child = layers }
             : new Border
             {
-                Background = Theme.PanelSolid,
+                Background = Theme.Bg,
                 BorderBrush = Theme.Line,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(Theme.PanelRadius),
                 Margin = new Thickness(ShadowMargin),
-                Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 2, Opacity = 0.55, Color = Colors.Black },
-                RenderTransform = _slide,
-                ClipToBounds = false,
+                Child = layers,
             };
-        Content = Card;
+        if (!SystemFrame)
+        {
+            // La sombra, en un elemento sin contenido: un efecto sobre la tarjeta emborronaría el texto.
+            _stack.Children.Add(new Border
+            {
+                Margin = new Thickness(ShadowMargin),
+                CornerRadius = new CornerRadius(Theme.PanelRadius),
+                Background = Theme.Bg,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 18, ShadowDepth = 2, Opacity = 0.55, Color = Colors.Black },
+                IsHitTestVisible = false,
+            });
+        }
+        _stack.Children.Add(Card);
+        _stack.RenderTransform = _slide;
+        Content = _stack;
 
         Handle = new WindowInteropHelper(this).EnsureHandle();
         NativeUi.SetExStyle(Handle, NativeUi.WS_EX_TOOLWINDOW, true); // sin entrada en Alt+Tab
-        if (UseBackdrop && !NativeUi.TryEnableBackdrop(this, Handle, NativeUi.DWMSBT_TRANSIENTWINDOW, roundCorners: true))
-        {
-            FileLog.Write("No se pudo activar el Acrylic del sistema: se usa el fondo sólido.");
-            Card.Background = Theme.PanelSolid;
-        }
+        if (SystemFrame) NativeUi.ApplySystemFrame(Handle);
     }
 
-    /// <summary>Acrylic del sistema (sin margen de sombra) en lugar del color sólido con sombra propia.</summary>
-    protected bool UseBackdrop { get; }
+    /// <summary>Windows 11: marco del sistema (esquinas y sombra) en lugar de la sombra y las esquinas propias.</summary>
+    protected bool SystemFrame { get; }
 
-    /// <summary>Margen transparente alrededor de la tarjeta para la sombra propia (0 con el cristal del sistema).</summary>
+    /// <summary>Margen transparente alrededor de la tarjeta para la sombra propia (0 con el marco del sistema).</summary>
     protected double ShadowMargin { get; }
 
     protected WindowChrome Chrome { get; }
 
-    /// <summary>La tarjeta visible (con el cristal del sistema ocupa toda la ventana).</summary>
+    /// <summary>La tarjeta visible (con el marco del sistema ocupa toda la ventana).</summary>
     protected Border Card { get; }
+
+    /// <summary>El universo que se dibuja detrás de todo el contenido.</summary>
+    protected UniverseBackground Universe { get; }
+
+    /// <summary>Lo que se muestra sobre el universo.</summary>
+    protected UIElement? CardContent
+    {
+        get => _host.Child;
+        set => _host.Child = value;
+    }
 
     protected IntPtr Handle { get; }
 
@@ -254,7 +280,7 @@ internal abstract class FloatingWindow : Window
         Card.Measure(new Size(Width - 2 * ShadowMargin, double.PositiveInfinity));
         var height = Math.Min(Card.DesiredSize.Height, maxHeightDip) + 2 * ShadowMargin;
         WindowHeightDip = height;
-        Card.VerticalAlignment = AnchoredTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+        _stack.VerticalAlignment = AnchoredTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
 
         int Px(double dip) => (int)Math.Round(dip * s);
         var w = Px(Width);
@@ -276,7 +302,7 @@ internal abstract class FloatingWindow : Window
         var area = NativeUi.GetTrayArea();
         var s = area.Scale;
         AnchoredTop = false;
-        Card.VerticalAlignment = VerticalAlignment.Stretch;
+        _stack.VerticalAlignment = VerticalAlignment.Stretch;
         Width = cardWidthDip + 2 * ShadowMargin;
         Height = cardHeightDip + 2 * ShadowMargin;
         WindowHeightDip = Height;
@@ -310,22 +336,22 @@ internal abstract class FloatingWindow : Window
         return area.Work.Height / area.Scale * 0.85 - 2 * ShadowMargin;
     }
 
-    /// <summary>Muestra la ventana subiendo 24 px con fundido (220 ms, suavizado cubic out). Con el cristal del sistema solo hay fundido.</summary>
+    /// <summary>Muestra la ventana subiendo 24 px con fundido (220 ms, suavizado cubic out). Con el marco del sistema solo hay fundido.</summary>
     protected void AnimateIn(bool animate = true)
     {
         ++_animationVersion;
         var direction = AnchoredTop ? -1 : 1;
-        var slide = animate && !UseBackdrop;
-        Card.BeginAnimation(OpacityProperty, null);
+        var slide = animate && !SystemFrame;
+        _stack.BeginAnimation(OpacityProperty, null);
         _slide.BeginAnimation(TranslateTransform.YProperty, null);
-        Card.Opacity = animate ? 0 : 1; // sin parpadeo: empieza invisible antes de mostrarse
+        _stack.Opacity = animate ? 0 : 1; // sin parpadeo: empieza invisible antes de mostrarse
         _slide.Y = slide ? SlideDistance * direction : 0;
         Show();
         ApplyPlacement();
         if (!animate) return;
         var duration = TimeSpan.FromMilliseconds(220);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        Card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = ease });
+        _stack.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = ease });
         if (slide) _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(SlideDistance * direction, 0, duration) { EasingFunction = ease });
     }
 
@@ -336,15 +362,15 @@ internal abstract class FloatingWindow : Window
         var direction = AnchoredTop ? -1 : 1;
         var duration = TimeSpan.FromMilliseconds(160);
         var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
-        var fade = new DoubleAnimation(Card.Opacity, 0, duration) { EasingFunction = ease };
+        var fade = new DoubleAnimation(_stack.Opacity, 0, duration) { EasingFunction = ease };
         fade.Completed += (_, _) =>
         {
             if (version != _animationVersion) return;
             Hide();
             completed?.Invoke();
         };
-        Card.BeginAnimation(OpacityProperty, fade);
-        if (!UseBackdrop)
+        _stack.BeginAnimation(OpacityProperty, fade);
+        if (!SystemFrame)
             _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(_slide.Y, SlideDistance * direction, duration) { EasingFunction = ease });
     }
 
@@ -429,6 +455,7 @@ internal static class Dialogs
             WindowStartupLocation = owner is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
             Topmost = true,
         };
+        if (AppIcon.Frame is { } icon) window.Icon = icon;
         if (owner is { IsLoaded: true }) window.Owner = owner;
         window.KeyDown += (_, e) =>
         {

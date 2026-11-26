@@ -145,8 +145,8 @@ internal sealed class LiveGestureWindow : FloatingWindow
     /// <param name="liftDip">Cuánto subirla desde la esquina (para ponerla sobre la toolbox si está abierta).</param>
     /// <param name="idealShape">Puntos de la forma ideal de un nombre, para superponerla tenue.</param>
     /// <param name="assign">Se pulsa "Asignar" en una forma sin acción: abre el editor con esa forma.</param>
-    public LiveGestureWindow(LiveStrokeModel model, Func<double> liftDip, Func<string, IReadOnlyList<PointF>?> idealShape, Action<string> assign, bool glass)
-        : base(CardWidth, glass)
+    public LiveGestureWindow(LiveStrokeModel model, Func<double> liftDip, Func<string, IReadOnlyList<PointF>?> idealShape, Action<string> assign)
+        : base(CardWidth)
     {
         _model = model;
         _liftDip = liftDip;
@@ -194,14 +194,14 @@ internal sealed class LiveGestureWindow : FloatingWindow
         grid.Children.Add(_countdown);
         grid.Children.Add(_canvas);
         grid.Children.Add(result);
-        Card.Child = grid;
+        CardContent = grid;
 
         _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
         _timer.Tick += OnTick;
         _model.Changed += OnModelChanged;
     }
 
-    /// <summary>Quita la ventana de verdad (se vuelve a crear al cambiar el "Efecto cristal").</summary>
+    /// <summary>Quita la ventana de verdad.</summary>
     public void Destroy()
     {
         _model.Changed -= OnModelChanged;

@@ -51,52 +51,24 @@ internal static class NativeUi
         }
     }
 
-    // ---- Fondo de cristal del sistema (docs/spec-v4.5-estilo.md §2.1) ----
+    // ---- Marco del sistema en Windows 11 (docs/spec-v4.7-universo.md §3.1): esquinas redondeadas y sombra; sin Acrylic ni Mica ----
 
-    public const int DWMSBT_MAINWINDOW = 2;       // Mica
-    public const int DWMSBT_TRANSIENTWINDOW = 3;  // Acrylic
+    /// <summary>Windows 11 (compilación 22000 o posterior): el primero con <c>DWMWA_WINDOW_CORNER_PREFERENCE</c>.</summary>
+    public static bool RoundedCornersSupported { get; } = Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.OSVersion.Version.Build >= 22000;
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MARGINS
+    /// <summary>Modo oscuro y esquinas redondeadas del sistema. Si la llamada no existe en esta versión de Windows, no pasa nada.</summary>
+    public static void ApplySystemFrame(IntPtr hwnd)
     {
-        public int Left, Right, Top, Bottom;
-    }
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
-
-    /// <summary>Windows 11 22H2 (compilación 22621) o posterior: el primero con <c>DWMWA_SYSTEMBACKDROP_TYPE</c>.</summary>
-    public static bool BackdropSupported { get; } = Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.OSVersion.Version.Build >= 22621;
-
-    /// <summary>
-    /// Pide al sistema el fondo Acrylic (<see cref="DWMSBT_TRANSIENTWINDOW"/>) o Mica (<see cref="DWMSBT_MAINWINDOW"/>), con modo oscuro
-    /// y esquinas redondeadas. La ventana debe tener fondo transparente y no usar <c>AllowsTransparency</c>. Devuelve false si no se
-    /// pudo (Windows 10, o la llamada falla): entonces se usa el color sólido. No se usa la API no documentada <c>SetWindowCompositionAttribute</c>.
-    /// </summary>
-    public static bool TryEnableBackdrop(System.Windows.Window window, IntPtr hwnd, int backdropType, bool roundCorners)
-    {
-        if (!BackdropSupported || hwnd == IntPtr.Zero) return false;
+        if (hwnd == IntPtr.Zero) return;
         try
         {
-            var source = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
-            if (source?.CompositionTarget is { } target) target.BackgroundColor = System.Windows.Media.Colors.Transparent;
-            window.Background = System.Windows.Media.Brushes.Transparent;
-
-            var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
-            DwmExtendFrameIntoClientArea(hwnd, ref margins);
             var dark = 1;
             DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref dark, sizeof(int));
-            if (roundCorners)
-            {
-                var round = 2; // DWMWCP_ROUND
-                DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref round, sizeof(int));
-            }
-            var type = backdropType;
-            return DwmSetWindowAttribute(hwnd, 38 /* DWMWA_SYSTEMBACKDROP_TYPE */, ref type, sizeof(int)) == 0;
+            var round = 2; // DWMWCP_ROUND
+            DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref round, sizeof(int));
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
-            return false;
         }
     }
 

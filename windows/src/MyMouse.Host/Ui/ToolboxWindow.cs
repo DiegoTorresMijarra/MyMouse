@@ -92,7 +92,7 @@ internal sealed class ToolboxWindow : FloatingWindow
     private DateTime _closedByFocusLossAt = DateTime.MinValue;
 
     public ToolboxWindow(HostApp app)
-        : base(PanelWidth, app.Layout.GlassEffect)
+        : base(PanelWidth)
     {
         _app = app;
         Title = "MyMouse";
@@ -127,7 +127,7 @@ internal sealed class ToolboxWindow : FloatingWindow
             icons.Children.Add(b);
         }
         var brand = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
-        brand.Children.Add(Logo(18));
+        brand.Children.Add(Logo(20));
         var name = Theme.Label("MyMouse", 13, weight: FontWeights.SemiBold);
         name.FontFamily = Theme.DisplayFont;
         name.Margin = new Thickness(10, 0, 0, 0);
@@ -155,7 +155,7 @@ internal sealed class ToolboxWindow : FloatingWindow
         DockPanel.SetDock(bar, Dock.Top);
         root.Children.Add(bar);
         root.Children.Add(_scroll);
-        Card.Child = root;
+        CardContent = root;
 
         PreviewKeyDown += (_, e) =>
         {
@@ -216,7 +216,7 @@ internal sealed class ToolboxWindow : FloatingWindow
         AnimateOut(_app.RaiseToolboxChanged);
     }
 
-    /// <summary>Cierra la ventana de verdad (se vuelve a crear al cambiar el "Efecto cristal").</summary>
+    /// <summary>Cierra la ventana de verdad.</summary>
     public void Destroy()
     {
         _destroying = true;
@@ -244,6 +244,7 @@ internal sealed class ToolboxWindow : FloatingWindow
         ("Iniciar con Windows", _app.AutostartEnabled, () => _app.AutostartEnabled = !_app.AutostartEnabled),
         ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
         ("Efecto cristal", _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
+        ("Mostrar siempre el icono en la barra de tareas", _app.Layout.AlwaysShowIcon, () => _app.Layout = _app.Layout.WithAlwaysShowIcon(!_app.Layout.AlwaysShowIcon)),
         ("Personalizar tarjetas…", null, _app.CustomizeCards),
         ("Abrir la carpeta de logs", null, _app.OpenLogs),
     ];
@@ -255,9 +256,15 @@ internal sealed class ToolboxWindow : FloatingWindow
         if (!on && IsVisible) Activate();
     }
 
-    /// <summary>Logo pequeño: el contorno de un ratón con la rueda en acento.</summary>
+    /// <summary>El icono de la app (el mismo del exe y de la bandeja) a <paramref name="height"/> px. Sin él, el contorno de un ratón.</summary>
     public static FrameworkElement Logo(double height)
     {
+        if (AppIcon.Frame is { } icon)
+        {
+            var image = new Image { Source = icon, Width = height, Height = height, VerticalAlignment = VerticalAlignment.Center };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            return image;
+        }
         var scale = height / 32;
         var logo = new Grid { Width = 26 * scale, Height = height, VerticalAlignment = VerticalAlignment.Center };
         logo.Children.Add(new Border
@@ -266,14 +273,6 @@ internal sealed class ToolboxWindow : FloatingWindow
             BorderThickness = new Thickness(Math.Max(1.5, 2 * scale)),
             CornerRadius = new CornerRadius(10 * scale),
             Background = Theme.Transparent,
-        });
-        logo.Children.Add(new Border
-        {
-            Width = Math.Max(1.5, 2 * scale),
-            Height = 8 * scale,
-            Background = Theme.Accent,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 5 * scale, 0, 0),
         });
         return logo;
     }
@@ -439,7 +438,7 @@ internal sealed class OptionsCard : IToolboxCard
     private readonly HostApp _app;
     private readonly Border _view;
     private readonly StackPanel _pillHost = new();
-    private readonly TextBlock _hint = Theme.Label("", 11, Theme.Faint);
+    private readonly TextBlock _hint = Theme.Label("", 12, Theme.Dim);
     private readonly TextBlock _pauseGlyph = Theme.Glyph("", 16);
     private readonly TextBlock _pauseLabel = Theme.Label("Pausar", 11);
     private string _shown = "";
@@ -449,7 +448,7 @@ internal sealed class OptionsCard : IToolboxCard
         _app = app;
         _hint.TextWrapping = TextWrapping.Wrap;
         _hint.TextTrimming = TextTrimming.None;
-        _hint.Margin = new Thickness(2, 8, 0, 0);
+        _hint.Margin = new Thickness(2, 8, 0, 0); // explicación bajo la píldora: texto secundario legible
 
         var pause = Tile(_pauseGlyph, _pauseLabel);
         pause.Click += (_, _) => _app.TogglePause();
@@ -502,7 +501,7 @@ internal sealed class OptionsCard : IToolboxCard
         _shown = key;
         // El estado va en una "píldora" con punto de color.
         _pillHost.Children.Clear();
-        _pillHost.Children.Add(Theme.Pill(_app.StatusBrush, _app.StatusText));
+        _pillHost.Children.Add(Theme.StatusPill(_app.StatusBrush, _app.StatusText));
         _hint.Text = hint;
         _hint.Visibility = hint.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         return true; // la línea secundaria puede cambiar el alto

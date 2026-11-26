@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generado por tools/icon/make_icons.py: no editar a mano. Primer plano del icono adaptativo: trackpad de cristal y trazo luminoso. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#2EFFFFFF"
+        android:strokeColor="#99FFFFFF"
+        android:strokeWidth="1.6"
+        android:pathData="M36.8,35.6h34.4a6.8,6.8 0 0,1 6.8,6.8v23.2a6.8,6.8 0 0,1 -6.8,6.8h-34.4a6.8,6.8 0 0,1 -6.8,-6.8v-23.2a6.8,6.8 0 0,1 6.8,-6.8z" />
+    <path
+        android:pathData="M37.2,63.6C46.0,36.4 56.4,73.2 69.2,48.4"
+        android:strokeColor="#55A5B4FC"
+        android:strokeWidth="9.22"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M37.2,63.6C46.0,36.4 56.4,73.2 69.2,48.4"
+        android:strokeColor="#99A5B4FC"
+        android:strokeWidth="5.47"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M37.2,63.6C46.0,36.4 56.4,73.2 69.2,48.4"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.88"
+        android:strokeLineCap="round" />
+    <path android:pathData="M58.80,48.40a10.40,10.40 0 1,0 20.80,0a10.40,10.40 0 1,0 -20.80,0z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="69.2"
+                android:centerY="48.4"
+                android:gradientRadius="10.40">
+                <item android:offset="0" android:color="#CCA5B4FC" />
+                <item android:offset="1" android:color="#00A5B4FC" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M65.20,48.40a4.00,4.00 0 1,0 8.00,0a4.00,4.00 0 1,0 -8.00,0z" />
+</vector>

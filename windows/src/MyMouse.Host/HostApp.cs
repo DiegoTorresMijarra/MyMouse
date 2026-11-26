@@ -8,6 +8,7 @@ using MyMouse.HostCore.Apps;
 using MyMouse.HostCore.Gestures;
 using MyMouse.HostCore.Live;
 using MyMouse.HostCore.Phone;
+using MyMouse.HostCore.Shell;
 using MyMouse.HostCore.Shapes;
 using MyMouse.HostCore.Toolbox;
 using MyMouse.HostCore.Widgets;
@@ -45,6 +46,7 @@ internal sealed class HostApp : IDisposable
     public HostApp(HostConfig config)
     {
         _layout = ToolboxLayout.Load(_layoutPath);
+        Theme.GlassEffect = _layout.GlassEffect;
         ConfigStorage = new GestureConfigStorage(GestureConfigFile.FilePath);
         StartMenu = StartMenuScanner.ForCurrentUser();
 
@@ -141,6 +143,7 @@ internal sealed class HostApp : IDisposable
         _adb.StatusChanged += _ => Post(UpdateStatus);
 
         UpdateStatus();
+        if (_layout.AlwaysShowIcon) ApplyIconPromotion(true); // se activa solo la primera vez que arranca la v4.7
         _ = RunLoggedAsync("servidor", () => server.RunAsync(_cts.Token));
         _ = RunLoggedAsync("adb", () => _adb.RunAsync(_cts.Token));
     }
@@ -188,7 +191,8 @@ internal sealed class HostApp : IDisposable
                 FileLog.Write($"No se pudo guardar toolbox.json: {ex.Message}");
             }
             if (!value.ShowLiveGesture) Live.Hide();
-            if (old.GlassEffect != value.GlassEffect) RecreateGlassWindows();
+            Theme.GlassEffect = value.GlassEffect;
+            if (old.AlwaysShowIcon != value.AlwaysShowIcon) ApplyIconPromotion(value.AlwaysShowIcon, userAction: true);
             _toolbox?.Rebuild();
             StateChanged?.Invoke();
         }
@@ -221,19 +225,45 @@ internal sealed class HostApp : IDisposable
         }
     }
 
+    // ---- Icono siempre visible en la barra de tareas (docs/spec-v4.7-universo.md §3.4) ----
+
+    private readonly IRegistry _registry = new WindowsRegistry();
+    private DispatcherTimer? _promotionRetry;
+
     /// <summary>
-    /// El "Efecto cristal" se decide al crear cada ventana (con o sin <c>AllowsTransparency</c>): al cambiarlo se destruyen la toolbox y el
-    /// gesto en vivo y se crean de nuevo al usarlas. Si la toolbox estaba abierta, se vuelve a abrir.
+    /// Pone el icono de la bandeja como visible (o no) en Windows 11 con <c>IsPromoted</c>. Si Windows aún no ha registrado el icono,
+    /// reintenta a los 10 s y luego se rinde con una línea en el log. <paramref name="userAction"/>: lo pidió el usuario desde Ajustes,
+    /// así que si no se puede se le explica el paso manual.
     /// </summary>
-    private void RecreateGlassWindows()
+    private void ApplyIconPromotion(bool wanted, int attempt = 1, bool userAction = false)
     {
-        var reopen = _toolbox is { IsOpen: true };
-        _toolbox?.Destroy();
-        _toolbox = null;
-        _live?.Destroy();
-        _live = null;
-        if (reopen) Toolbox.Open(fromPhone: false);
+        _promotionRetry?.Stop();
+        _promotionRetry = null;
+        if (!TaskbarIconPromotion.IsSupported(Environment.OSVersion.Version.Build))
+        {
+            FileLog.Write("Icono visible en la barra de tareas: solo en Windows 11. En Windows 10, arrastra el icono desde la flecha ˄ a la barra.");
+            if (userAction && wanted) Dialogs.Message(null, "MyMouse", ManualIconHelp);
+            return;
+        }
+        if (Environment.ProcessPath is not { } exe) return;
+
+        var outcome = TaskbarIconPromotion.SetPromoted(_registry, exe, wanted);
+        FileLog.Write($"Icono visible en la barra de tareas ({(wanted ? "sí" : "no")}): {outcome}");
+        if (TaskbarIconPromotion.ShouldRetry(outcome, attempt))
+        {
+            _promotionRetry = new DispatcherTimer { Interval = TaskbarIconPromotion.RetryDelay };
+            _promotionRetry.Tick += (_, _) => ApplyIconPromotion(wanted, attempt + 1, userAction);
+            _promotionRetry.Start();
+        }
+        else if (outcome != PromotionOutcome.Done)
+        {
+            FileLog.Write("No se pudo cambiar la visibilidad del icono: Windows no tiene la clave NotifyIconSettings de MyMouse. Me rindo.");
+            if (userAction && wanted) Dialogs.Message(null, "MyMouse", ManualIconHelp);
+        }
     }
+
+    private const string ManualIconHelp =
+        "Windows no deja que una app saque su icono de la zona oculta. Arrastra el icono de MyMouse desde la flecha ˄ (junto al reloj) a la barra de tareas y se quedará ahí.";
 
     public bool EditorOpen => _editor is { IsVisible: true };
 
@@ -243,8 +273,7 @@ internal sealed class HostApp : IDisposable
         Live,
         () => _toolbox is { IsOpen: true, IsDocked: true } t ? t.CardHeightDip + 8 : 0,
         ShapePoints,
-        name => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true),
-        Layout.GlassEffect);
+        name => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
 
     /// <summary>Puntos de la forma ideal (catálogo) o de la primera muestra (forma propia del móvil), en 0–1.</summary>
     public IReadOnlyList<PointF>? ShapePoints(string name)
@@ -321,6 +350,9 @@ internal sealed class HostApp : IDisposable
 
     public void RaiseToolboxChanged() => StateChanged?.Invoke();
 
+    /// <summary>"← Volver" del editor: la toolbox vuelve a abrirse.</summary>
+    public void ReopenToolbox() => Toolbox.Open(fromPhone: false);
+
     public void SendMedia(MediaCommand command)
     {
         try
@@ -350,7 +382,8 @@ internal sealed class HostApp : IDisposable
         Dialogs.Message(null, "MyMouse",
             "Abre y cierra esta toolbox con un clic en el icono de la bandeja, o desde el móvil con 4 dedos hacia arriba y hacia abajo.\n\n" +
             "Modo gestos: mantén 4 dedos quietos en el trackpad y dibuja una forma; aquí verás el trazo y lo que hace.\n\n" +
-            "«Gestos y widgets» abre el editor: asigna acciones a las formas, crea formas nuevas con el ratón y configura el panel del móvil.");
+            "«Gestos y widgets» abre el editor: asigna acciones a las formas, crea formas nuevas con el ratón y configura el panel del móvil.\n\n" +
+            "Si no ves el icono junto al reloj, arrástralo desde la flecha ˄ a la barra de tareas (en Windows 11, la opción «Mostrar siempre el icono en la barra de tareas» de Ajustes lo hace sola).");
     }
 
     public void Quit()
@@ -376,18 +409,26 @@ internal sealed class HostApp : IDisposable
     private void UpdateStatus()
     {
         StatusHint = null;
+        // Texto corto en la píldora; la explicación larga va debajo, como texto secundario (docs/spec-v4.7-universo.md §3.2).
         var (status, icon, brush) = (_paused, _connected, _adb.Status) switch
         {
             (true, _, _) => ("En pausa", TrayIcons.Paused, Theme.Gray),
-            (_, true, _) => (_adb.DeviceName is { } name ? $"Conectado · {name} por USB" : "Conectado", TrayIcons.Connected, Theme.Green),
-            (_, _, AdbStatus.AdbNotFound) => ("Sin dispositivo (adb no encontrado: ver config.json)", TrayIcons.NoDevice, Theme.Red),
-            (_, _, AdbStatus.NoDevice) => ("Sin dispositivo (¿cable? ¿depuración USB?)", TrayIcons.NoDevice, Theme.Red),
+            (_, true, _) => (_adb.DeviceName is { } name ? $"Conectado · {name}" : "Conectado", TrayIcons.Connected, Theme.Green),
+            (_, _, AdbStatus.AdbNotFound) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
+            (_, _, AdbStatus.NoDevice) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
             _ => ("Esperando al móvil", TrayIcons.Waiting, Theme.Amber),
         };
         StatusText = status;
         StatusBrush = brush;
-        if (!_paused && !_connected && _adb.Status is AdbStatus.NoDevice or AdbStatus.AdbNotFound)
-            StatusHint = SinDispositivoHint;
+        if (!_paused && !_connected)
+        {
+            StatusHint = _adb.Status switch
+            {
+                AdbStatus.AdbNotFound => SinAdbHint,
+                AdbStatus.NoDevice => SinDispositivoHint,
+                _ => EsperandoHint,
+            };
+        }
         _icon.Icon = icon;
         // El tooltip de NotifyIcon admite como máximo 127 caracteres.
         _icon.Text = ($"MyMouse: {status}").Length > 120 ? ("MyMouse: " + status)[..120] : "MyMouse: " + status;
@@ -395,7 +436,11 @@ internal sealed class HostApp : IDisposable
     }
 
     /// <summary>Es normal que el host diga "Sin dispositivo" en el modo Bluetooth (docs/spec-v4.5-estilo.md §4).</summary>
-    public const string SinDispositivoHint = "¿Usas el modo Bluetooth? En ese modo el móvil funciona como ratón sin MyMouse en el PC";
+    public const string SinDispositivoHint = "Conecta el cable y activa la depuración USB. ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
+
+    public const string SinAdbHint = "No se encuentra adb: instálalo o indica su ruta en config.json (AdbPath). ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
+
+    public const string EsperandoHint = "Abre la app MyMouse en el móvil.";
 
     private readonly Dictionary<string, DateTime> _lastUnassignedNotice = [];
 
@@ -441,6 +486,7 @@ internal sealed class HostApp : IDisposable
         _disposed = true;
         _cts.Cancel();
         _foregroundTimer.Stop();
+        _promotionRetry?.Stop();
         _file.Dispose();
         Shapes.Dispose();
         _widgets.Dispose();

@@ -8,6 +8,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>MyMouse</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Icono de la app (docs/spec-v4.7-universo.md §3.3): lo genera tools/icon/make_icons.py. -->
+    <ApplicationIcon>Assets\MyMouse.ico</ApplicationIcon>
     <!-- La escala por monitor (PerMonitorV2) se declara en app.manifest, que es lo que usa WPF; el analizador de WinForms
          prefiere su propia propiedad, que aquí no se usa (no hay Application.Run de WinForms). -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
@@ -22,6 +24,10 @@
     <Using Remove="System.Drawing" />
     <!-- UseWPF quita System.IO de los usings implícitos (choca con System.Windows.Shapes.Path). -->
     <Using Include="System.IO" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- El mismo .ico, dentro del ensamblado, para Window.Icon y los iconos de la bandeja. -->
+    <EmbeddedResource Include="Assets\MyMouse.ico" LogicalName="MyMouse.ico" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MyMouse.HostCore\MyMouse.HostCore.csproj" />

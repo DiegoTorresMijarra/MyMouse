@@ -15,54 +15,69 @@ internal static class Theme
         return brush;
     }
 
-    // ---- Tokens "glass" (docs/spec-v4.5-estilo.md §1): un único sitio en Windows ----
+    // ---- Tokens "glass" (docs/spec-v4.7-universo.md §3.1; sustituyen a los de la v4.5): un único sitio en Windows ----
 
-    /// <summary>Fondo sólido de la base (diálogos y alternativa sin cristal). El degradado es <see cref="BaseGradient"/>.</summary>
-    public static readonly SolidColorBrush Bg = Brush("#1B1E26");
+    /// <summary>Fondo sólido de los diálogos y base del universo.</summary>
+    public static readonly SolidColorBrush Bg = Brush("#12102B");
 
-    /// <summary>Cristal: panel sin desenfoque disponible: #1E2128 al 92 %.</summary>
-    public static readonly SolidColorBrush PanelSolid = Brush("#EB1E2128");
+    /// <summary>Tarjeta sólida: "Efecto cristal" desactivado (#1A1830), y fondo de menús y diálogos.</summary>
+    public static readonly SolidColorBrush CardSolid = Brush("#1A1830");
 
-    /// <summary>Cristal: panel sobre el fondo con desenfoque: blanco al 6 %.</summary>
-    public static readonly SolidColorBrush GlassPanel = Brush("#0FFFFFFF");
+    /// <summary>Menús flotantes: #1A1830 casi opaco.</summary>
+    public static readonly SolidColorBrush PanelSolid = Brush("#F21A1830");
 
-    /// <summary>Cristal: tarjeta (plano): blanco al 5 %.</summary>
-    public static readonly SolidColorBrush CardBg = Brush("#0DFFFFFF");
+    /// <summary>Cristal: tarjeta (plano): blanco al 7 %.</summary>
+    public static readonly SolidColorBrush CardGlassFlat = Brush("#12FFFFFF");
 
-    /// <summary>Cristal: tarjeta con el brillo superior (blanco del 8 % al 0 % en el 40 % de arriba, sobre el 5 %).</summary>
-    public static readonly Brush CardGlass = Gradient(
-        [(Color.FromArgb(0x21, 255, 255, 255), 0), (Color.FromArgb(0x0D, 255, 255, 255), 0.4), (Color.FromArgb(0x0D, 255, 255, 255), 1)],
+    /// <summary>Cristal: tarjeta con el brillo superior (blanco del 10 % al 0 % en el 35 % de arriba, sobre el 7 %).</summary>
+    public static readonly Brush CardGlassShine = Gradient(
+        [(Color.FromArgb(0x2B, 255, 255, 255), 0), (Color.FromArgb(0x12, 255, 255, 255), 0.35), (Color.FromArgb(0x12, 255, 255, 255), 1)],
         new Point(0, 0), new Point(0, 1));
 
-    /// <summary>Degradado oscuro de la base: #14161B a #1B1E26 en diagonal.</summary>
-    public static readonly Brush BaseGradient = Gradient(
-        [((Color)ColorConverter.ConvertFromString("#14161B"), 0), ((Color)ColorConverter.ConvertFromString("#1B1E26"), 1)],
-        new Point(0, 0), new Point(1, 1));
+    /// <summary>"Efecto cristal" activado (por defecto). Lo fija <c>HostApp</c> al cambiar el ajuste; las tarjetas nuevas lo leen.</summary>
+    public static bool GlassEffect { get; set; } = true;
 
-    /// <summary>Borde de la tarjeta: 1 px blanco al 10 %.</summary>
-    public static readonly SolidColorBrush Line = Brush("#1AFFFFFF");
+    /// <summary>Fondo de una tarjeta: cristal con brillo o, sin el efecto, sólido.</summary>
+    public static Brush CardGlass => GlassEffect ? CardGlassShine : CardSolid;
 
-    /// <summary>Elemento elevado o hover: blanco al 9 %.</summary>
-    public static readonly SolidColorBrush Hover = Brush("#17FFFFFF");
+    /// <summary>Fondo plano de una caja pequeña (filas, miniaturas, campos): cristal o sólido según el ajuste.</summary>
+    public static Brush CardBg => GlassEffect ? CardGlassFlat : CardSolid;
+
+    /// <summary>Borde de la tarjeta: 1 px blanco al 16 %.</summary>
+    public static readonly SolidColorBrush Line = Brush("#29FFFFFF");
+
+    /// <summary>Elemento elevado o hover: blanco al 12 %.</summary>
+    public static readonly SolidColorBrush Hover = Brush("#1FFFFFFF");
 
     /// <summary>Seleccionado: acento al 22 % con borde de acento al 45 %.</summary>
-    public static readonly SolidColorBrush Selected = Brush("#383574F0");
-    public static readonly SolidColorBrush SelectedBorder = Brush("#733574F0");
+    public static readonly SolidColorBrush Selected = Brush("#387C8CFF");
+    public static readonly SolidColorBrush SelectedBorder = Brush("#737C8CFF");
 
     /// <summary>Fondo de los cuadros de texto.</summary>
     public static readonly SolidColorBrush InputBg = Brush("#40000000");
 
-    public static readonly SolidColorBrush Accent = Brush("#3574F0");
-    public static readonly SolidColorBrush Text = Brush("#ECEEF2");
-    public static readonly SolidColorBrush Dim = Brush("#9AA0AA");
-    public static readonly SolidColorBrush Faint = Brush("#6B717C");
+    /// <summary>Acento: azul lavanda. Los botones primarios llevan <see cref="AccentGradient"/>.</summary>
+    public static readonly SolidColorBrush Accent = Brush("#7C8CFF");
+
+    /// <summary>Botones primarios: degradado #6D5BFF a #3B82F6.</summary>
+    public static readonly Brush AccentGradient = Gradient(
+        [((Color)ColorConverter.ConvertFromString("#6D5BFF"), 0), ((Color)ColorConverter.ConvertFromString("#3B82F6"), 1)],
+        new Point(0, 0), new Point(1, 1));
+
+    public static readonly SolidColorBrush Text = Brush("#F4F5FA");
+
+    /// <summary>Texto secundario: #B9BDD0 (contraste mínimo de 4,5:1 sobre la tarjeta).</summary>
+    public static readonly SolidColorBrush Dim = Brush("#B9BDD0");
+
+    /// <summary>Texto terciario: #8C90A8.</summary>
+    public static readonly SolidColorBrush Faint = Brush("#8C90A8");
     public static readonly SolidColorBrush Green = Brush("#5FB865");
     public static readonly SolidColorBrush Amber = Brush("#E5A50A");
     public static readonly SolidColorBrush Red = Brush("#E5534B");
     public static readonly SolidColorBrush Gray = Brush("#8C9097");
     public static readonly SolidColorBrush Transparent = Brush("#00000000");
 
-    public static readonly Color AccentColor = (Color)ColorConverter.ConvertFromString("#3574F0");
+    public static readonly Color AccentColor = (Color)ColorConverter.ConvertFromString("#7C8CFF");
 
     /// <summary>Segoe UI Variable si está instalada (Windows 11) y, si no, Segoe UI.</summary>
     public static readonly FontFamily Font = new("Segoe UI Variable Text, Segoe UI");
@@ -107,7 +122,7 @@ internal static class Theme
                               HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
               </Border>
               <ControlTemplate.Triggers>
-                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="#3574F0"/></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="#7C8CFF"/></Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
               </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -123,8 +138,8 @@ internal static class Theme
               </StackPanel>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsChecked" Value="True">
-                  <Setter TargetName="box" Property="Background" Value="#3574F0"/>
-                  <Setter TargetName="box" Property="BorderBrush" Value="#3574F0"/>
+                  <Setter TargetName="box" Property="Background" Value="#7C8CFF"/>
+                  <Setter TargetName="box" Property="BorderBrush" Value="#7C8CFF"/>
                   <Setter TargetName="tick" Property="Visibility" Value="Visible"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
@@ -212,7 +227,7 @@ internal static class Theme
         return b;
     }
 
-    public static Button AccentButton(object content) => FlatButton(content, Accent, Brushes.White);
+    public static Button AccentButton(object content) => FlatButton(content, AccentGradient, Brushes.White);
 
     public static TextBox Input(string text = "", bool multiline = false)
     {
@@ -297,23 +312,42 @@ internal static class Theme
         };
     }
 
-    /// <summary>"Píldora" de estado: punto de color y texto sobre cristal.</summary>
-    public static Border Pill(Brush dot, string text, Brush? foreground = null) => new()
+    /// <summary>Alto fijo de la píldora de estado; su radio es la mitad (docs/spec-v4.7-universo.md §3.2).</summary>
+    public const double PillHeight = 26;
+
+    /// <summary>
+    /// Píldora de estado nítida: alto fijo de 26 px y <c>CornerRadius</c> igual a la mitad, relleno de 10 px a los lados, fondo del
+    /// color de estado al 16 % con borde al 40 %, y punto de 8 px con un halo suave. Sin desenfoque ni opacidad sobre el texto.
+    /// </summary>
+    public static Border StatusPill(Brush status, string text)
     {
-        Background = Hover,
-        CornerRadius = new CornerRadius(999),
-        Padding = new Thickness(10, 3, 12, 4),
-        HorizontalAlignment = HorizontalAlignment.Left,
-        Child = new StackPanel
+        var color = status is SolidColorBrush solid ? solid.Color : Colors.Gray;
+        Brush Tint(byte alpha) => Brush($"#{alpha:X2}{color.R:X2}{color.G:X2}{color.B:X2}");
+        var label = Label(text, 12, Text, FontWeights.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.Margin = new Thickness(8, 0, 0, 0);
+        label.TextTrimming = TextTrimming.None;
+        label.TextWrapping = TextWrapping.NoWrap;
+        var dot = new Grid { Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center };
+        dot.Children.Add(new System.Windows.Shapes.Ellipse { Fill = Tint(0x40) }); // halo
+        dot.Children.Add(new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = status });
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(dot);
+        row.Children.Add(label);
+        return new Border
         {
-            Orientation = Orientation.Horizontal,
-            Children =
-            {
-                new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = dot, Margin = new Thickness(0, 1, 7, 0), VerticalAlignment = VerticalAlignment.Center },
-                Label(text, 12, foreground ?? Dim),
-            },
-        },
-    };
+            Height = PillHeight,
+            CornerRadius = new CornerRadius(PillHeight / 2),
+            Padding = new Thickness(10, 0, 10, 0),
+            Background = Tint(0x29),
+            BorderBrush = Tint(0x66),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true,
+            Child = row,
+        };
+    }
 
     /// <summary>Título de tarjeta: mayúsculas pequeñas (11 px), color secundario. (WPF no tiene espaciado de letras: se omite el +0,06 em.)</summary>
     public static TextBlock CardTitle(string text)

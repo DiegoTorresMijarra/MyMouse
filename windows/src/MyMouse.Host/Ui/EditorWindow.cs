@@ -45,14 +45,8 @@ internal sealed class EditorWindow : Window
         FontFamily = Theme.Font;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         UseLayoutRounding = true;
-        SourceInitialized += (_, _) =>
-        {
-            var handle = new WindowInteropHelper(this).Handle;
-            NativeUi.UseDarkTitleBar(handle);
-            // Cristal (v4.5 §2.5): Mica en Windows 11 si el "Efecto cristal" está activado; si no, el fondo sólido.
-            if (_app.Layout.GlassEffect && NativeUi.TryEnableBackdrop(this, handle, NativeUi.DWMSBT_MAINWINDOW, roundCorners: false)) return;
-            Background = Theme.Bg;
-        };
+        if (AppIcon.Frame is { } icon) Icon = icon; // el icono de la app, también en la barra de tareas
+        SourceInitialized += (_, _) => NativeUi.UseDarkTitleBar(new WindowInteropHelper(this).Handle);
 
         _gesturesTab.Click += (_, _) => ShowTab(EditorTab.Gestures);
         _widgetsTab.Click += (_, _) => ShowTab(EditorTab.Widgets);
@@ -64,7 +58,15 @@ internal sealed class EditorWindow : Window
             ("Volver a leer el fichero", null, () => Reload(keepSelection: true)),
         ]);
 
+        // "← Volver" (docs/spec-v4.7-universo.md §3.5): cierra el editor y vuelve a la toolbox. Esc hace lo mismo.
+        var back = Theme.FlatButton("←  Volver");
+        back.ToolTip = "Volver a la toolbox (Esc)";
+        back.Margin = new Thickness(0, 0, 16, 0);
+        back.Click += (_, _) => GoBack();
+
         var tabs = new DockPanel { Margin = new Thickness(16, 14, 16, 8) };
+        DockPanel.SetDock(back, Dock.Left);
+        tabs.Children.Add(back);
         DockPanel.SetDock(file, Dock.Right);
         tabs.Children.Add(file);
         var chips = new StackPanel { Orientation = Orientation.Horizontal };
@@ -77,7 +79,11 @@ internal sealed class EditorWindow : Window
         DockPanel.SetDock(tabs, Dock.Top);
         root.Children.Add(tabs);
         root.Children.Add(_body);
-        Content = root;
+        // El universo detrás de todo el editor (con el parpadeo de las estrellas mientras esté a la vista).
+        var layers = new Grid();
+        layers.Children.Add(new UniverseBackground());
+        layers.Children.Add(root);
+        Content = layers;
 
         Closing += (_, e) =>
         {
@@ -87,11 +93,24 @@ internal sealed class EditorWindow : Window
         Closed += (_, _) => _app.Shapes.Changed -= OnShapesChanged;
         KeyDown += (_, e) =>
         {
-            if (e.Key == Key.Escape && Keyboard.FocusedElement is not TextBox) Close();
+            if (e.Key != Key.Escape || Keyboard.FocusedElement is TextBox) return;
+            e.Handled = true;
+            GoBack();
         };
     }
 
     public GestureConfig Config => _config;
+
+    /// <summary>
+    /// "← Volver" y Esc: cierra el editor y vuelve a abrir la toolbox. Si hay cambios sin guardar, antes pregunta
+    /// "¿Guardar los cambios?" (Guardar / Descartar / Cancelar); con Cancelar no se cierra.
+    /// </summary>
+    public void GoBack()
+    {
+        if (!ConfirmDiscard()) return;
+        Close(); // el cierre ya no vuelve a preguntar: guardar o descartar dejó la pestaña sin cambios
+        _app.ReopenToolbox();
+    }
 
     private void OnShapesChanged() => Dispatcher.BeginInvoke(() => _gestures?.RefreshList());
 
@@ -188,8 +207,8 @@ internal sealed class EditorWindow : Window
     private bool ShowTab(EditorTab tab)
     {
         if (!ConfirmDiscard()) return false;
-        _gesturesTab.Background = tab == EditorTab.Gestures ? Theme.Accent : Theme.Hover;
-        _widgetsTab.Background = tab == EditorTab.Widgets ? Theme.Accent : Theme.Hover;
+        _gesturesTab.Background = tab == EditorTab.Gestures ? Theme.AccentGradient : Theme.Hover;
+        _widgetsTab.Background = tab == EditorTab.Widgets ? Theme.AccentGradient : Theme.Hover;
         if (tab == EditorTab.Gestures)
         {
             _gestures ??= new GesturesPane(_app, this);
@@ -386,8 +405,8 @@ internal sealed class GesturesPane : Grid
     public bool ConfirmDiscard()
     {
         if (!_dirty || _selected is null) return true;
-        var choice = Dialogs.Message(_editor, "Cambios sin guardar",
-            $"Has cambiado «{ShapeCatalog.Label(_selected)}» y no lo has guardado.", "Guardar", "Descartar", "Seguir editando");
+        var choice = Dialogs.Message(_editor, "¿Guardar los cambios?",
+            $"Has cambiado «{ShapeCatalog.Label(_selected)}» y no lo has guardado.", "Guardar", "Descartar", "Cancelar");
         switch (choice)
         {
             case 0:

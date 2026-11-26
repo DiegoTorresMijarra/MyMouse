@@ -71,7 +71,7 @@ internal sealed class ChordBox : DockPanel
         _box.IsReadOnly = !_typing;
         _box.IsReadOnlyCaretVisible = _typing;
         _box.Cursor = _typing ? Cursors.IBeam : Cursors.Arrow;
-        _manual.Background = _typing ? Theme.Accent : Theme.Hover;
+        _manual.Background = _typing ? Theme.AccentGradient : Theme.Hover;
         if (_typing) StopRecording();
         ShowHint();
         _box.Focus();
@@ -268,7 +268,7 @@ internal sealed class ActionEditor : StackPanel
     private void SetKind(ActionKind kind, bool raise)
     {
         _kind = kind;
-        foreach (var (k, b) in _kindButtons) b.Background = k == kind ? Theme.Accent : Theme.Hover;
+        foreach (var (k, b) in _kindButtons) b.Background = k == kind ? Theme.AccentGradient : Theme.Hover;
         if (!_forms.TryGetValue(kind, out var form)) _forms[kind] = form = BuildForm(kind);
         _formHost.Child = form;
         if (kind == ActionKind.Launch) LoadAppsOnce();
@@ -406,7 +406,7 @@ internal sealed class ActionEditor : StackPanel
         foreach (var host in new[] { _mediaChips, _commandChips })
             foreach (var wrap in host.Children.OfType<WrapPanel>())
                 foreach (var b in wrap.Children.OfType<Button>())
-                    b.Background = b.Tag is Func<bool> selected && selected() ? Theme.Accent : Theme.Hover;
+                    b.Background = b.Tag is Func<bool> selected && selected() ? Theme.AccentGradient : Theme.Hover;
     }
 
     private static FrameworkElement Pad(FrameworkElement e, double top = 6)

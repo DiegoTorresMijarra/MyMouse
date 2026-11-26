@@ -121,7 +121,7 @@ internal sealed class WidgetsPane : Grid
     public bool ConfirmDiscard()
     {
         if (!_dirty) return true;
-        var choice = Dialogs.Message(_editor, "Cambios sin guardar", "Has cambiado los widgets y no los has guardado.", "Guardar", "Descartar", "Seguir editando");
+        var choice = Dialogs.Message(_editor, "¿Guardar los cambios?", "Has cambiado los widgets y no los has guardado.", "Guardar", "Descartar", "Cancelar");
         if (choice == 0) return Save();
         if (choice != 1) return false;
         _dirty = false;
