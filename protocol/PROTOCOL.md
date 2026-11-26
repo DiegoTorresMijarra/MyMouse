@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **2** (modo gestos). El host acepta también clientes de versión 1. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **3** (panel de widgets). El host acepta también clientes de versión 1 y 2. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -24,7 +24,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 ```
 
 - Todos los enteros multibyte van en **little-endian**.
-- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`) llevan delante la longitud del payload en un `u16`.
+- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`) llevan delante la longitud del payload en un `u16`.
 - `str8` = `u8` longitud en bytes + texto UTF-8.
 - Si un extremo recibe un tipo desconocido, **cierra la conexión**: no es posible resincronizar el flujo.
 
@@ -41,6 +41,10 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x05` | `PING` | — | 1 |
 | `0x06` | `GESTURE` (v2) | `u16 len` + nombre de la forma en UTF-8 (1–64 bytes) | variable |
 | `0x07` | `ZOOM` | `i16 delta` | 3 |
+| `0x08` | `WIDGET_PRESS` (v3) | `u8 id` | 2 |
+| `0x09` | `VOLUME_SET` (v3) | `u8 nivel` (0–100) | 2 |
+| `0x0A` | `MEDIA_COMMAND` (v3) | `u8 orden`: 0 = reproducir/pausar, 1 = siguiente, 2 = anterior | 2 |
+| `0x0B` | `VOLUME_MUTE` (v3) | `u8 silenciado` (0/1) | 2 |
 
 ### Host → cliente
 
@@ -50,6 +54,10 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x85` | `PONG` | — | 1 |
 | `0x86` | `GESTURE_RESULT` (v2) | `u8 status`: 0 = ejecutado, 1 = sin asignar, 2 = error | 2 |
 | `0x87` | `GESTURE_LIST` (v2) | `u16 len` + `str8 contexto`, `u8 n`, `n` × (`u8 flags`, `str8 nombre`, `str8 ayuda`) | variable |
+| `0x88` | `WIDGET_LAYOUT` (v3) | `u16 len` + `u8 n`, `n` × (`u8 id`, `u8 tipo` (0 = button, 1 = media, 2 = volume), `str8 etiqueta`, `str8 icono`) | variable |
+| `0x89` | `VOLUME_STATE` (v3) | `u8 nivel` (0–100), `u8 silenciado` (0/1) | 3 |
+| `0x8A` | `MEDIA_STATE` (v3) | `u16 len` + `u8 reproduciendo` (0/1), `str8 título`, `str8 artista` | variable |
+| `0x8B` | `WIDGET_RESULT` (v3) | `u8 id`, `u8 estado` (mismos valores que `GESTURE_RESULT`) | 3 |
 
 ### Detalle
 
@@ -75,6 +83,15 @@ Tamaño variable:  +--------+-----------+---------------------+
   - `flags`: bit 0 = fijada (`pin`).
   - Como máximo 64 entradas; las cadenas, como máximo 255 bytes (el host recorta).
 
+- **Widgets** (v3). Panel de controles de un toque junto al trackpad ([spec-v2-widgets.md](../docs/spec-v2-widgets.md)). Solo se envían y aceptan con versión negociada ≥ 3: un cliente v2 contra el host nuevo funciona como antes, y un mensaje de widgets con versión < 3 es un error de protocolo.
+  - `id` = posición del widget en la lista (0, 1, 2…). Un `WIDGET_LAYOUT` nuevo invalida los ids anteriores. Como máximo 32 widgets; los textos, como máximo 255 bytes (el host recorta).
+  - El host envía `WIDGET_LAYOUT` justo después del `GESTURE_LIST` del handshake (aunque esté vacío) y cada vez que recarga su configuración. Después, si hay widget `volume`, un `VOLUME_STATE`; si hay `media`, un `MEDIA_STATE`.
+  - `VOLUME_STATE` y `MEDIA_STATE` se envían cuando cambian en el PC, como mucho cada 100 ms (el último gana). También como eco de lo que pide el propio móvil.
+  - `WIDGET_PRESS` de un `id` inexistente o que no es `button`: el host responde `WIDGET_RESULT(id, 2)`; no es error de protocolo. En los demás casos responde `WIDGET_RESULT(id, estado)` con el resultado de la acción.
+  - `VOLUME_SET` con nivel > 100: el host lo recorta a 100. `MEDIA_COMMAND` con una orden desconocida es un error de protocolo. `VOLUME_SET`, `VOLUME_MUTE` y `MEDIA_COMMAND` no se responden si se ejecutan, y se ignoran si el host no tiene el widget correspondiente.
+  - En pausa, el host responde `WIDGET_RESULT(id, 2)` a `WIDGET_PRESS` y, a las órdenes de volumen o música, `WIDGET_RESULT` con el id de su widget (`volume` o `media`); no cambia volumen ni música.
+  - `VOLUME_STATE` con un nivel > 100 es un error de protocolo.
+
 ## Versionado
 
 - Si se añade un tipo nuevo o cambia un payload, **se incrementa la versión**.
@@ -95,5 +112,13 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `GESTURE("z")` | `06 01 00 7A` |
 | `GESTURE_RESULT(1)` | `86 01` |
 | `GESTURE_LIST("", [fijada "z" "Deshacer"])` | `87 0E 00 00 01 01 01 7A 08 44 65 73 68 61 63 65 72` |
+| `WIDGET_PRESS(3)` | `08 03` |
+| `VOLUME_SET(55)` | `09 37` |
+| `MEDIA_COMMAND(1)` | `0A 01` |
+| `VOLUME_MUTE(1)` | `0B 01` |
+| `VOLUME_STATE(40, 0)` | `89 28 00` |
+| `WIDGET_RESULT(2, 0)` | `8B 02 00` |
+| `WIDGET_LAYOUT([0, volume, "", ""])` | `88 05 00 01 00 02 00 00` |
+| `MEDIA_STATE(1, "A", "B")` | `8A 05 00 01 01 41 01 42` |
 | `PING` | `05` |
 | `PONG` | `85` |

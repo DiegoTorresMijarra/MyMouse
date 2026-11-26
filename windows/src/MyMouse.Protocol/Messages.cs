@@ -3,11 +3,17 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos.</summary>
-    public const byte CurrentVersion = 2;
+    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets.</summary>
+    public const byte CurrentVersion = 3;
 
     /// <summary>Primera versión con los mensajes del modo gestos.</summary>
     public const byte GesturesVersion = 2;
+
+    /// <summary>Primera versión con los mensajes del panel de widgets.</summary>
+    public const byte WidgetsVersion = 3;
+
+    /// <summary>Máximo de widgets en un WIDGET_LAYOUT.</summary>
+    public const int MaxWidgets = 32;
 
     /// <summary>Longitud máxima del nombre de una forma, en bytes UTF-8.</summary>
     public const int MaxGestureNameBytes = 64;
@@ -29,10 +35,18 @@ public enum MessageType : byte
     Ping = 0x05,
     Gesture = 0x06,
     Zoom = 0x07,
+    WidgetPress = 0x08,
+    VolumeSet = 0x09,
+    MediaCommand = 0x0A,
+    VolumeMute = 0x0B,
     HelloAck = 0x81,
     Pong = 0x85,
     GestureResult = 0x86,
     GestureList = 0x87,
+    WidgetLayout = 0x88,
+    VolumeState = 0x89,
+    MediaState = 0x8A,
+    WidgetResult = 0x8B,
 }
 
 public enum MouseButton : byte
@@ -110,6 +124,75 @@ public sealed record GestureListMessage(string Context, IReadOnlyList<GestureLis
         other is not null && Context == other.Context && Entries.SequenceEqual(other.Entries);
 
     public override int GetHashCode() => HashCode.Combine(Context, Entries.Count);
+}
+
+/// <summary>Tipo de un widget en el <see cref="WidgetLayoutMessage"/>.</summary>
+public enum WidgetKind : byte
+{
+    Button = 0,
+    Media = 1,
+    Volume = 2,
+}
+
+/// <summary>Orden multimedia de <see cref="MediaCommandMessage"/>.</summary>
+public enum MediaCommand : byte
+{
+    PlayPause = 0,
+    Next = 1,
+    Previous = 2,
+}
+
+/// <summary>Toque en un widget de tipo botón. <paramref name="Id"/> es su posición en el último WIDGET_LAYOUT.</summary>
+public sealed record WidgetPressMessage(byte Id) : Message
+{
+    public override MessageType Type => MessageType.WidgetPress;
+}
+
+/// <summary>Nivel de volumen pedido (0–100). El decodificador acepta cualquier byte: el host recorta a 100.</summary>
+public sealed record VolumeSetMessage(byte Level) : Message
+{
+    public override MessageType Type => MessageType.VolumeSet;
+}
+
+public sealed record MediaCommandMessage(MediaCommand Command) : Message
+{
+    public override MessageType Type => MessageType.MediaCommand;
+}
+
+public sealed record VolumeMuteMessage(bool Muted) : Message
+{
+    public override MessageType Type => MessageType.VolumeMute;
+}
+
+public sealed record WidgetLayoutEntry(byte Id, WidgetKind Kind, string Label, string Icon);
+
+/// <summary>Widgets configurados en el PC, para dibujar el panel del móvil. Un layout nuevo invalida los ids anteriores.</summary>
+public sealed record WidgetLayoutMessage(IReadOnlyList<WidgetLayoutEntry> Entries) : Message
+{
+    public override MessageType Type => MessageType.WidgetLayout;
+
+    // Igualdad por contenido (los records comparan listas por referencia).
+    public bool Equals(WidgetLayoutMessage? other) => other is not null && Entries.SequenceEqual(other.Entries);
+
+    public override int GetHashCode() => Entries.Count;
+}
+
+/// <summary>Volumen del sistema (0–100) y si está silenciado.</summary>
+public sealed record VolumeStateMessage(byte Level, bool Muted) : Message
+{
+    public override MessageType Type => MessageType.VolumeState;
+}
+
+/// <summary>Lo que suena en el PC. Título y artista vacíos si no suena nada.</summary>
+public sealed record MediaStateMessage(bool Playing, string Title, string Artist) : Message
+{
+    public override MessageType Type => MessageType.MediaState;
+}
+
+/// <summary>Resultado de un <see cref="WidgetPressMessage"/> (o de una orden rechazada). Mismos valores que <see cref="GestureStatus"/>.</summary>
+public sealed record WidgetResultMessage(byte Id, GestureStatus Status) : Message
+{
+    public override MessageType Type => MessageType.WidgetResult;
 }
 
 public sealed record PingMessage : Message

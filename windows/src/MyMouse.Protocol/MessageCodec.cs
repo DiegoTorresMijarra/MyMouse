@@ -12,11 +12,13 @@ public static class MessageCodec
     /// <summary>Tamaño fijo del payload, o <c>null</c> si el tipo es variable. Lanza si el tipo es desconocido.</summary>
     public static int? PayloadSize(byte type) => (MessageType)type switch
     {
-        MessageType.Hello or MessageType.HelloAck or MessageType.GestureResult => 1,
+        MessageType.Hello or MessageType.HelloAck or MessageType.GestureResult
+            or MessageType.WidgetPress or MessageType.VolumeSet or MessageType.MediaCommand or MessageType.VolumeMute => 1,
+        MessageType.VolumeState or MessageType.WidgetResult => 2,
         MessageType.Move or MessageType.Scroll => 4,
         MessageType.Button or MessageType.Zoom => 2,
         MessageType.Ping or MessageType.Pong => 0,
-        MessageType.Gesture or MessageType.GestureList => null,
+        MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState => null,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
 
@@ -78,6 +80,40 @@ public static class MessageCodec
                 }
                 return ms.ToArray();
             }
+            case WidgetPressMessage m:
+                return [m.Id];
+            case VolumeSetMessage m:
+                return [m.Level];
+            case MediaCommandMessage m:
+                return [(byte)m.Command];
+            case VolumeMuteMessage m:
+                return [m.Muted ? (byte)1 : (byte)0];
+            case WidgetLayoutMessage m:
+            {
+                var ms = new MemoryStream();
+                var entries = m.Entries.Take(ProtocolInfo.MaxWidgets).ToList();
+                ms.WriteByte((byte)entries.Count);
+                foreach (var e in entries)
+                {
+                    ms.WriteByte(e.Id);
+                    ms.WriteByte((byte)e.Kind);
+                    WriteStr8(ms, e.Label);
+                    WriteStr8(ms, e.Icon);
+                }
+                return ms.ToArray();
+            }
+            case VolumeStateMessage m:
+                return [Math.Min(m.Level, (byte)100), m.Muted ? (byte)1 : (byte)0];
+            case MediaStateMessage m:
+            {
+                var ms = new MemoryStream();
+                ms.WriteByte(m.Playing ? (byte)1 : (byte)0);
+                WriteStr8(ms, m.Title);
+                WriteStr8(ms, m.Artist);
+                return ms.ToArray();
+            }
+            case WidgetResultMessage m:
+                return [m.Id, (byte)m.Status];
             case PingMessage or PongMessage:
                 return [];
             default:
@@ -108,6 +144,14 @@ public static class MessageCodec
             MessageType.Gesture => DecodeGesture(payload),
             MessageType.GestureResult => new GestureResultMessage(ParseStatus(payload[0])),
             MessageType.GestureList => DecodeGestureList(payload),
+            MessageType.WidgetPress => new WidgetPressMessage(payload[0]),
+            MessageType.VolumeSet => new VolumeSetMessage(payload[0]),
+            MessageType.MediaCommand => new MediaCommandMessage(ParseMediaCommand(payload[0])),
+            MessageType.VolumeMute => new VolumeMuteMessage(ParseBool(payload[0])),
+            MessageType.WidgetLayout => DecodeWidgetLayout(payload),
+            MessageType.VolumeState => new VolumeStateMessage(ParseLevel(payload[0]), ParseBool(payload[1])),
+            MessageType.MediaState => DecodeMediaState(payload),
+            MessageType.WidgetResult => new WidgetResultMessage(payload[0], ParseStatus(payload[1])),
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
         };
     }
@@ -137,13 +181,46 @@ public static class MessageCodec
         return new GestureListMessage(context, entries);
     }
 
+    private static WidgetLayoutMessage DecodeWidgetLayout(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var count = ReadByte(payload, ref pos);
+        if (count > ProtocolInfo.MaxWidgets)
+            throw new ProtocolException($"WIDGET_LAYOUT con {count} widgets");
+        var entries = new List<WidgetLayoutEntry>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var id = ReadByte(payload, ref pos);
+            var kind = ReadByte(payload, ref pos);
+            if (kind > (byte)WidgetKind.Volume)
+                throw new ProtocolException($"Tipo de widget inválido: {kind}");
+            var label = ReadStr8(payload, ref pos);
+            var icon = ReadStr8(payload, ref pos);
+            entries.Add(new WidgetLayoutEntry(id, (WidgetKind)kind, label, icon));
+        }
+        if (pos != payload.Length)
+            throw new ProtocolException("Bytes sobrantes en WIDGET_LAYOUT");
+        return new WidgetLayoutMessage(entries);
+    }
+
+    private static MediaStateMessage DecodeMediaState(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var playing = ParseBool(ReadByte(payload, ref pos));
+        var title = ReadStr8(payload, ref pos);
+        var artist = ReadStr8(payload, ref pos);
+        if (pos != payload.Length)
+            throw new ProtocolException("Bytes sobrantes en MEDIA_STATE");
+        return new MediaStateMessage(playing, title, artist);
+    }
+
     private static byte ReadByte(ReadOnlySpan<byte> payload, ref int pos) =>
-        pos < payload.Length ? payload[pos++] : throw new ProtocolException("GESTURE_LIST truncado");
+        pos < payload.Length ? payload[pos++] : throw new ProtocolException("Mensaje truncado");
 
     private static string ReadStr8(ReadOnlySpan<byte> payload, ref int pos)
     {
         int len = ReadByte(payload, ref pos);
-        if (pos + len > payload.Length) throw new ProtocolException("GESTURE_LIST truncado");
+        if (pos + len > payload.Length) throw new ProtocolException("Mensaje truncado");
         var s = DecodeUtf8(payload.Slice(pos, len));
         pos += len;
         return s;
@@ -188,6 +265,14 @@ public static class MessageCodec
     private static GestureStatus ParseStatus(byte value) => value <= (byte)GestureStatus.Error
         ? (GestureStatus)value
         : throw new ProtocolException($"Estado de forma inválido: {value}");
+
+    private static MediaCommand ParseMediaCommand(byte value) => value <= (byte)MediaCommand.Previous
+        ? (MediaCommand)value
+        : throw new ProtocolException($"Orden multimedia inválida: {value}");
+
+    private static byte ParseLevel(byte value) => value <= 100
+        ? value
+        : throw new ProtocolException($"Nivel de volumen inválido: {value}");
 
     private static bool ParseBool(byte value) => value switch
     {

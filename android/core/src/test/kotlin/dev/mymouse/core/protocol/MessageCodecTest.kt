@@ -22,6 +22,14 @@ class MessageCodecTest {
         Message.GestureResult(GestureStatus.UNASSIGNED) to "86 01",
         Message.GestureList("", listOf(GestureListEntry("z", "Deshacer", pinned = true))) to
             "87 0E 00 00 01 01 01 7A 08 44 65 73 68 61 63 65 72",
+        Message.WidgetPress(3) to "08 03",
+        Message.VolumeSet(55) to "09 37",
+        Message.MediaControl(MediaCommand.NEXT) to "0A 01",
+        Message.VolumeMute(true) to "0B 01",
+        Message.VolumeState(40, false) to "89 28 00",
+        Message.WidgetResult(2, GestureStatus.EXECUTED) to "8B 02 00",
+        Message.WidgetLayout(listOf(WidgetEntry(0, WidgetKind.VOLUME, "", ""))) to "88 05 00 01 00 02 00 00",
+        Message.MediaState(true, "A", "B") to "8A 05 00 01 01 41 01 42",
         Message.Ping to "05",
         Message.Pong to "85",
     )
@@ -44,9 +52,24 @@ class MessageCodecTest {
 
     @Test
     fun invalidInputThrows() {
-        for (hex in listOf("06 00 00", "06 02 00 7A", "06 01 00 FF", "86 03", "87 02 00 00 01", "87 03 00 00 00 99", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78")) {
+        for (hex in listOf("06 00 00", "06 02 00 7A", "06 01 00 FF", "86 03", "87 02 00 00 01", "87 03 00 00 00 99", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78",
+            "0A 03", "0B 02", "89 65 00", "8B 02 03", "88 05 00 01 00 03 00 00", "88 06 00 01 00 02 00 00 99",
+            "88 04 00 01 00 02 00", "8A 04 00 01 01 41 01", "8A 05 00 02 01 41 01 42", "08")) {
             assertFailsWith<ProtocolException>(hex) { MessageReader(ByteArrayInputStream(hex(hex))).read() }
         }
+    }
+
+    @Test
+    fun volumeSetAbove100IsKeptAsIs() {
+        // El recorte a 100 lo hace el host, no el protocolo.
+        assertContentEquals(hex("09 C8"), MessageCodec.encode(Message.VolumeSet(200)))
+    }
+
+    @Test
+    fun layoutTextIsTruncatedWithoutBreakingCharacters() {
+        val bytes = MessageCodec.encode(Message.WidgetLayout(listOf(WidgetEntry(0, WidgetKind.BUTTON, "é".repeat(200), ""))))
+        val decoded = MessageReader(ByteArrayInputStream(bytes)).read() as Message.WidgetLayout
+        assertEquals("é".repeat(127), decoded.entries[0].label)
     }
 
     private fun hex(s: String) = s.split(" ").map { it.toInt(16).toByte() }.toByteArray()

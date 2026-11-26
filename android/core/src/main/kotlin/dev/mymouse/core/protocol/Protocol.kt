@@ -4,9 +4,13 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos. */
-    const val VERSION = 2
+    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets. */
+    const val VERSION = 3
     const val GESTURES_VERSION = 2
+
+    /** Primera versión con los mensajes del panel de widgets. */
+    const val WIDGETS_VERSION = 3
+    const val MAX_WIDGETS = 32
     const val DEFAULT_PORT = 47800
     const val PING_INTERVAL_MS = 1_000L
     const val IDLE_TIMEOUT_MS = 3_000L
@@ -19,6 +23,14 @@ enum class MouseButton(val code: Int) { LEFT(0), RIGHT(1), MIDDLE(2) }
 enum class GestureStatus(val code: Int) { EXECUTED(0), UNASSIGNED(1), ERROR(2) }
 
 data class GestureListEntry(val name: String, val help: String, val pinned: Boolean)
+
+enum class WidgetKind(val code: Int) { BUTTON(0), MEDIA(1), VOLUME(2) }
+
+/** Orden multimedia de [Message.MediaControl]. */
+enum class MediaCommand(val code: Int) { PLAY_PAUSE(0), NEXT(1), PREVIOUS(2) }
+
+/** Un widget del panel. [id] es su posición en el último [Message.WidgetLayout]. */
+data class WidgetEntry(val id: Int, val kind: WidgetKind, val label: String, val icon: String)
 
 sealed interface Message {
     data class Hello(val version: Int) : Message
@@ -59,6 +71,35 @@ sealed interface Message {
     /** Formas con acción en el PC, para la chuleta. [context]: app activa con reglas propias, o vacío. */
     data class GestureList(val context: String, val entries: List<GestureListEntry>) : Message
 
+    /** Toque en un widget de tipo botón (protocolo v3). */
+    data class WidgetPress(val id: Int) : Message {
+        init {
+            require(id in 0..255)
+        }
+    }
+
+    /** Volumen pedido, 0–100 (protocolo v3). */
+    data class VolumeSet(val level: Int) : Message {
+        init {
+            require(level in 0..255)
+        }
+    }
+
+    data class MediaControl(val command: MediaCommand) : Message
+
+    data class VolumeMute(val muted: Boolean) : Message
+
+    /** Widgets configurados en el PC; un layout nuevo invalida los ids anteriores. */
+    data class WidgetLayout(val entries: List<WidgetEntry>) : Message
+
+    data class VolumeState(val level: Int, val muted: Boolean) : Message
+
+    /** Lo que suena en el PC; título y artista vacíos si no suena nada. */
+    data class MediaState(val playing: Boolean, val title: String, val artist: String) : Message
+
+    /** Resultado de pulsar un widget. Mismos valores que [GestureStatus]. */
+    data class WidgetResult(val id: Int, val status: GestureStatus) : Message
+
     data object Ping : Message
     data object Pong : Message
 }
@@ -74,18 +115,26 @@ object MessageCodec {
     private const val PING = 0x05
     private const val GESTURE = 0x06
     private const val ZOOM = 0x07
+    private const val WIDGET_PRESS = 0x08
+    private const val VOLUME_SET = 0x09
+    private const val MEDIA_COMMAND = 0x0A
+    private const val VOLUME_MUTE = 0x0B
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
     private const val GESTURE_RESULT = 0x86
     private const val GESTURE_LIST = 0x87
+    private const val WIDGET_LAYOUT = 0x88
+    private const val VOLUME_STATE = 0x89
+    private const val MEDIA_STATE = 0x8A
+    private const val WIDGET_RESULT = 0x8B
 
     /** Tamaño fijo del payload, o null si el tipo es variable. */
     fun payloadSize(type: Int): Int? = when (type) {
-        HELLO, HELLO_ACK, GESTURE_RESULT -> 1
+        HELLO, HELLO_ACK, GESTURE_RESULT, WIDGET_PRESS, VOLUME_SET, MEDIA_COMMAND, VOLUME_MUTE -> 1
         MOVE, SCROLL -> 4
-        BUTTON, ZOOM -> 2
+        BUTTON, ZOOM, VOLUME_STATE, WIDGET_RESULT -> 2
         PING, PONG -> 0
-        GESTURE, GESTURE_LIST -> null
+        GESTURE, GESTURE_LIST, WIDGET_LAYOUT, MEDIA_STATE -> null
         else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
     }
 
@@ -100,6 +149,16 @@ object MessageCodec {
             is Message.Gesture -> GESTURE to message.name.toByteArray(Charsets.UTF_8)
             is Message.GestureResult -> GESTURE_RESULT to byteArrayOf(message.status.code.toByte())
             is Message.GestureList -> GESTURE_LIST to encodeList(message)
+            is Message.WidgetPress -> WIDGET_PRESS to byteArrayOf(message.id.toByte())
+            is Message.VolumeSet -> VOLUME_SET to byteArrayOf(message.level.toByte())
+            is Message.MediaControl -> MEDIA_COMMAND to byteArrayOf(message.command.code.toByte())
+            is Message.VolumeMute -> VOLUME_MUTE to byteArrayOf((if (message.muted) 1 else 0).toByte())
+            is Message.WidgetLayout -> WIDGET_LAYOUT to encodeLayout(message)
+            is Message.VolumeState -> VOLUME_STATE to byteArrayOf(
+                message.level.coerceIn(0, 100).toByte(), (if (message.muted) 1 else 0).toByte(),
+            )
+            is Message.MediaState -> MEDIA_STATE to encodeMedia(message)
+            is Message.WidgetResult -> WIDGET_RESULT to byteArrayOf(message.id.toByte(), message.status.code.toByte())
             Message.Ping -> PING to ByteArray(0)
             Message.Pong -> PONG to ByteArray(0)
         }
@@ -140,6 +199,24 @@ object MessageCodec {
                     ?: throw ProtocolException("Estado inválido: ${payload.u8(0)}"),
             )
             GESTURE_LIST -> decodeList(payload)
+            WIDGET_PRESS -> Message.WidgetPress(payload.u8(0))
+            VOLUME_SET -> Message.VolumeSet(payload.u8(0))
+            MEDIA_COMMAND -> Message.MediaControl(
+                MediaCommand.entries.firstOrNull { it.code == payload.u8(0) }
+                    ?: throw ProtocolException("Orden multimedia inválida: ${payload.u8(0)}"),
+            )
+            VOLUME_MUTE -> Message.VolumeMute(bool(payload.u8(0)))
+            WIDGET_LAYOUT -> decodeLayout(payload)
+            VOLUME_STATE -> Message.VolumeState(
+                payload.u8(0).also { if (it > 100) throw ProtocolException("Nivel de volumen inválido: $it") },
+                bool(payload.u8(1)),
+            )
+            MEDIA_STATE -> decodeMedia(payload)
+            WIDGET_RESULT -> Message.WidgetResult(
+                payload.u8(0),
+                GestureStatus.entries.firstOrNull { it.code == payload.u8(1) }
+                    ?: throw ProtocolException("Estado inválido: ${payload.u8(1)}"),
+            )
             PING -> Message.Ping
             PONG -> Message.Pong
             else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
@@ -160,21 +237,82 @@ object MessageCodec {
     }
 
     private fun decodeList(p: ByteArray): Message.GestureList {
-        var pos = 0
-        fun byte(): Int = if (pos < p.size) p[pos++].toInt() and 0xFF else throw ProtocolException("GESTURE_LIST truncado")
+        val c = Cursor(p)
+        val context = c.str()
+        val n = c.byte()
+        val entries = List(n) {
+            val flags = c.byte()
+            GestureListEntry(name = c.str(), help = c.str(), pinned = flags and 1 != 0)
+        }
+        c.requireEnd("GESTURE_LIST")
+        return Message.GestureList(context, entries)
+    }
+
+    private fun encodeLayout(m: Message.WidgetLayout): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val entries = m.entries.take(Protocol.MAX_WIDGETS)
+        out.write(entries.size)
+        for (e in entries) {
+            out.write(e.id)
+            out.write(e.kind.code)
+            str8(out, e.label)
+            str8(out, e.icon)
+        }
+        return out.toByteArray()
+    }
+
+    private fun decodeLayout(p: ByteArray): Message.WidgetLayout {
+        val c = Cursor(p)
+        val n = c.byte()
+        if (n > Protocol.MAX_WIDGETS) throw ProtocolException("WIDGET_LAYOUT con $n widgets")
+        val entries = List(n) {
+            val id = c.byte()
+            val kind = c.byte().let { code ->
+                WidgetKind.entries.firstOrNull { it.code == code } ?: throw ProtocolException("Tipo de widget inválido: $code")
+            }
+            WidgetEntry(id, kind, label = c.str(), icon = c.str())
+        }
+        c.requireEnd("WIDGET_LAYOUT")
+        return Message.WidgetLayout(entries)
+    }
+
+    private fun encodeMedia(m: Message.MediaState): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        out.write(if (m.playing) 1 else 0)
+        str8(out, m.title)
+        str8(out, m.artist)
+        return out.toByteArray()
+    }
+
+    private fun decodeMedia(p: ByteArray): Message.MediaState {
+        val c = Cursor(p)
+        val playing = bool(c.byte())
+        val state = Message.MediaState(playing, title = c.str(), artist = c.str())
+        c.requireEnd("MEDIA_STATE")
+        return state
+    }
+
+    private fun bool(value: Int): Boolean = when (value) {
+        0 -> false
+        1 -> true
+        else -> throw ProtocolException("Booleano inválido: $value")
+    }
+
+    /** Lee un payload variable campo a campo; lanza [ProtocolException] si se queda corto. */
+    private class Cursor(private val p: ByteArray) {
+        private var pos = 0
+
+        fun byte(): Int = if (pos < p.size) p[pos++].toInt() and 0xFF else throw ProtocolException("Mensaje truncado")
+
         fun str(): String {
             val len = byte()
-            if (pos + len > p.size) throw ProtocolException("GESTURE_LIST truncado")
+            if (pos + len > p.size) throw ProtocolException("Mensaje truncado")
             return utf8(p, pos, len).also { pos += len }
         }
-        val context = str()
-        val n = byte()
-        val entries = List(n) {
-            val flags = byte()
-            GestureListEntry(name = str(), help = str(), pinned = flags and 1 != 0)
+
+        fun requireEnd(name: String) {
+            if (pos != p.size) throw ProtocolException("Bytes sobrantes en $name")
         }
-        if (pos != p.size) throw ProtocolException("Bytes sobrantes en GESTURE_LIST")
-        return Message.GestureList(context, entries)
     }
 
     private fun str8(out: java.io.ByteArrayOutputStream, text: String) {
