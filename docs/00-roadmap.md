@@ -43,7 +43,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 **Objetivo:** ejecutar atajos de teclado o abrir aplicaciones dibujando formas sobre el trackpad, sin interferir con el uso normal.
 
 **Alcance:**
-- Activación con N dedos (N configurable; 3 por defecto) mantenidos un instante.
+- Activación con N dedos (4 desde la v3.1; antes configurable, 3 por defecto) mantenidos un instante.
 - Trazado con feedback visual en pantalla; reconocimiento con el algoritmo $1 (o $P) en el móvil.
 - Mapa configurable `forma → acción` (atajo, abrir app/URL, texto, multimedia), que se guarda **en el PC**. El móvil solo envía el nombre de la forma reconocida.
 - Grabación de formas propias (de 1 a 3 ejemplos por forma).

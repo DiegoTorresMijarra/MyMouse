@@ -6,8 +6,8 @@
 
 ## 1. Flujo de uso
 
-1. **Activar:** apoyar **3 dedos** a la vez (con menos de 150 ms entre el primero y el último) y mantenerlos quietos **300 ms**. El móvil vibra y la pantalla muestra un borde de color: el modo gestos está activo, y la chuleta del centro se amplía con todas las formas disponibles (ver §6).
-2. **Levantar** los 3 dedos.
+1. **Activar:** apoyar **4 dedos** a la vez (3 hasta la v3.0; desde la v3.1 los 3 dedos son los gestos de Windows, ver [spec-v3.1-ajustes.md](spec-v3.1-ajustes.md)) (con menos de 150 ms entre el primero y el último) y mantenerlos quietos **300 ms**. El móvil vibra y la pantalla muestra un borde de color: el modo gestos está activo, y la chuleta del centro se amplía con todas las formas disponibles (ver §6).
+2. **Levantar** los 4 dedos.
 3. **Dibujar** la forma con **un dedo**, de un solo trazo, empezando antes de que pase el tiempo configurado desde que se levantan los dedos (Ajustes → Modo gestos; por defecto 5 s, de 2 a 15 s). El trazo se dibuja en pantalla mientras se hace.
 4. **Levantar** el dedo. El móvil reconoce la forma y muestra durante 1,5 s su nombre y la acción asignada, o "No reconocido".
 5. El modo gestos termina solo; se vuelve al trackpad.
@@ -15,7 +15,7 @@
 **Cancelar:** no empezar a dibujar en el tiempo configurado, o apoyar un segundo dedo en cualquier momento del modo gestos (incluido volver a apoyar los 3).
 
 Por qué así:
-- **3 dedos mantenidos** no choca con nada de la v0 (1 dedo = mover, 2 = scroll/clic derecho; 3 ya está reservado). Mantenerlos quietos evita activaciones accidentales al apoyar la mano. N es configurable (3 o 4).
+- **3 dedos mantenidos** no choca con nada de la v0 (1 dedo = mover, 2 = scroll/clic derecho; 3 ya está reservado). Mantenerlos quietos evita activaciones accidentales al apoyar la mano. Desde la v3.1 son siempre 4 (o desactivado).
 - **Dibujar con 1 dedo** es más preciso que con 3 y el algoritmo trabaja con una sola línea.
 - **La pantalla del móvil sirve de feedback**: ves el trazo y lo que se ha reconocido antes de que pase nada en el PC.
 
@@ -124,7 +124,7 @@ Todo esto es lógica pura en `android/core`, testeable en la JVM con trazos grab
 El recuadro gris del centro del trackpad cambia según el modo.
 
 **En reposo (modo trackpad):**
-- Muestra los **gestos básicos del trackpad**: mover, clic, clic derecho, scroll, zoom, arrastrar, "3 dedos = modo gestos" y cómo salir del bloqueo. Está definida en la [spec de la v0](spec-v0.md#212-chuleta).
+- Muestra los **gestos básicos del trackpad**: mover, clic, clic derecho, scroll, zoom, arrastrar, "4 dedos = modo gestos" y cómo salir del bloqueo. Está definida en la [spec de la v0](spec-v0.md#212-chuleta).
 
 **Al activar el modo gestos:**
 - El recuadro crece y cambia de contenido: muestra las formas con acción asignada, en una cuadrícula de **dibujo en miniatura** (generado a partir de la plantilla) + **texto de ayuda** ("Abrir Chrome").

@@ -49,7 +49,9 @@ Un recuadro gris oscuro, de poco contraste y esquinas redondeadas, en el centro 
 | 2 dedos moviéndose | Scroll |
 | Pellizco | Zoom |
 | Doble toque y mover | Arrastrar |
-| 3 dedos mantenidos | Modo gestos (desde la v1) |
+| 4 dedos mantenidos | Modo gestos (desde la v1; con 3 dedos hasta la v3.0) |
+| 3 dedos deslizar | Gestos de Windows: vista de tareas, escritorio, cambio de app (v3.1) |
+| 4 dedos juntar / separar | Mostrar / ocultar el panel de widgets (v3.1) |
 | Vol− ×2 | Salir del bloqueo |
 
 - Es solo dibujo: el recuadro también es trackpad.
@@ -76,7 +78,7 @@ El intérprete es una **máquina de estados pura** en `core`. Recibe eventos tá
 | **Clic** | 1 dedo, pulsar y levantar en menos de `TAP_TIMEOUT` y sin pasar de `TOUCH_SLOP` | `BUTTON left ↓` + `↑` (diferido, ver arrastre) |
 | **Clic derecho** | 2 dedos tocan y levantan en menos de `TAP_TIMEOUT`, sin pasar de `TOUCH_SLOP` | `BUTTON right ↓↑` |
 | **Scroll** | 2 dedos se desplazan más de `TOUCH_SLOP` | `SCROLL` con el delta del centroide × `scrollSpeed` |
-| **Zoom** | 2 dedos se separan o se juntan (pellizco) más de `PINCH_SLOP` y más de lo que se desplaza su centro | `ZOOM` (el PC lo convierte en Ctrl + rueda) |
+| **Zoom** | 2 dedos se separan o se juntan (pellizco) un `PINCH_RATIO` (8 %) del cociente de distancias y más de lo que se desplaza su centro (v3.1) | `ZOOM` (el PC lo convierte en Ctrl + rueda) |
 | **Arrastrar** | Clic y, antes de `DOUBLE_TAP_TIMEOUT`, otro toque que se mueve | `BUTTON left ↓`, `MOVE`…, `BUTTON left ↑` al levantar |
 | **Doble clic** | Dos clics seguidos | Dos clics completos (Windows decide si es doble clic) |
 
@@ -88,12 +90,12 @@ Valores por defecto (configurables internamente, no en la UI de v0):
 | `TAP_TIMEOUT` | 180 ms |
 | `DOUBLE_TAP_TIMEOUT` | 250 ms |
 | `PINCH_SLOP` | 24 px de cambio en la distancia entre dedos |
-| `ZOOM_STEP` | 40 px de cambio en la distancia = un paso de zoom |
+| `PINCH_RATIO` | 8 % de cambio en la distancia entre los dedos decide el zoom. El delta es proporcional a `ln(distancia / distancia al inicio del tramo)` (v3.1, ver [spec-v3.1-ajustes.md](spec-v3.1-ajustes.md)) |
 
 **Decisión sobre el clic diferido.** Para poder detectar el arrastre, el `BUTTON ↑` del primer toque espera hasta `DOUBLE_TAP_TIMEOUT`, o se envía en cuanto se descarta el arrastre. Así se evita el "clic fantasma" al empezar a arrastrar. El precio es que **el clic llega con hasta 250 ms de retraso**. Si molesta en la prueba de uso, se puede desactivar el arrastre por doble toque.
 
 Reglas:
-- Con 2 dedos, el primer gesto que se decide (scroll o zoom) se mantiene hasta levantar los dedos; no se mezclan.
+- Con 2 dedos, el primer gesto que se decide (scroll o zoom) se mantiene hasta levantar los dedos. Excepción (v3.1): desde scroll se pasa a zoom si la distancia cambia más de un 25 %.
 - Pasar de 1 a 2 dedos en mitad de un movimiento cambia a scroll. Pasar de 2 a 1 no vuelve a mover hasta que se levantan todos los dedos (evita saltos).
 - Con 3 o más dedos no se hace nada en v0; quedan reservados para el modo gestos de v1.
 - Se procesan **todas las muestras históricas** de cada `MotionEvent`.

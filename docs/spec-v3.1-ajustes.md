@@ -29,7 +29,7 @@
   - Un gesto ya decidido no cambia de tipo hasta levantar todos los dedos.
 - Los dedos llegan uno a uno. Hay que mantener la ventana de 150 ms para contar los dedos, como en la v1: un gesto de 3 dedos no se decide mientras pueda llegar el cuarto.
 - *(decisión)* Los gestos de 3 dedos funcionan siempre (USB y Bluetooth). Por USB los ejecuta el host. Por Bluetooth, el móvil envía los informes de teclado HID directamente (`HidMapper`).
-- Debe existir un ajuste "Gestos de Windows con 3 dedos" (activado por defecto).
+- Debe existir un ajuste "Gestos de Windows con 3 dedos" (activado por defecto). Su texto de ayuda dice: "Pueden interferir con los gestos de 3 dedos de Xiaomi/HyperOS (captura y recorte). Si es así, desactívalos aquí o en los ajustes del sistema."
 - **Aviso al usuario** (en `docs/probar.md` y en Ajustes, como texto de ayuda): para usar 3 dedos hay que desactivar en HyperOS *Ajustes → Ajustes adicionales → Atajos de gestos → Captura de pantalla (deslizar 3 dedos hacia abajo)* y el recorte parcial (mantener 3 dedos). Una app no puede bloquear estos gestos del sistema.
 
 ### 1.1 Panel de widgets con 4 dedos
@@ -57,8 +57,8 @@
   - Una vez en scroll, se pasa a zoom si después el cociente cambia más de un 25 %. *(decisión)*
 - Por Bluetooth (HID) no hay deltas finos: se mantiene la acumulación por pasos, pero con la nueva fórmula.
 - Scroll con 2 dedos por USB: hay que comprobar que se envían deltas finos (no redondeados a 120). Si se redondean, se corrige.
-- Scroll **con inercia** opcional:
-  - Ajuste "Inercia al hacer scroll", **desactivado** por defecto *(decisión: pendiente de que el usuario aclare qué es "scroll suelto")*.
+- Scroll **con inercia**, como el touchpad nativo:
+  - Ajuste "Inercia al hacer scroll", **activado** por defecto (el usuario confirmó que la quiere como en el touchpad nativo); se puede desactivar.
   - Al levantar los 2 dedos con velocidad, el móvil sigue enviando scroll con fricción exponencial (~300 ms de vida media).
   - Cualquier toque nuevo la corta.
 
@@ -79,3 +79,18 @@ Si hace falta un mensaje nuevo para los gestos de Windows por USB:
   - `HidMapper` con los atajos de Windows.
 - Tests del host para `SYSTEM_GESTURE`.
 - Actualizar `spec-v0.md` (gestos básicos), `spec-v1-gestos.md` (activación con 4), `probar.md`, la chuleta (nuevos iconos y textos: "3 dedos ↑ Vista de tareas", "4 dedos juntar: widgets"…) y `ActionDescriber`.
+
+## 5. Notas de implementación
+
+Implementado en `core` (con tests), host y app. Desviaciones y puntos sin verificar:
+
+- **Sin verificar en dispositivo ni en CI:** el módulo `app` no se ha compilado aquí (sin Android SDK). La animación del panel (`ValueAnimator` con `DecelerateInterpolator`/`AccelerateInterpolator`, traslación y `clipBounds`, sin `SpringAnimation` para no añadir dependencias), los iconos nuevos de la chuleta y el atajo Alt+Tab con `SendInput` en Windows están sin probar en real.
+- **Alt+Tab por HID (Bluetooth):** Alt se mantiene con informes de teclado; no probado con un PC real.
+- **Clasificación de 3 y 4 dedos:** la ventana de 150 ms cuenta desde el primer dedo. Con 3 dedos no se decide nada hasta cerrarse; con 4 se decide al instante. Para deslizar hay que recorrer 48 px del centro (no basta el 20 % de cambio de distancia si el centro se mueve más que la distancia); para pellizcar, 20 % de cambio y más cambio de distancia que desplazamiento del centro. Un 3 dedos que pellizca, o un 4 dedos que desliza a los lados, no hace nada.
+- **Cambio de app:** al decidirse el deslizamiento se envía `START` y un primer paso (`Tab` o `Shift+Tab`); luego, un paso por cada 120 px. Levantar cualquier dedo termina el gesto (suelta Alt). El host ignora `3`/`4` sin `2` previo y un `2` repetido, y suelta Alt al cerrarse la sesión o con el PC en pausa.
+- **Zoom:** unidades `660 × velocidad × ln(cociente)` (×1,5 por defecto, rango ×0,5 a ×4). Al decidirse el zoom, la referencia empieza en ese punto (sin salto). La decisión exige además ≥ 8 px de cambio. Por HID se acumula el delta fino y se envían pasos enteros de rueda.
+- **Scroll por USB:** ya se enviaba con deltas finos (el host pasa el valor tal cual a la rueda); no hizo falta corregir nada.
+- **Inercia:** activada por defecto (confirmado por el usuario); velocidad mínima de 0,2 unidades/ms y se descarta si los dedos llevaban parados más de 100 ms.
+- **Ajuste de dedos:** solo "4 dedos quietos" o "Desactivado"; un 3 guardado de la v3.0 pasa a 4.
+- **Aviso de host antiguo:** con un host < v4 los gestos de 3 dedos no se envían y se anota en depuración "el PC necesita MyMouse 3.1 o posterior".
+- **Widgets con 4 dedos:** el estado se guarda en el ajuste "Mostrar panel de widgets". Por Bluetooth el panel fijo también se anima igual.

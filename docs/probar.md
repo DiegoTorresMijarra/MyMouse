@@ -37,7 +37,7 @@ Si algo no conecta:
 
 1. En el móvil: modo ventana → **Ajustes → Formas…** para ver y activar las formas. Lo que hace cada una se configura en el PC.
 2. En el PC: icono de MyMouse en la bandeja → **Editar gestos…**. Se abre `gestures.json` con ejemplos (círculo = abrir Chrome, Z = deshacer, V = reproducir/pausar…). Al guardar, MyMouse lo recarga solo.
-3. En el trackpad: apoya **3 dedos a la vez y déjalos quietos** hasta que vibre. Levántalos y dibuja la forma con un dedo.
+3. En el trackpad: apoya **4 dedos a la vez y déjalos quietos** hasta que vibre. Levántalos y dibuja la forma con un dedo.
 4. Activa el **modo depuración** (Ajustes) para ver qué forma se ha reconocido y con qué puntuación.
 
 ## Widgets (desde la v2.0)
@@ -65,6 +65,17 @@ Si algo no conecta:
    - Si el panel no cabe, desplázalo con un dedo.
    - Con el **modo depuración** verás anotadas las acciones (`Widget: Chrome`, `Volumen 55`, `⏭ Siguiente`).
 5. `MyMouse.TestClient.exe` (con el host abierto) imprime los widgets configurados y el estado actual de volumen y música.
+
+## Ajustes de la v3.1
+
+Actualiza el APK y el host (los gestos de 3 dedos por USB necesitan el host 3.1; por Bluetooth funcionan sin host).
+1. **Gestos de Windows con 3 dedos:** ↑ vista de tareas, ↓ escritorio, ← → cambiar de app (se mantiene Alt y avanza cada ~120 px; al levantar los dedos se suelta). Se desactivan en Ajustes.
+   - **Xiaomi/HyperOS:** el sistema usa 3 dedos para la captura. Desactiva en Ajustes → Ajustes adicionales → Atajos de gestos: *Captura de pantalla (deslizar 3 dedos hacia abajo)* y el recorte parcial (mantener 3 dedos). Una app no puede bloquearlos.
+2. **Modo gestos:** ahora con **4 dedos quietos** (300 ms).
+3. **Panel de widgets:** 4 dedos **juntar** lo muestra y **separar** lo oculta, con animación; el estado se recuerda. Sin widgets en el PC, juntar avisa "No hay widgets".
+4. **Zoom:** más fino y rápido; "Velocidad del zoom" en Ajustes (×0,5 a ×4). Comprueba que el pellizco no se queda en scroll.
+5. **Inercia al hacer scroll:** activada por defecto; se corta con cualquier toque.
+6. Con el modo depuración, 4 dedos deslizando ↑/↓ solo se anota ("4 dedos ↑", reservado para la v4).
 
 ## Bluetooth (desde la v3.0)
 
