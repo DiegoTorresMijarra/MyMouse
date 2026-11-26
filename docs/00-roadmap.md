@@ -67,12 +67,18 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 **Objetivo:** aprovechar la pantalla para controles de un toque que hoy requieren el teclado o buscar en la interfaz.
 
-**Alcance (provisional; se concreta al cerrar la v1):**
-- Disposición configurable: zona de trackpad más zona de widgets, o modos alternables.
-- Widgets: botón de atajo, controles multimedia, volumen.
-- Posible canal de vuelta PC → móvil (estado del volumen, canción en reproducción…).
+**Alcance:**
+- Panel de widgets junto al trackpad (abajo en vertical, a la derecha en horizontal), de tamaño configurable.
+- Widgets: botón de acción (las mismas acciones que la v1), control multimedia con lo que suena, volumen del sistema.
+- Se configuran en el PC (`"widgets"` en `gestures.json`); canal de vuelta PC → móvil para el volumen y la canción.
+- Protocolo versión 3.
+- Detalle: [spec-v2-widgets.md](spec-v2-widgets.md).
 
-**Criterio de "hecho":** por definir.
+**Criterios de "hecho":**
+1. Abrir una aplicación configurada con un solo toque.
+2. Pausar, saltar canción y cambiar el volumen sin teclado; volumen del móvil y del PC sincronizados en menos de 0,3 s.
+3. Ningún toque del panel llega al trackpad, ni al revés.
+4. Tests de protocolo, configuración, servicio de widgets y disposición del panel.
 
 ---
 
