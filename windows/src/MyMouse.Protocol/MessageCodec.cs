@@ -14,12 +14,15 @@ public static class MessageCodec
     {
         MessageType.Hello or MessageType.HelloAck or MessageType.GestureResult
             or MessageType.WidgetPress or MessageType.VolumeSet or MessageType.MediaCommand or MessageType.VolumeMute
-            or MessageType.SystemGesture => 1,
+            or MessageType.SystemGesture or MessageType.Toolbox or MessageType.StrokeEnd or MessageType.ShapeListEnd => 1,
+        MessageType.GestureMode => 3,
         MessageType.VolumeState or MessageType.WidgetResult => 2,
         MessageType.Move or MessageType.Scroll => 4,
         MessageType.Button or MessageType.Zoom => 2,
         MessageType.Ping or MessageType.Pong => 0,
-        MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState => null,
+        MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState
+            or MessageType.StrokePoints or MessageType.ShapeInfo or MessageType.ShapeResult
+            or MessageType.ShapeAdd or MessageType.ShapeDelete => null,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
 
@@ -117,6 +120,43 @@ public static class MessageCodec
             }
             case WidgetResultMessage m:
                 return [m.Id, (byte)m.Status];
+            case ToolboxMessage m:
+                return [m.Show ? (byte)1 : (byte)0];
+            case GestureModeMessage m:
+            {
+                var b = new byte[3];
+                b[0] = m.Active ? (byte)1 : (byte)0;
+                BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(1), m.StartTimeoutMs);
+                return b;
+            }
+            case StrokePointsMessage m:
+            {
+                var ms = new MemoryStream();
+                WritePoints(ms, m.Points);
+                return ms.ToArray();
+            }
+            case StrokeEndMessage m:
+                return [(byte)m.Result];
+            case ShapeInfoMessage m:
+                return EncodeShape(m.Name, m.Samples, force: null);
+            case ShapeListEndMessage m:
+                return [m.Count];
+            case ShapeResultMessage m:
+            {
+                var ms = new MemoryStream();
+                WriteStr8(ms, m.Name);
+                ms.WriteByte((byte)m.Status);
+                WriteStr8(ms, m.Other);
+                return ms.ToArray();
+            }
+            case ShapeAddMessage m:
+                return EncodeShape(m.Name, m.Samples, m.Force);
+            case ShapeDeleteMessage m:
+            {
+                var ms = new MemoryStream();
+                WriteStr8(ms, m.Name);
+                return ms.ToArray();
+            }
             case PingMessage or PongMessage:
                 return [];
             default:
@@ -156,6 +196,15 @@ public static class MessageCodec
             MessageType.VolumeState => new VolumeStateMessage(ParseLevel(payload[0]), ParseBool(payload[1])),
             MessageType.MediaState => DecodeMediaState(payload),
             MessageType.WidgetResult => new WidgetResultMessage(payload[0], ParseStatus(payload[1])),
+            MessageType.Toolbox => new ToolboxMessage(ParseBool(payload[0])),
+            MessageType.GestureMode => new GestureModeMessage(ParseBool(payload[0]), BinaryPrimitives.ReadUInt16LittleEndian(payload[1..])),
+            MessageType.StrokePoints => DecodeStrokePoints(payload),
+            MessageType.StrokeEnd => new StrokeEndMessage(ParseStrokeResult(payload[0])),
+            MessageType.ShapeInfo => DecodeShape(payload, withForce: false),
+            MessageType.ShapeListEnd => new ShapeListEndMessage(payload[0]),
+            MessageType.ShapeResult => DecodeShapeResult(payload),
+            MessageType.ShapeAdd => DecodeShape(payload, withForce: true),
+            MessageType.ShapeDelete => DecodeShapeDelete(payload),
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
         };
     }
@@ -217,6 +266,91 @@ public static class MessageCodec
             throw new ProtocolException("Bytes sobrantes en MEDIA_STATE");
         return new MediaStateMessage(playing, title, artist);
     }
+
+    private static void WritePoints(Stream s, IReadOnlyList<StrokePoint> points)
+    {
+        if (points.Count > ProtocolInfo.MaxPointsPerBatch)
+            throw new ArgumentException("Demasiados puntos");
+        s.WriteByte((byte)points.Count);
+        Span<byte> b = stackalloc byte[4];
+        foreach (var p in points)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(b, p.X);
+            BinaryPrimitives.WriteUInt16LittleEndian(b[2..], p.Y);
+            s.Write(b);
+        }
+    }
+
+    private static byte[] EncodeShape(string name, IReadOnlyList<IReadOnlyList<StrokePoint>> samples, bool? force)
+    {
+        if (samples.Count > ProtocolInfo.MaxShapeSamples)
+            throw new ArgumentException("Demasiadas muestras");
+        var ms = new MemoryStream();
+        WriteStr8(ms, name);
+        ms.WriteByte((byte)samples.Count);
+        foreach (var sample in samples) WritePoints(ms, sample);
+        if (force is { } f) ms.WriteByte(f ? (byte)1 : (byte)0);
+        return ms.ToArray();
+    }
+
+    private static List<StrokePoint> ReadPoints(ReadOnlySpan<byte> payload, ref int pos)
+    {
+        int n = ReadByte(payload, ref pos);
+        if (pos + n * 4 > payload.Length) throw new ProtocolException("Mensaje truncado");
+        var points = new List<StrokePoint>(n);
+        for (var i = 0; i < n; i++)
+        {
+            points.Add(new StrokePoint(
+                BinaryPrimitives.ReadUInt16LittleEndian(payload[pos..]),
+                BinaryPrimitives.ReadUInt16LittleEndian(payload[(pos + 2)..])));
+            pos += 4;
+        }
+        return points;
+    }
+
+    private static StrokePointsMessage DecodeStrokePoints(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var points = ReadPoints(payload, ref pos);
+        if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en STROKE_POINTS");
+        if (points.Count == 0) throw new ProtocolException("STROKE_POINTS vacío");
+        return new StrokePointsMessage(points);
+    }
+
+    private static Message DecodeShape(ReadOnlySpan<byte> payload, bool withForce)
+    {
+        var pos = 0;
+        var name = ReadStr8(payload, ref pos);
+        int count = ReadByte(payload, ref pos);
+        var samples = new List<IReadOnlyList<StrokePoint>>(count);
+        for (var i = 0; i < count; i++) samples.Add(ReadPoints(payload, ref pos));
+        var force = withForce && ParseBool(ReadByte(payload, ref pos));
+        if (pos != payload.Length) throw new ProtocolException($"Bytes sobrantes en {(withForce ? "SHAPE_ADD" : "SHAPE_INFO")}");
+        return withForce ? new ShapeAddMessage(name, samples, force) : new ShapeInfoMessage(name, samples);
+    }
+
+    private static ShapeResultMessage DecodeShapeResult(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var name = ReadStr8(payload, ref pos);
+        var status = ReadByte(payload, ref pos);
+        if (status > (byte)ShapeStatus.NotFound) throw new ProtocolException($"Estado de forma inválido: {status}");
+        var other = ReadStr8(payload, ref pos);
+        if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en SHAPE_RESULT");
+        return new ShapeResultMessage(name, (ShapeStatus)status, other);
+    }
+
+    private static ShapeDeleteMessage DecodeShapeDelete(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var name = ReadStr8(payload, ref pos);
+        if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en SHAPE_DELETE");
+        return new ShapeDeleteMessage(name);
+    }
+
+    private static StrokeResult ParseStrokeResult(byte value) => value <= (byte)StrokeResult.TimedOut
+        ? (StrokeResult)value
+        : throw new ProtocolException($"Resultado de trazo inválido: {value}");
 
     private static byte ReadByte(ReadOnlySpan<byte> payload, ref int pos) =>
         pos < payload.Length ? payload[pos++] : throw new ProtocolException("Mensaje truncado");

@@ -29,6 +29,19 @@ public class MessageCodecTests
         { new WidgetResultMessage(2, GestureStatus.Executed), "8B 02 00" },
         { new WidgetLayoutMessage([new WidgetLayoutEntry(0, WidgetKind.Volume, "", "")]), "88 05 00 01 00 02 00 00" },
         { new MediaStateMessage(true, "A", "B"), "8A 05 00 01 01 41 01 42" },
+        { new ToolboxMessage(true), "0D 01" },
+        { new ToolboxMessage(false), "0D 00" },
+        { new GestureModeMessage(true, 3000), "0E 01 B8 0B" },
+        { new GestureModeMessage(false, 0), "0E 00 00 00" },
+        { new StrokePointsMessage([new StrokePoint(0, 0), new StrokePoint(65535, 32768)]), "0F 09 00 02 00 00 00 00 FF FF 00 80" },
+        { new StrokeEndMessage(StrokeResult.Recognized), "10 00" },
+        { new StrokeEndMessage(StrokeResult.TimedOut), "10 03" },
+        { new ShapeInfoMessage("a", [[new StrokePoint(1, 2), new StrokePoint(3, 4)]]), "11 0C 00 01 61 01 02 01 00 02 00 03 00 04 00" },
+        { new ShapeListEndMessage(3), "12 03" },
+        { new ShapeResultMessage("a", ShapeStatus.Clashes, "z"), "13 05 00 01 61 01 01 7A" },
+        { new ShapeResultMessage("a", ShapeStatus.Saved, ""), "13 04 00 01 61 00 00" },
+        { new ShapeAddMessage("a", [[new StrokePoint(1, 2), new StrokePoint(3, 4)]], true), "8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 01" },
+        { new ShapeDeleteMessage("a"), "8D 02 00 01 61" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -85,6 +98,19 @@ public class MessageCodecTests
     [InlineData("8A 04 00 01 01 41 01")] // artista truncado
     [InlineData("8A 05 00 02 01 41 01 42")] // booleano inválido
     [InlineData("08")] // WIDGET_PRESS truncado
+    [InlineData("0D 02")] // booleano inválido
+    [InlineData("0E 02 00 00")] // booleano inválido
+    [InlineData("0F 01 00 00")] // STROKE_POINTS sin puntos
+    [InlineData("0F 02 00 01 00")] // STROKE_POINTS truncado
+    [InlineData("0F 05 00 02 00 00 00 00")] // dice 2 puntos, trae 1
+    [InlineData("10 04")] // resultado de trazo inválido
+    [InlineData("11 02 00 01 61")] // SHAPE_INFO sin lista de muestras
+    [InlineData("11 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 00")] // bytes sobrantes
+    [InlineData("13 05 00 01 61 06 01 7A")] // estado de forma inválido
+    [InlineData("8C 0C 00 01 61 01 02 01 00 02 00 03 00 04 00")] // SHAPE_ADD sin force
+    [InlineData("8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 02")] // force inválido
+    [InlineData("8D 02 00 01")] // nombre truncado
+    [InlineData("12")] // SHAPE_LIST_END truncado
     public async Task Read_InvalidInput_Throws(string hex)
     {
         var reader = new MessageReader(new MemoryStream(Hex(hex)));
@@ -105,6 +131,15 @@ public class MessageCodecTests
         var bytes = MessageCodec.Encode(new WidgetLayoutMessage([new WidgetLayoutEntry(0, WidgetKind.Button, label, "")]));
         var decoded = (WidgetLayoutMessage)MessageCodec.Decode(bytes[0], bytes.AsSpan(3));
         Assert.Equal(new string('é', 127), decoded.Entries[0].Label);
+    }
+
+    [Fact]
+    public void RoundTrip_ShapeWithAccentsAndManySamples()
+    {
+        IReadOnlyList<StrokePoint> sample = [.. Enumerable.Range(0, 32).Select(i => new StrokePoint((ushort)(i * 2000), (ushort)(65535 - i * 2000)))];
+        var message = new ShapeAddMessage("custom:café", [sample, sample, sample, sample, sample], false);
+        var bytes = MessageCodec.Encode(message);
+        Assert.Equal(message, MessageCodec.Decode(bytes[0], bytes.AsSpan(3)));
     }
 
     private static byte[] Hex(string hex) => Convert.FromHexString(hex.Replace(" ", ""));

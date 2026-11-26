@@ -1,6 +1,8 @@
 package dev.mymouse.core.gesture
 
 import dev.mymouse.core.protocol.MouseButton
+import dev.mymouse.core.protocol.StrokePoint
+import dev.mymouse.core.protocol.StrokeResult
 import dev.mymouse.core.protocol.SystemGestureCommand
 
 /** Evento táctil abstracto (independiente de Android). Coordenadas en píxeles; tiempo en ms monotónicos. */
@@ -35,10 +37,19 @@ sealed interface OutputAction {
     /** Forma reconocida en el modo gestos: se envía al PC. */
     data class Gesture(val name: String, val score: Float) : OutputAction
 
-    // ---- Solo locales (feedback en el móvil, no se envían) ----
+    /**
+     * El modo gestos empieza o termina. Se envía al PC (protocolo v5, `GESTURE_MODE`) y sirve de feedback local.
+     * [startTimeoutMs]: al empezar, tiempo que se espera a que se empiece a dibujar (lo rellena [TrackpadEngine]).
+     */
+    data class GestureMode(val active: Boolean, val startTimeoutMs: Int = 0) : OutputAction
 
-    /** El modo gestos empieza o termina. */
-    data class GestureMode(val active: Boolean) : OutputAction
+    /** Lote de puntos del trazo en curso, normalizados (protocolo v5, `STROKE_POINTS`): como mucho uno cada 16 ms. */
+    data class StrokePoints(val points: List<StrokePoint>) : OutputAction
+
+    /** Fin del trazo (protocolo v5, `STROKE_END`). Precede a [Gesture] si se reconoció. */
+    data class StrokeEnd(val result: StrokeResult) : OutputAction
+
+    // ---- Solo locales (feedback en el móvil, no se envían) ----
 
     /** Trazo dibujado en el modo gestos que no se ha reconocido (o se ha cancelado). */
     data class GestureRejected(val reason: String) : OutputAction
@@ -46,7 +57,7 @@ sealed interface OutputAction {
     /** 4 dedos juntándose ([show] = true: mostrar el panel de widgets) o separándose (ocultarlo). */
     data class WidgetPanel(val show: Boolean) : OutputAction
 
-    /** Deslizar 4 dedos, reservado para la toolbox del PC (v4): solo se anota en depuración. */
+    /** Deslizar 4 dedos arriba ([up] = true) o abajo: mostrar u ocultar la toolbox del PC (protocolo v5, `TOOLBOX`). */
     data class FourFingerSwipe(val up: Boolean) : OutputAction
 }
 

@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **4** (gestos de Windows con 3 dedos). El host acepta también clientes de versión 1, 2 y 3. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **5** (toolbox del PC: panel, gesto en vivo y formas sincronizadas). El host acepta también clientes de versión 1, 2, 3 y 4. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -24,7 +24,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 ```
 
 - Todos los enteros multibyte van en **little-endian**.
-- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`) llevan delante la longitud del payload en un `u16`.
+- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`, `STROKE_POINTS`, `SHAPE_INFO`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`) llevan delante la longitud del payload en un `u16`.
 - `str8` = `u8` longitud en bytes + texto UTF-8.
 - Si un extremo recibe un tipo desconocido, **cierra la conexión**: no es posible resincronizar el flujo.
 
@@ -47,6 +47,14 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x0B` | `VOLUME_MUTE` (v3) | `u8 silenciado` (0/1) | 2 |
 | `0x0C` | `SYSTEM_GESTURE` (v4) | `u8 orden`: 0 = vista de tareas, 1 = escritorio, 2 = empezar cambio de app, 3 = siguiente app, 4 = app anterior, 5 = terminar cambio de app | 2 |
 
+| `0x0D` | `TOOLBOX` (v5) | `u8`: 1 = mostrar, 0 = ocultar (4 dedos ↑ / ↓) | 2 |
+| `0x0E` | `GESTURE_MODE` (v5) | `u8` 1 = activado, 0 = terminado; `u16` tiempo para empezar a dibujar, en ms | 4 |
+| `0x0F` | `STROKE_POINTS` (v5) | `u16 len` + `u8 n`, `n` × (`u16 x`, `u16 y`) | variable |
+| `0x10` | `STROKE_END` (v5) | `u8`: 0 = reconocida (le sigue `GESTURE`), 1 = no reconocida, 2 = cancelada, 3 = tiempo agotado | 2 |
+| `0x11` | `SHAPE_INFO` (v5) | `u16 len` + `str8 nombre`, `u8 muestras`, por muestra `u8 n` + `n` × (`u16 x`, `u16 y`) | variable |
+| `0x12` | `SHAPE_LIST_END` (v5) | `u8` número de formas propias enviadas | 2 |
+| `0x13` | `SHAPE_RESULT` (v5) | `u16 len` + `str8 nombre`, `u8 estado` (0 = guardada, 1 = se confunde, 2 = nombre repetido, 3 = no válida, 4 = borrada, 5 = no existe), `str8` forma con la que se confunde o vacío | variable |
+
 ### Host → cliente
 
 | Tipo | Nombre | Payload | Bytes totales |
@@ -59,6 +67,8 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x89` | `VOLUME_STATE` (v3) | `u8 nivel` (0–100), `u8 silenciado` (0/1) | 3 |
 | `0x8A` | `MEDIA_STATE` (v3) | `u16 len` + `u8 reproduciendo` (0/1), `str8 título`, `str8 artista` | variable |
 | `0x8B` | `WIDGET_RESULT` (v3) | `u8 id`, `u8 estado` (mismos valores que `GESTURE_RESULT`) | 3 |
+| `0x8C` | `SHAPE_ADD` (v5) | Como `SHAPE_INFO` y, al final, `u8 force` (1 = guardar aunque se confunda) | variable |
+| `0x8D` | `SHAPE_DELETE` (v5) | `u16 len` + `str8 nombre` | variable |
 
 ### Detalle
 
@@ -100,6 +110,14 @@ Tamaño variable:  +--------+-----------+---------------------+
   - Por Bluetooth no se usa este mensaje: el móvil envía los informes de teclado HID equivalentes.
 - **ZOOM y SCROLL con deltas finos** (v4, sin cambio de formato). Desde la v3.1 el cliente envía `ZOOM` con deltas proporcionales (no múltiplos de 120) y `SCROLL` con valores pequeños; el host los pasa tal cual a la rueda (`Ctrl` + rueda en el zoom). Un host anterior los acepta igual.
 
+- **Toolbox del PC** (v5). Panel flotante, gesto en vivo y formas sincronizadas ([spec-v4-toolbox.md](../docs/spec-v4-toolbox.md)). Todos estos mensajes solo se envían y aceptan con versión negociada ≥ 5: con un host o un móvil anterior no hay toolbox desde el móvil, ni gesto en vivo, ni sincronización de formas (lo demás funciona). Un mensaje de la v5 con versión < 5 es un error de protocolo.
+  - `TOOLBOX`: el móvil lo envía con 4 dedos hacia arriba (1) o hacia abajo (0). No se responde. En pausa, el host lo atiende igual (la toolbox sigue siendo útil).
+  - **Gesto en vivo.** Al activarse el modo gestos el móvil envía `GESTURE_MODE(1, tiempo)`; mientras se dibuja, `STROKE_POINTS` en lotes de como mucho 16 ms (el primer lote de un trazo lleva el primer punto); al terminar, `STROKE_END` y, si se reconoció, `GESTURE` como hasta ahora (el `GESTURE_RESULT` llega igual). Por último, `GESTURE_MODE(0, 0)`. Un trazo termina siempre con `STROKE_END`, también si se cancela (2) o se agota el tiempo (3).
+  - Las coordenadas de `STROKE_POINTS` y de las muestras de las formas están normalizadas a 0–65535 **con la misma escala en los dos ejes** (el lado largo del área, o de la caja de la forma, ocupa todo el rango; el corto, menos), de modo que el trazo conserva sus proporciones. El origen es la esquina superior izquierda. Lotes de 1 a 255 puntos.
+  - **Formas.** El móvil es el dueño de las formas. Tras el handshake (versión ≥ 5) envía un `SHAPE_INFO` por cada forma propia (`custom:<nombre>`; el catálogo de 15 no se envía) y luego `SHAPE_LIST_END` con el total; lo repite entero cada vez que cambian sus formas. Cada muestra se remuestrea a 32 puntos. Como máximo 255 formas.
+  - `SHAPE_ADD` (PC → móvil): el móvil valida (nombre `custom:` + texto, ≤ 64 bytes; al menos una muestra con 2 o más puntos y un tamaño mínimo), comprueba que no se confunda con otra forma activa salvo que `force` sea 1, la guarda y responde `SHAPE_RESULT`: 0 guardada, 1 se confunde (con la forma del último campo), 2 nombre repetido, 3 no válida. Si se guarda, además reenvía la lista completa.
+  - `SHAPE_DELETE`: borra una forma propia; responde `SHAPE_RESULT` con 4 (borrada) o 5 (no existe) y, si borró, reenvía la lista.
+
 ## Versionado
 
 - Si se añade un tipo nuevo o cambia un payload, **se incrementa la versión**.
@@ -131,5 +149,16 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `SYSTEM_GESTURE(vista de tareas)` | `0C 00` |
 | `SYSTEM_GESTURE(empezar cambio de app)` | `0C 02` |
 | `SYSTEM_GESTURE(terminar cambio de app)` | `0C 05` |
+| `TOOLBOX(mostrar)` | `0D 01` |
+| `TOOLBOX(ocultar)` | `0D 00` |
+| `GESTURE_MODE(activado, 3000 ms)` | `0E 01 B8 0B` |
+| `STROKE_POINTS([(0,0), (65535,32768)])` | `0F 09 00 02 00 00 00 00 FF FF 00 80` |
+| `STROKE_END(reconocida)` | `10 00` |
+| `STROKE_END(tiempo agotado)` | `10 03` |
+| `SHAPE_INFO("a", [[(1,2), (3,4)]])` | `11 0C 00 01 61 01 02 01 00 02 00 03 00 04 00` |
+| `SHAPE_LIST_END(3)` | `12 03` |
+| `SHAPE_RESULT("a", se confunde, "z")` | `13 05 00 01 61 01 01 7A` |
+| `SHAPE_ADD("a", [[(1,2), (3,4)]], force)` | `8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 01` |
+| `SHAPE_DELETE("a")` | `8D 02 00 01 61` |
 | `PING` | `05` |
 | `PONG` | `85` |

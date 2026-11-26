@@ -54,6 +54,7 @@ class HidMapper {
         }
         is OutputAction.SystemGesture -> system(action.command)
         is OutputAction.Gesture, is OutputAction.GestureMode, is OutputAction.GestureRejected,
+        is OutputAction.StrokePoints, is OutputAction.StrokeEnd,
         is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> emptyList()
     }
 

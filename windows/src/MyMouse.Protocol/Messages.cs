@@ -3,8 +3,8 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE).</summary>
-    public const byte CurrentVersion = 4;
+    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC.</summary>
+    public const byte CurrentVersion = 5;
 
     /// <summary>Primera versión con los mensajes del modo gestos.</summary>
     public const byte GesturesVersion = 2;
@@ -14,6 +14,16 @@ public static class ProtocolInfo
 
     /// <summary>Primera versión con SYSTEM_GESTURE (gestos de 3 dedos de Windows).</summary>
     public const byte SystemGestureVersion = 4;
+
+    /// <summary>Primera versión con TOOLBOX, el gesto en vivo (GESTURE_MODE, STROKE_*) y la sincronización de formas (SHAPE_*).</summary>
+    public const byte ToolboxVersion = 5;
+
+    /// <summary>Puntos a los que el móvil remuestrea cada muestra de una forma en SHAPE_INFO.</summary>
+    public const int ShapeSamplePoints = 32;
+
+    /// <summary>Máximo de muestras por forma y de puntos por muestra o lote (los cuenta un u8).</summary>
+    public const int MaxShapeSamples = 255;
+    public const int MaxPointsPerBatch = 255;
 
     /// <summary>Máximo de widgets en un WIDGET_LAYOUT.</summary>
     public const int MaxWidgets = 32;
@@ -43,6 +53,13 @@ public enum MessageType : byte
     MediaCommand = 0x0A,
     VolumeMute = 0x0B,
     SystemGesture = 0x0C,
+    Toolbox = 0x0D,
+    GestureMode = 0x0E,
+    StrokePoints = 0x0F,
+    StrokeEnd = 0x10,
+    ShapeInfo = 0x11,
+    ShapeListEnd = 0x12,
+    ShapeResult = 0x13,
     HelloAck = 0x81,
     Pong = 0x85,
     GestureResult = 0x86,
@@ -51,6 +68,8 @@ public enum MessageType : byte
     VolumeState = 0x89,
     MediaState = 0x8A,
     WidgetResult = 0x8B,
+    ShapeAdd = 0x8C,
+    ShapeDelete = 0x8D,
 }
 
 public enum MouseButton : byte
@@ -214,6 +233,97 @@ public sealed record MediaStateMessage(bool Playing, string Title, string Artist
 public sealed record WidgetResultMessage(byte Id, GestureStatus Status) : Message
 {
     public override MessageType Type => MessageType.WidgetResult;
+}
+
+/// <summary>Punto normalizado 0–65535 (trazos y muestras de formas del protocolo v5).</summary>
+public readonly record struct StrokePoint(ushort X, ushort Y);
+
+/// <summary>Cómo terminó un trazo del modo gestos (STROKE_END).</summary>
+public enum StrokeResult : byte
+{
+    Recognized = 0,
+    NotRecognized = 1,
+    Cancelled = 2,
+    TimedOut = 3,
+}
+
+/// <summary>Resultado de añadir o borrar una forma en el móvil (SHAPE_RESULT).</summary>
+public enum ShapeStatus : byte
+{
+    Saved = 0,
+    Clashes = 1,
+    DuplicateName = 2,
+    Invalid = 3,
+    Deleted = 4,
+    NotFound = 5,
+}
+
+/// <summary>Mostrar u ocultar la toolbox del PC: 4 dedos arriba / abajo en el móvil (protocolo v5).</summary>
+public sealed record ToolboxMessage(bool Show) : Message
+{
+    public override MessageType Type => MessageType.Toolbox;
+}
+
+/// <summary>El modo gestos se activa o termina en el móvil. <paramref name="StartTimeoutMs"/>: tiempo para empezar a dibujar.</summary>
+public sealed record GestureModeMessage(bool Active, ushort StartTimeoutMs) : Message
+{
+    public override MessageType Type => MessageType.GestureMode;
+}
+
+/// <summary>Lote de puntos del trazo en curso, normalizados 0–65535 (escala común en los dos ejes).</summary>
+public sealed record StrokePointsMessage(IReadOnlyList<StrokePoint> Points) : Message
+{
+    public override MessageType Type => MessageType.StrokePoints;
+
+    public bool Equals(StrokePointsMessage? other) => other is not null && Points.SequenceEqual(other.Points);
+
+    public override int GetHashCode() => Points.Count;
+}
+
+public sealed record StrokeEndMessage(StrokeResult Result) : Message
+{
+    public override MessageType Type => MessageType.StrokeEnd;
+}
+
+/// <summary>Una forma propia del móvil. Cada muestra son 32 puntos normalizados.</summary>
+public sealed record ShapeInfoMessage(string Name, IReadOnlyList<IReadOnlyList<StrokePoint>> Samples) : Message
+{
+    public override MessageType Type => MessageType.ShapeInfo;
+
+    public bool Equals(ShapeInfoMessage? other) =>
+        other is not null && Name == other.Name && Samples.Count == other.Samples.Count &&
+        Samples.Zip(other.Samples).All(p => p.First.SequenceEqual(p.Second));
+
+    public override int GetHashCode() => HashCode.Combine(Name, Samples.Count);
+}
+
+/// <summary>Fin de la lista de formas propias; <paramref name="Count"/> = cuántas se han enviado.</summary>
+public sealed record ShapeListEndMessage(byte Count) : Message
+{
+    public override MessageType Type => MessageType.ShapeListEnd;
+}
+
+/// <summary>Respuesta del móvil a SHAPE_ADD o SHAPE_DELETE. <paramref name="Other"/>: forma con la que se confunde, o vacío.</summary>
+public sealed record ShapeResultMessage(string Name, ShapeStatus Status, string Other) : Message
+{
+    public override MessageType Type => MessageType.ShapeResult;
+}
+
+/// <summary>El PC añade una forma grabada con el ratón. <paramref name="Force"/>: guardarla aunque se confunda con otra.</summary>
+public sealed record ShapeAddMessage(string Name, IReadOnlyList<IReadOnlyList<StrokePoint>> Samples, bool Force) : Message
+{
+    public override MessageType Type => MessageType.ShapeAdd;
+
+    public bool Equals(ShapeAddMessage? other) =>
+        other is not null && Name == other.Name && Force == other.Force && Samples.Count == other.Samples.Count &&
+        Samples.Zip(other.Samples).All(p => p.First.SequenceEqual(p.Second));
+
+    public override int GetHashCode() => HashCode.Combine(Name, Samples.Count);
+}
+
+public sealed record ShapeDeleteMessage(string Name) : Message
+{
+    public override MessageType Type => MessageType.ShapeDelete;
 }
 
 public sealed record PingMessage : Message

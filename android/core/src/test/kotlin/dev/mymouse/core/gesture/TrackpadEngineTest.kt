@@ -18,7 +18,8 @@ class TrackpadEngineTest {
     private val config = TrackpadConfig(acceleration = 0f)
     private val engine = TrackpadEngine(config, Recognizer(Recognizer.catalogTemplates(), ShapeCatalog.IDS.toSet()))
 
-    private fun feed(vararg events: TouchInput) = events.flatMap { engine.onTouch(it) }
+    /** Sin [OutputAction.StrokeEnd] (lo prueba [StrokeStreamingTest]): estos tests miran el resultado local. */
+    private fun feed(vararg events: TouchInput) = events.flatMap { engine.onTouch(it) }.filterNot { it is OutputAction.StrokeEnd }
 
     /** Cuatro dedos casi a la vez y quietos: activa en el tick de t+90+300. */
     private fun activate(t: Long = 0): List<OutputAction> {
@@ -33,7 +34,7 @@ class TrackpadEngineTest {
 
     @Test
     fun fourFingersHeldActivateGestureMode() {
-        assertEquals(listOf(GestureMode(true)), activate())
+        assertEquals(listOf(GestureMode(true, config.gestureStrokeTimeoutMs.toInt())), activate())
         assertTrue(engine.gestureModeActive)
     }
 
@@ -79,7 +80,10 @@ class TrackpadEngineTest {
     fun noStrokeTimesOut() {
         activate()
         val deadline = engine.nextDeadlineMs!!
-        assertEquals(listOf(GestureRejected("Tiempo agotado"), GestureMode(false)), engine.onTick(deadline))
+        assertEquals(
+            listOf(GestureRejected("Tiempo agotado"), GestureMode(false)),
+            engine.onTick(deadline).filterNot { it is OutputAction.StrokeEnd },
+        )
     }
 
     @Test
