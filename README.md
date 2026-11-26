@@ -20,11 +20,14 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/01-concepto.md](docs/01-concepto.md) | La idea y su alcance |
 | [docs/02-tecnico.md](docs/02-tecnico.md) | Limitaciones técnicas y decisiones |
 | [docs/03-plan-v0.md](docs/03-plan-v0.md) | Hitos de la v0 y su estado |
+| [docs/probar.md](docs/probar.md) | Cómo instalar y probar una release |
 | [docs/spec-v0.md](docs/spec-v0.md) | Especificación funcional de la v0 |
 | [docs/spec-v1-gestos.md](docs/spec-v1-gestos.md) | Modo gestos: formas, acciones y límites (propuesta) |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha
+
+**Sin compilar nada:** descarga el APK y el host de Windows de la [última release](https://github.com/DiegoTorresMijarra/MyMouse/releases) y sigue [docs/probar.md](docs/probar.md).
 
 ### Requisitos
 - **PC:** Windows 10/11, [.NET 10 SDK](https://dotnet.microsoft.com/download) y [Android platform-tools](https://developer.android.com/tools/releases/platform-tools) (`adb`). En móviles Huawei, el driver ADB suele venir con HiSuite.

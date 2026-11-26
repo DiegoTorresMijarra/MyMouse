@@ -3,6 +3,8 @@ package dev.mymouse
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.AlertDialog
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
@@ -22,7 +24,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.mymouse.core.gesture.GestureInterpreter
-import dev.mymouse.core.gesture.TrackpadConfig
 import dev.mymouse.core.protocol.Protocol
 
 /**
@@ -43,14 +44,17 @@ class MainActivity : Activity() {
     private var lastVolumeDownAt = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
+    private var settings = AppSettings()
+    private var dimmed = false
+    private val dim = Runnable { setDimmed(true) }
     private val density get() = resources.displayMetrics.density
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AdminReceiver.applyKioskPolicies(this)
 
-        // TODO (M4): cargar TrackpadConfig desde ajustes persistidos.
-        val interpreter = GestureInterpreter(TrackpadConfig())
+        settings = AppSettings.load(this)
+        val interpreter = GestureInterpreter(settings.trackpadConfig())
         connection = HostConnection(port = Protocol.DEFAULT_PORT)
         trackpad = TrackpadView(this, interpreter, connection::send)
         connection.onConnectionChanged = { connected -> trackpad.post { trackpad.connected = connected } }
@@ -76,6 +80,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         connection.start()
+        applySettings()
         applyLayout()
         // Fijar la app cuando ya está en primer plano (llamarlo antes puede fallar).
         if (mode == Mode.LOCKED) root.post { startLock() } else scheduleAutoRelock()
@@ -83,6 +88,8 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         handler.removeCallbacks(autoRelock)
+        handler.removeCallbacks(dim)
+        setDimmed(false)
         connection.stop()
         super.onPause()
     }
@@ -90,6 +97,37 @@ class MainActivity : Activity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) applySystemBars() // el diálogo de "fijar app" u otros pueden mostrar las barras
+    }
+
+    // ---- Ajustes y atenuación ----
+
+    private fun applySettings() {
+        val loaded = AppSettings.load(this)
+        if (loaded.trackpadConfig() != settings.trackpadConfig()) {
+            trackpad.interpreter = GestureInterpreter(loaded.trackpadConfig())
+        }
+        settings = loaded
+        trackpad.showCheatSheet = settings.showCheatSheet
+        requestedOrientation = if (settings.landscape) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        scheduleDim()
+    }
+
+    private fun scheduleDim() {
+        handler.removeCallbacks(dim)
+        if (settings.dimAfterSeconds > 0) handler.postDelayed(dim, settings.dimAfterSeconds * 1000L)
+    }
+
+    /** Atenuar no apaga la pantalla: baja el brillo de esta ventana al mínimo. */
+    private fun setDimmed(value: Boolean) {
+        if (dimmed == value) return
+        dimmed = value
+        window.attributes = window.attributes.apply {
+            screenBrightness = if (value) DIM_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        }
     }
 
     // ---- Modos ----
@@ -182,7 +220,11 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN) scheduleAutoRelock()
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            scheduleAutoRelock()
+            setDimmed(false)
+            scheduleDim()
+        }
         return super.dispatchTouchEvent(ev)
     }
 
@@ -202,6 +244,7 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER_VERTICAL or Gravity.END
         val p = (8 * density).toInt()
         setPadding(p, p / 2, p, p / 2)
+        addView(button("Ajustes") { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
         addView(button("Bloquear") { setMode(Mode.LOCKED) })
         addView(button("Salir") {
             stopLock()
@@ -238,6 +281,7 @@ class MainActivity : Activity() {
         const val KEY_WINDOW = "window_mode"
         const val DOUBLE_PRESS_MS = 500L
         const val AUTO_RELOCK_MS = 30_000L
+        const val DIM_BRIGHTNESS = 0.02f
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
     }

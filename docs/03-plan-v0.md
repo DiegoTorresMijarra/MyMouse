@@ -59,9 +59,9 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [~] Doble toque y arrastrar = mantener el clic pulsado (seleccionar, mover ventanas). La lógica está testeada.
 
 ### M4: ajuste fino
-- [~] Curva de aceleración propia (implementada y testeada). Falta la UI de ajustes y guardarlos.
-- [ ] Velocidad de scroll configurable.
-- [ ] Atenuar la pantalla tras X segundos sin uso (sin apagarla).
+- [~] Curva de aceleración propia (implementada y testeada) y pantalla de ajustes que se guardan (release v0.4).
+- [~] Velocidad de scroll configurable (release v0.4).
+- [~] Atenuar la pantalla tras X segundos sin uso, sin apagarla (release v0.4).
 - [~] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen − (release v0.3).
 - [~] Chuleta de gestos básicos en el centro del trackpad (release v0.2).
 - [~] Modo ventana: trackpad con margen, botones Bloquear y Salir (release v0.3).

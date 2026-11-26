@@ -10,7 +10,7 @@
         android:theme="@style/Theme.MyMouse"
         android:allowBackup="false">
 
-        <!-- TODO (M4): orientación configurable desde ajustes. -->
+        <!-- La orientación se fija en tiempo de ejecución según los ajustes. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -23,6 +23,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault" />
 
         <!-- Solo actúa si se registra como propietaria del dispositivo (modo bloqueado completo). -->
         <receiver

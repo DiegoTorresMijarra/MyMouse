@@ -112,7 +112,7 @@ El scroll usa el mismo acumulador fraccionario.
 - Envío desde un único hilo con cola. Los `MOVE` pendientes se **fusionan**: si la cola se atasca, se suman los deltas en lugar de acumular mensajes.
 
 ### 2.5 Ajustes (v0)
-Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), orientación, segundos hasta atenuar la pantalla, atajo de volumen para salir del modo bloqueado, volver solo al modo bloqueado.
+Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), orientación, segundos hasta atenuar la pantalla, mostrar la chuleta. Pendientes: elegir el atajo de volumen y el tiempo para volver solo al modo bloqueado (fijos en Vol− ×2 y 30 s).
 
 ## 3. Host de Windows
 

@@ -20,9 +20,17 @@ import dev.mymouse.core.gesture.TouchInput
 @SuppressLint("ViewConstructor")
 class TrackpadView(
     context: Context,
-    private val interpreter: GestureInterpreter,
+    interpreter: GestureInterpreter,
     private val send: (OutputAction) -> Unit,
 ) : View(context) {
+
+    /** Se puede sustituir (p. ej. al cambiar los ajustes); el clic pendiente del anterior se suelta. */
+    var interpreter: GestureInterpreter = interpreter
+        set(value) {
+            field.onTouch(TouchInput.Cancel(SystemClock.uptimeMillis())).forEach(send)
+            removeCallbacks(tick)
+            field = value
+        }
 
     var connected: Boolean = false
         set(value) {
