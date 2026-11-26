@@ -113,6 +113,21 @@ Puntos de incertidumbre que hay que validar con un prototipo:
 
 Existen apps similares (Remote Mouse, Unified Remote, KDE Connect…). Su diferencia con MyMouse es que suelen ir por WiFi, no están pensadas como trackpad fijo y ninguna tiene un modo de formas configurable como el planteado. Para un proyecto personal y open source eso basta como motivo; no hay que competir con ellas.
 
-## Preguntas abiertas
-1. **Modelo y versión de Android del móvil.** Decide la versión mínima y si el Bluetooth HID es una opción.
-2. **Lenguaje del programa de Windows:** C# o Rust (o el que prefieras).
+## Decisiones de la ronda técnica
+
+### Dispositivo de referencia: Huawei P10 (VTR-L09)
+- Salió con Android 7 (EMUI 5.1). Según la prensa de 2019, en Europa recibió **Android 9 Pie (EMUI 9.0.1)**. **Hay que confirmarlo** en *Ajustes → Sistema → Acerca del teléfono*.
+- Pantalla **IPS LCD**: no hay riesgo de marcas como en OLED. El fondo negro sigue siendo útil para atenuarla, pero no es crítico.
+- Si tiene Android 9, la API `BluetoothHidDevice` existe, aunque **EMUI podría tenerla desactivada**. Prueba rápida: instalar una app de "teclado/ratón Bluetooth" de la Play Store y ver si se empareja con Windows.
+- Particularidades de Huawei:
+  - El driver ADB para Windows suele venir con **HiSuite**; el driver USB genérico de Google no siempre reconoce los Huawei.
+  - En *Opciones de desarrollador* existe **"Permitir depuración ADB en modo solo carga"**: actívala para no tener que elegir el modo USB cada vez.
+  - EMUI cierra apps en segundo plano de forma agresiva. Hay que poner MyMouse en *Batería → Inicio de aplicaciones → Gestión manual*. Como la app estará en primer plano, no debería afectar mucho.
+- Batería de unos 9 años: **revisar si está hinchada** (la tapa trasera se despega o se nota una curvatura) antes de dejar el móvil enchufado permanentemente.
+
+### Stack
+- App Android: **Kotlin**, `minSdk 26` (Android 8), probada en el P10.
+- Programa Windows: **C# / .NET 10 (LTS)**, app de bandeja con WinForms y `SendInput`.
+- Transporte v0: **ADB + `adb reverse`**.
+
+Plan de trabajo: [03-plan-v0.md](03-plan-v0.md).
