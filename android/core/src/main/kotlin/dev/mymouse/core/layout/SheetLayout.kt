@@ -44,13 +44,13 @@ object SheetLayout {
     }
 
     /**
-     * Sitio de la chuleta básica de tamaño natural [sheetWidth] × [sheetHeight] en un trackpad de [width] × [height].
+     * Sitio de una hoja (la chuleta básica o la de gestos) de tamaño natural [sheetWidth] × [sheetHeight] en un trackpad de [width] × [height].
      * - Sin depuración: centrada (o pegada abajo si [atBottom]).
      * - Con la depuración ([debug] es todo lo que ocupa: minipantalla y lista de acciones): en horizontal, a la derecha de ella; en
      *   vertical, debajo. Se centra en el hueco libre y se encoge si no cabe. Nunca se solapa con [debug].
      * [margin] es el margen con los bordes del trackpad y con la depuración.
      */
-    fun placeCheatSheet(
+    fun placeSheet(
         width: Float, height: Float, sheetWidth: Float, sheetHeight: Float, margin: Float, debug: Area?, atBottom: Boolean = false,
     ): Placement {
         val free = when {

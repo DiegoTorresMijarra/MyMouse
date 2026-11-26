@@ -6,6 +6,9 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.LinearGradient
+import android.graphics.PixelFormat
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -15,13 +18,13 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.ScrollView
@@ -38,36 +41,43 @@ import androidx.core.view.WindowInsetsCompat
  * vistas pequeñas que se repiten en todas las pantallas. Sin Material Components ni Compose: solo vistas de la plataforma.
  */
 object GlassTheme {
-    // ---- Tokens ----
-    val BASE_START: Int = Color.parseColor("#14161B")
-    val BASE_END: Int = Color.parseColor("#1B1E26")
+    // ---- Tokens (docs/spec-v4.7-universo.md §3.1; sustituyen a los de la v4.5) ----
+    /** Fondo "universo": ver [UniverseDrawable]. Esta es la base del degradado, para lo que se dibuja encima. */
+    val BASE_START: Int = Color.parseColor("#070616")
+    val BASE_MID: Int = Color.parseColor("#120D2E")
+    val BASE_END: Int = Color.parseColor("#1B0F36")
 
-    /** Cristal: panel (blanco al 6 %) sobre el fondo; con desenfoque disponible. */
-    val PANEL_FILL: Int = Color.parseColor("#0FFFFFFF")
+    /** Cristal: panel (blanco al 7 %) sobre el fondo; con desenfoque disponible. */
+    val PANEL_FILL: Int = Color.parseColor("#12FFFFFF")
 
-    /** Cristal: panel sin desenfoque: #1E2128 al 92 %. */
-    val PANEL_SOLID: Int = Color.parseColor("#EB1E2128")
+    /** Cristal: panel sin desenfoque: #1A1830 al 92 %. */
+    val PANEL_SOLID: Int = Color.parseColor("#EB1A1830")
 
-    /** Cristal: tarjeta, borde y brillo superior. */
-    val CARD_FILL: Int = Color.parseColor("#0DFFFFFF")
-    val BORDER: Int = Color.parseColor("#1AFFFFFF")
-    val SHINE: Int = Color.parseColor("#14FFFFFF")
+    /** Cristal: tarjeta (blanco al 7 %), borde (blanco al 16 %) y brillo superior (blanco del 10 % al 0 % en el 35 % de arriba). */
+    val CARD_FILL: Int = Color.parseColor("#12FFFFFF")
+    val BORDER: Int = Color.parseColor("#29FFFFFF")
+    val SHINE: Int = Color.parseColor("#1AFFFFFF")
 
-    /** Cristal: elemento elevado / hover (blanco al 9 %). */
-    val ELEVATED: Int = Color.parseColor("#17FFFFFF")
+    /** Cristal: elemento elevado / hover (blanco al 12 %). */
+    val ELEVATED: Int = Color.parseColor("#1FFFFFFF")
 
     /** Seleccionado: acento al 22 % con borde de acento al 45 %. */
-    val SELECTED_FILL: Int = Color.parseColor("#383574F0")
-    val SELECTED_BORDER: Int = Color.parseColor("#733574F0")
+    val SELECTED_FILL: Int = Color.parseColor("#387C8CFF")
+    val SELECTED_BORDER: Int = Color.parseColor("#737C8CFF")
 
-    val ACCENT: Int = Color.parseColor("#3574F0")
+    /** Acento: azul lavanda. Los botones primarios llevan el degradado de [ACCENT_START] a [ACCENT_END]. */
+    val ACCENT: Int = Color.parseColor("#7C8CFF")
+    val ACCENT_START: Int = Color.parseColor("#6D5BFF")
+    val ACCENT_END: Int = Color.parseColor("#3B82F6")
     val GREEN: Int = Color.parseColor("#5FB865")
     val AMBER: Int = Color.parseColor("#E5A50A")
     val RED: Int = Color.parseColor("#E5534B")
 
-    val TEXT: Int = Color.parseColor("#ECEEF2")
-    val TEXT_SECONDARY: Int = Color.parseColor("#9AA0AA")
-    val TEXT_TERTIARY: Int = Color.parseColor("#6B717C")
+    val TEXT: Int = Color.parseColor("#F4F5FA")
+
+    /** Texto secundario: contraste mínimo de 4,5:1 sobre la tarjeta. */
+    val TEXT_SECONDARY: Int = Color.parseColor("#B9BDD0")
+    val TEXT_TERTIARY: Int = Color.parseColor("#8C90A8")
 
     // Radios en dp: panel 16, tarjeta 12, fila o botón 8, chip 6.
     const val RADIUS_PANEL = 16f
@@ -81,9 +91,9 @@ object GlassTheme {
     fun dp(context: Context, value: Float): Float = value * context.resources.displayMetrics.density
     fun dpi(context: Context, value: Float): Int = dp(context, value).toInt()
 
-    /** Degradado oscuro de la base, en diagonal. */
-    fun baseBackground(): GradientDrawable =
-        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(BASE_START, BASE_END))
+    /** El fondo "universo" (degradado, nebulosas y estrellas). [animated]: las estrellas parpadean (en el trackpad, no). */
+    fun universe(context: Context, animated: Boolean = false): Drawable =
+        UniverseDrawable(context.resources.displayMetrics.density, animated)
 
     /** Rectángulo redondeado con relleno y borde de 1 dp opcional. */
     fun rounded(context: Context, fill: Int, radiusDp: Float, border: Int = 0): GradientDrawable = GradientDrawable().apply {
@@ -93,15 +103,58 @@ object GlassTheme {
         if (border != 0) setStroke(maxOf(1, dpi(context, 1f)), border)
     }
 
-    /** Tarjeta de cristal: blanco al 5 %, borde al 10 % y brillo superior (blanco del 8 % al 0 %). Sin sombra. */
-    fun cardDrawable(context: Context, radiusDp: Float = RADIUS_CARD): Drawable {
-        val base = rounded(context, CARD_FILL, radiusDp, BORDER)
-        val shine = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(SHINE, Color.TRANSPARENT, Color.TRANSPARENT)).apply {
+    /** Tarjeta de cristal: blanco al 7 %, borde al 16 % y brillo superior (blanco del 10 % al 0 % en el 35 % de arriba). Sin sombra. */
+    fun cardDrawable(context: Context, radiusDp: Float = RADIUS_CARD): Drawable =
+        GlassCardDrawable(context.resources.displayMetrics.density, radiusDp)
+
+    /**
+     * La tarjeta de cristal, dibujada a mano: el brillo se desvanece exactamente en el 35 % de arriba, algo que un `GradientDrawable`
+     * no permite antes de la API 29.
+     */
+    class GlassCardDrawable(private val density: Float, radiusDp: Float) : Drawable() {
+        private val radius = radiusDp * density
+        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CARD_FILL }
+        private val shine = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = BORDER
+            strokeWidth = maxOf(1f, density)
+        }
+        private val rect = RectF()
+
+        override fun onBoundsChange(bounds: android.graphics.Rect) {
+            shine.shader = LinearGradient(0f, 0f, 0f, bounds.height() * 0.35f, SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        }
+
+        override fun draw(canvas: Canvas) {
+            val b = bounds
+            if (b.isEmpty) return
+            rect.set(b)
+            canvas.drawRoundRect(rect, radius, radius, fill)
+            canvas.save()
+            canvas.translate(b.left.toFloat(), b.top.toFloat())
+            rect.set(0f, 0f, b.width().toFloat(), b.height().toFloat())
+            canvas.drawRoundRect(rect, radius, radius, shine)
+            val half = border.strokeWidth / 2
+            rect.inset(half, half)
+            canvas.drawRoundRect(rect, radius - half, radius - half, border)
+            canvas.restore()
+        }
+
+        override fun setAlpha(alpha: Int) = Unit
+
+        override fun setColorFilter(colorFilter: ColorFilter?) = Unit
+
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+    }
+
+    /** Fondo de los botones primarios: degradado de #6D5BFF a #3B82F6. */
+    fun accentBackground(context: Context, radiusDp: Float): GradientDrawable =
+        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(ACCENT_START, ACCENT_END)).apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(context, radiusDp)
         }
-        return LayerDrawable(arrayOf(base, shine))
-    }
 
     /** Fondo con ondulación al pulsar, recortada con el mismo radio. */
     fun ripple(context: Context, content: Drawable, radiusDp: Float): Drawable {
@@ -142,7 +195,7 @@ object GlassTheme {
         minimumHeight = dpi(context, 40f)
         setTextColor(if (accent) Color.WHITE else TEXT)
         setPadding(dpi(context, 14f), dpi(context, 6f), dpi(context, 14f), dpi(context, 6f))
-        background = ripple(context, rounded(context, if (accent) ACCENT else ELEVATED, RADIUS_ROW), RADIUS_ROW)
+        background = ripple(context, if (accent) accentBackground(context, RADIUS_ROW) else rounded(context, ELEVATED, RADIUS_ROW), RADIUS_ROW)
         setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dpi(context, 8f)
@@ -228,7 +281,7 @@ object GlassTheme {
     // ---- Pantallas con barra superior propia ----
 
     /**
-     * Esqueleto de las pantallas de ajustes: fondo degradado, barra superior propia (sin ActionBar) con la flecha de volver y el
+     * Esqueleto de las pantallas de ajustes: fondo universo, barra superior propia (sin ActionBar) con la flecha de volver y el
      * título, y las secciones como tarjetas de cristal. Respeta las barras del sistema.
      */
     class Screen(private val activity: Activity, title: String, scrollable: Boolean = true, onBack: () -> Unit = { activity.finish() }) {
@@ -255,11 +308,22 @@ object GlassTheme {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dpi(activity, 12f), dpi(activity, 8f), dpi(activity, 16f), dpi(activity, 8f))
                 addView(back, LinearLayout.LayoutParams(dpi(activity, 44f), dpi(activity, 44f)))
-                addView(text(activity, title, 20f, TEXT, bold = true).apply { setPadding(dpi(activity, 12f), 0, 0, 0) })
+                addView(
+                    text(activity, title, 20f, TEXT, bold = true).apply { setPadding(dpi(activity, 12f), 0, 0, 0) },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                )
+                // El icono de la app, el mismo dibujo del lanzador (docs/spec-v4.7-universo.md §3.3).
+                addView(
+                    ImageView(activity).apply {
+                        setImageResource(R.drawable.ic_app_logo)
+                        contentDescription = "MyMouse"
+                    },
+                    LinearLayout.LayoutParams(dpi(activity, 28f), dpi(activity, 28f)),
+                )
             }
             val root = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                background = baseBackground()
+                background = universe(activity, animated = true) // universo con estrellas que parpadean (el trackpad es estático)
                 addView(bar)
                 if (scrollable) {
                     val scroll = ScrollView(activity).apply { addView(content) }
@@ -385,7 +449,7 @@ object GlassTheme {
                 Kind.SLIDERS -> {
                     for ((fy, knob) in listOf(0.15f to 0.7f, 0.5f to 0.3f, 0.85f to 0.6f)) {
                         canvas.drawLine(x(0f), y(fy), x(1f), y(fy), line)
-                        fill.color = BASE_END
+                        fill.color = BASE_MID
                         canvas.drawCircle(x(knob), y(fy), 0.13f * s, fill)
                         canvas.drawCircle(x(knob), y(fy), 0.13f * s, line)
                     }

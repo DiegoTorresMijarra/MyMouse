@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tokens "glass" (docs/spec-v4.5-estilo.md §1). Los mismos valores están en GlassTheme.kt para lo que se dibuja en código. -->
+<!-- Tokens "glass" (docs/spec-v4.7-universo.md §3.1). Los mismos valores están en GlassTheme.kt para lo que se dibuja en código. -->
 <resources>
-    <color name="glass_base_start">#14161B</color>
-    <color name="glass_base_end">#1B1E26</color>
-    <color name="glass_panel_solid">#EB1E2128</color>
-    <color name="glass_border">#1AFFFFFF</color>
-    <color name="glass_accent">#3574F0</color>
-    <color name="glass_text">#ECEEF2</color>
-    <color name="glass_text_secondary">#9AA0AA</color>
-    <color name="glass_text_tertiary">#6B717C</color>
+    <color name="glass_base_start">#070616</color>
+    <color name="glass_base_mid">#120D2E</color>
+    <color name="glass_base_end">#1B0F36</color>
+    <color name="glass_panel_solid">#EB1A1830</color>
+    <color name="glass_border">#29FFFFFF</color>
+    <color name="glass_accent">#7C8CFF</color>
+    <color name="glass_text">#F4F5FA</color>
+    <color name="glass_text_secondary">#B9BDD0</color>
+    <color name="glass_text_tertiary">#8C90A8</color>
 </resources>

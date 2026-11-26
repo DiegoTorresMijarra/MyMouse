@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import dev.mymouse.core.layout.Area
+import dev.mymouse.core.layout.SheetLayout
 
 /**
  * Chuleta de gestos básicos en el centro del trackpad (docs/spec-v0.md §2.1.2).
@@ -59,10 +61,11 @@ class CheatSheet(private val density: Float) {
     private val path = Path()
 
     /**
-     * [atBottom]: pegada abajo en lugar de centrada (deja sitio al modo depuración).
-     * Si la lista no cabe (móvil en horizontal), se dibuja encogida para que quepa entera.
+     * Dibuja la chuleta en el hueco libre del trackpad. [debug] es lo que ocupa el modo depuración (null si está apagado): la chuleta
+     * se coloca a su derecha en horizontal y debajo en vertical, y nunca se solapa con él (docs/spec-v4.7-universo.md §4). Si la
+     * lista no cabe (móvil en horizontal, o con la depuración al lado), se dibuja encogida para que quepa entera.
      */
-    fun draw(canvas: Canvas, width: Int, height: Int, atBottom: Boolean = false) {
+    fun draw(canvas: Canvas, width: Int, height: Int, debug: Area? = null) {
         if (rows.isEmpty()) return
         val pad = 14 * density
         val titleH = 26 * density
@@ -77,13 +80,11 @@ class CheatSheet(private val density: Float) {
         val colW = columns.map { col -> tileW + 12 * density + col.maxOf { textPaint.measureText(it.text) } }
         val w = pad * 2 + colW.sum() + colGap * (columns.size - 1)
         val h = pad * 2 + titleH + rowH * perCol
-        val room = height - 32 * density
-        val roomW = width - 32 * density
-        // Si no cabe a lo alto o a lo ancho, se encoge entera (sin recortar texto).
-        val scale = minOf(1f, if (room > 0f) room / h else 1f, if (roomW > 0f) roomW / w else 1f)
-        val top = if (atBottom) height - h * scale - 16 * density else (height - h * scale) / 2
-        // Se dibuja a tamaño natural en (left, top) y el lienzo se escala desde esa esquina.
-        val left = (width - w * scale) / 2
+        // Sitio libre y escala (la lógica pura está en `core`, con tests). Se dibuja a tamaño natural en (left, top) y el lienzo se escala.
+        val placement = SheetLayout.placeSheet(width.toFloat(), height.toFloat(), w, h, margin = 16 * density, debug = debug)
+        val scale = placement.scale
+        val left = placement.left
+        val top = placement.top
         val radius = GlassTheme.RADIUS_CARD * density
 
         // Tarjeta de cristal: desenfoque de lo de detrás si se puede y, si no, color translúcido; después, borde y brillo superior.
@@ -95,8 +96,8 @@ class CheatSheet(private val density: Float) {
         canvas.translate(left, top)
         canvas.scale(scale, scale)
         box.set(0f, 0f, w, h)
-        // Brillo que se desvanece de forma continua en el 40 % superior (sin corte brusco).
-        shinePaint.shader = LinearGradient(0f, 0f, 0f, h * 0.4f, GlassTheme.SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        // Brillo que se desvanece de forma continua en el 35 % superior (sin corte brusco).
+        shinePaint.shader = LinearGradient(0f, 0f, 0f, h * 0.35f, GlassTheme.SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(box, radius, radius, shinePaint)
         canvas.drawRoundRect(box, radius, radius, borderPaint)
 

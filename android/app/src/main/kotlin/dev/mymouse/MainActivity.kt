@@ -147,7 +147,7 @@ class MainActivity : Activity() {
 
         controls = buildControls()
         root = FrameLayout(this).apply {
-            background = GlassTheme.baseBackground() // degradado oscuro de la v4.5 (también en modo bloqueado)
+            background = GlassTheme.universe(this@MainActivity) // universo estático detrás del trackpad (también en modo bloqueado)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(panel, FrameLayout.LayoutParams(MATCH, MATCH)) // el tamaño y el sitio los fija applyMargins
             // Un toque que empieza en el panel nunca llega al trackpad, ni al revés: todos los dedos van a la vista

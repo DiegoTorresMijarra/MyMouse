@@ -27,7 +27,7 @@ class SheetLayoutTest {
 
     @Test
     fun withoutDebugTheSheetIsCentred() {
-        val p = SheetLayout.placeCheatSheet(800f, 400f, 300f, 200f, margin = 16f, debug = null)
+        val p = SheetLayout.placeSheet(800f, 400f, 300f, 200f, margin = 16f, debug = null)
         assertEquals(1f, p.scale)
         assertEquals(250f, p.left)
         assertEquals(100f, p.top)
@@ -35,14 +35,14 @@ class SheetLayoutTest {
 
     @Test
     fun withoutDebugItCanSitAtTheBottom() {
-        val p = SheetLayout.placeCheatSheet(800f, 400f, 300f, 200f, margin = 16f, debug = null, atBottom = true)
+        val p = SheetLayout.placeSheet(800f, 400f, 300f, 200f, margin = 16f, debug = null, atBottom = true)
         assertEquals(400f - 16f, p.top + p.height)
     }
 
     @Test
     fun landscapeWithDebugPutsTheSheetRightOfIt() {
         val debug = Area(0f, 0f, 300f, 330f)
-        val p = SheetLayout.placeCheatSheet(1000f, 400f, 400f, 250f, margin = 16f, debug = debug)
+        val p = SheetLayout.placeSheet(1000f, 400f, 400f, 250f, margin = 16f, debug = debug)
         assertEquals(1f, p.scale)
         assertTrue(p.left >= debug.right + 16f)
         assertFalse(p.area.overlaps(debug))
@@ -54,7 +54,7 @@ class SheetLayoutTest {
     @Test
     fun landscapeShrinksWhenItDoesNotFitNextToTheDebug() {
         val debug = Area(0f, 0f, 400f, 330f)
-        val p = SheetLayout.placeCheatSheet(800f, 360f, 500f, 300f, margin = 16f, debug = debug)
+        val p = SheetLayout.placeSheet(800f, 360f, 500f, 300f, margin = 16f, debug = debug)
         assertTrue(p.scale < 1f)
         assertFalse(p.area.overlaps(debug))
         assertTrue(p.area.right <= 800f - 16f + 0.01f)
@@ -65,7 +65,7 @@ class SheetLayoutTest {
     @Test
     fun portraitWithDebugPutsTheSheetBelowIt() {
         val debug = Area(0f, 0f, 200f, 300f)
-        val p = SheetLayout.placeCheatSheet(400f, 900f, 300f, 400f, margin = 16f, debug = debug)
+        val p = SheetLayout.placeSheet(400f, 900f, 300f, 400f, margin = 16f, debug = debug)
         assertEquals(1f, p.scale)
         assertTrue(p.top >= debug.bottom + 16f)
         assertFalse(p.area.overlaps(debug))
@@ -75,7 +75,7 @@ class SheetLayoutTest {
     @Test
     fun portraitShrinksWhenTheFreeSpaceBelowIsSmall() {
         val debug = Area(0f, 0f, 200f, 500f)
-        val p = SheetLayout.placeCheatSheet(400f, 700f, 330f, 500f, margin = 16f, debug = debug)
+        val p = SheetLayout.placeSheet(400f, 700f, 330f, 500f, margin = 16f, debug = debug)
         assertTrue(p.scale < 0.5f)
         assertFalse(p.area.overlaps(debug))
         assertTrue(p.area.top >= debug.bottom + 16f - 0.01f)
@@ -88,7 +88,7 @@ class SheetLayoutTest {
         for ((w, h) in listOf(360f to 640f, 640f to 360f, 412f to 915f, 915f to 412f, 800f to 1280f)) {
             val debug = Area(0f, 0f, w * 0.35f + 24f, w * 0.35f * h / w + 24f + 150f)
             for ((sw, sh) in listOf(260f to 460f, 480f to 250f, 700f to 700f)) {
-                val p = SheetLayout.placeCheatSheet(w, h, sw, sh, 12f, debug)
+                val p = SheetLayout.placeSheet(w, h, sw, sh, 12f, debug)
                 if (p.scale > 0f && debug.right + 12f < w && debug.bottom + 12f < h) assertFalse(p.area.overlaps(debug), "$w x $h, $sw x $sh")
                 assertTrue(p.scale > 0f)
             }

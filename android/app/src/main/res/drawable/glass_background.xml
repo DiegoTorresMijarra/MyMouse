@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fondo base: degradado oscuro en diagonal. -->
+<!-- Fondo de la ventana mientras carga la pantalla: la base del universo (docs/spec-v4.7-universo.md §2). Las pantallas dibujan encima el
+     universo completo (nebulosas y estrellas) con UniverseDrawable. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <gradient
         android:angle="315"
         android:startColor="@color/glass_base_start"
+        android:centerColor="@color/glass_base_mid"
         android:endColor="@color/glass_base_end" />
 </shape>

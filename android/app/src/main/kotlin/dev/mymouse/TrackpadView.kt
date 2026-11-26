@@ -65,7 +65,7 @@ class TrackpadView(
         strokeWidth = resources.displayMetrics.density
     }
     private val panelRect = RectF()
-    private val backdropDrawable = GlassTheme.baseBackground()
+    private val backdropDrawable = GlassTheme.universe(context)
 
     /** Con un toque en el punto de estado (solo en modo Bluetooth): abre el diagnóstico. */
     var onStatusDotTap: (() -> Unit)? = null
@@ -322,9 +322,9 @@ class TrackpadView(
                 list == null -> "El PC no tiene modo gestos (actualiza el host)"
                 else -> null
             }
-            gestureSheet.draw(canvas, width, height, gestureItems(), list?.context ?: "", note, null)
+            gestureSheet.draw(canvas, width, height, gestureItems(), list?.context ?: "", note, null, debugOverlay?.occupiedArea(width, height))
         } else if (showCheatSheet) {
-            cheatSheet.draw(canvas, width, height, atBottom = debugOverlay != null)
+            cheatSheet.draw(canvas, width, height, debug = debugOverlay?.occupiedArea(width, height))
         }
         debugOverlay?.let {
             it.draw(canvas, width, height, SystemClock.uptimeMillis(), connected)

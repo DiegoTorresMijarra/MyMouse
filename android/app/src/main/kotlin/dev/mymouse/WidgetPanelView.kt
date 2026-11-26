@@ -20,6 +20,7 @@ import dev.mymouse.core.protocol.WidgetEntry
 import dev.mymouse.core.protocol.WidgetKind
 import dev.mymouse.core.widgets.Box
 import dev.mymouse.core.widgets.PanelReveal
+import dev.mymouse.core.widgets.VolumeGeometry
 import dev.mymouse.core.widgets.WidgetEvent
 import dev.mymouse.core.widgets.WidgetLayout
 import dev.mymouse.core.widgets.WidgetPanelController
@@ -123,10 +124,15 @@ class WidgetPanelView(
             buttonHeight = (cellWidth * 0.9f).coerceIn(dp(56f), dp(96f)),
             mediaHeight = dp(116f),
             mediaButtonsHeight = dp(44f),
+            // Volumen (docs/spec-v4.7-universo.md §4): altavoz de 44 dp, pista de 4 dp con pulgar de 18 dp, número de 3 cifras.
             volumeHeight = dp(56f),
-            volumeIconWidth = dp(52f),
-            volumeValueWidth = dp(44f),
+            volumeIconWidth = dp(44f),
+            volumeValueWidth = dp(32f),
             gap = gap,
+            volumeTrackHeight = dp(4f),
+            volumeThumbRadius = dp(9f),
+            volumeMinTrack = dp(96f),
+            volumeValueLineHeight = dp(18f),
         )
     }
 
@@ -255,7 +261,7 @@ class WidgetPanelView(
         textSize = dp(12f)
     }
     private val valueText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER
+        textAlign = Paint.Align.RIGHT
         color = GlassTheme.TEXT
         textSize = dp(14f)
     }
@@ -412,6 +418,7 @@ class WidgetPanelView(
 
     private fun drawVolume(canvas: Canvas, index: Int, cell: WidgetLayout.Cell) {
         val parts = cell.volume ?: return
+        val g = parts.geometry // pista, pulgar y dónde va el número: lógica pura en `core` (VolumeGeometry)
         card(canvas, cell.box, GlassTheme.CARD_FILL)
 
         val state = volumeState
@@ -421,27 +428,38 @@ class WidgetPanelView(
         // Icono de altavoz (pulsar = silenciar / quitar el silencio).
         val iconTarget = WidgetTarget.MuteIcon(index)
         if (controller.pressed == iconTarget || isFlashing(iconTarget)) {
-            buttonCard(canvas, Box(parts.icon.x + dp(4f), parts.icon.y + dp(4f), parts.icon.width - dp(8f), parts.icon.height - dp(8f)),
+            buttonCard(canvas, Box(g.icon.x + dp(4f), g.icon.y + dp(4f), g.icon.width - dp(8f), g.icon.height - dp(8f)),
                 controller.pressed == iconTarget, isFlashing(iconTarget))
         }
-        drawSpeaker(canvas, parts.icon, muted)
+        drawSpeaker(canvas, g.icon, muted)
 
-        // Pista, relleno y pulgar.
-        val bar = parts.bar
-        val trackH = dp(6f)
-        val cy = bar.centerY
-        fill.color = GlassTheme.ELEVATED
-        rect.set(bar.x, cy - trackH / 2, bar.right, cy + trackH / 2)
-        canvas.drawRoundRect(rect, trackH / 2, trackH / 2, fill)
-        val x = bar.x + bar.width * level / 100f
-        fill.color = if (muted) GlassTheme.TEXT_TERTIARY else GlassTheme.ACCENT
-        rect.set(bar.x, cy - trackH / 2, x, cy + trackH / 2)
-        canvas.drawRoundRect(rect, trackH / 2, trackH / 2, fill)
+        // Pista de 4 dp: la parte llena con el acento (gris si está silenciado) y el resto blanco al 18 %.
+        val track = g.track
+        val half = track.height / 2
+        fill.color = TRACK_REST
+        rect.set(track.x, track.y, track.right, track.bottom)
+        canvas.drawRoundRect(rect, half, half, fill)
+        val x = g.thumbX(level)
+        fill.color = if (muted) TRACK_MUTED else GlassTheme.ACCENT
+        rect.set(track.x, track.y, x, track.bottom)
+        canvas.drawRoundRect(rect, half, half, fill)
+
+        // Pulgar blanco de 18 dp con sombra suave; mientras se arrastra, con un halo del acento.
+        val cy = track.centerY
+        if (controller.draggingVolume) {
+            fill.color = Color.argb(70, 0x7C, 0x8C, 0xFF)
+            canvas.drawCircle(x, cy, g.thumbRadius + dp(5f), fill)
+        }
+        fill.color = Color.argb(48, 0, 0, 0)
+        canvas.drawCircle(x, cy + dp(1.5f), g.thumbRadius + dp(1f), fill)
         fill.color = Color.WHITE
-        canvas.drawCircle(x, cy, if (controller.draggingVolume) dp(11f) else dp(9f), fill)
+        canvas.drawCircle(x, cy, g.thumbRadius, fill)
 
-        valueText.color = if (muted) GlassTheme.TEXT_TERTIARY else GlassTheme.TEXT
-        canvas.drawText(level.toString(), parts.value.centerX, parts.value.centerY + dp(5f), valueText)
+        // El número, en texto normal y con ancho fijo para tres cifras; a la derecha, debajo de la pista o, si no cabe, sin mostrar.
+        if (g.valuePlacement != VolumeGeometry.ValuePlacement.HIDDEN) {
+            valueText.color = if (muted) GlassTheme.TEXT_SECONDARY else GlassTheme.TEXT
+            canvas.drawText(level.toString(), g.value.right, g.value.centerY - (valueText.ascent() + valueText.descent()) / 2, valueText)
+        }
     }
 
     private fun drawSpeaker(canvas: Canvas, box: Box, muted: Boolean) {
@@ -458,7 +476,7 @@ class WidgetPanelView(
         path.lineTo(cx - 9 * u, cy + 4 * u)
         path.close()
         canvas.drawPath(path, fill)
-        stroke.color = if (muted) GlassTheme.RED else GlassTheme.TEXT
+        stroke.color = if (muted) GlassTheme.TEXT_SECONDARY else GlassTheme.TEXT // silenciado: una × discreta, no un rojo chillón
         if (muted) {
             canvas.drawLine(cx + 6 * u, cy - 5 * u, cx + 14 * u, cy + 5 * u, stroke)
             canvas.drawLine(cx + 14 * u, cy - 5 * u, cx + 6 * u, cy + 5 * u, stroke)
@@ -485,5 +503,7 @@ class WidgetPanelView(
 
     private companion object {
         const val FLASH_MS = 150L
+        val TRACK_REST: Int = Color.argb(46, 255, 255, 255) // blanco al 18 %
+        val TRACK_MUTED: Int = Color.parseColor("#8C90A8")
     }
 }
