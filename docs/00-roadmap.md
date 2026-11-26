@@ -74,6 +74,8 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 - Protocolo versión 3.
 - Detalle: [spec-v2-widgets.md](spec-v2-widgets.md).
 
+> Estado: implementada en la rama de desarrollo (release `v2.0` pendiente). Los criterios de "hecho" están pendientes de comprobar en uso real.
+
 **Criterios de "hecho":**
 1. Abrir una aplicación configurada con un solo toque.
 2. Pausar, saltar canción y cambiar el volumen sin teclado; volumen del móvil y del PC sincronizados en menos de 0,3 s.

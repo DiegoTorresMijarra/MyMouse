@@ -2,7 +2,7 @@
 
 > Objetivos: [00-roadmap.md](00-roadmap.md#v2-widgets) · Protocolo: [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md) · Base: [spec-v0.md](spec-v0.md), [spec-v1-gestos.md](spec-v1-gestos.md)
 >
-> Estado: **en desarrollo**. Las decisiones marcadas con *(decisión)* se tomaron sin el usuario y se pueden revisar tras la prueba.
+> Estado: **implementada** (pendiente de probar en el PC y el móvil reales; se publica como v2.0). Las decisiones marcadas con *(decisión)* se tomaron sin el usuario y se pueden revisar tras la prueba.
 
 ## 1. Qué es
 
@@ -118,3 +118,15 @@ Reglas:
 
 ## 8. Fuera de alcance
 Editar widgets desde el móvil, widgets con estado propio (interruptores), varias páginas de widgets, iconos de imagen, control de volumen por aplicación.
+
+## 9. Notas de implementación (desviaciones y detalles)
+
+- **Mensajes sin widget.** `VOLUME_SET`, `VOLUME_MUTE` y `MEDIA_COMMAND` no se responden si salen bien, y se ignoran si el host no tiene el widget `volume` / `media`. En pausa, el host responde `WIDGET_RESULT` con el id del widget `volume` o `media` (la spec solo fija el id para `WIDGET_PRESS`).
+- **Validación estricta al decodificar.** `MEDIA_COMMAND` con orden > 2, `VOLUME_STATE` con nivel > 100 o tipos de widget desconocidos son errores de protocolo. `VOLUME_SET` > 100 se acepta y el host lo recorta, como pide la spec.
+- **Layout siempre.** Con versión >= 3, el host envía `WIDGET_LAYOUT` aunque esté vacío (así el móvil retira el panel si se borran los widgets).
+- **Aviso al actualizar.** Un `gestures.json` de la v1 (sin `"widgets"`) no se toca; al arrancar, la bandeja avisa una vez de que existe el panel. Con `"widgets": []` no se vuelve a avisar.
+- **Límites de configuración.** Etiqueta > 40 caracteres o icono > 8 bytes: el widget se ignora con aviso (no se recorta).
+- **Multitoque.** El contenedor del móvil desactiva el reparto de toques entre vistas: todos los dedos van a la vista que recibió el primero.
+- **Iconos del multimedia y del volumen** se dibujan con trazados (no con ⏮ ⏯ ⏭ 🔈), para no depender de la fuente del móvil. Los de los botones son texto del PC.
+- **Lógica en `core`.** La rejilla (`WidgetLayout`) y la máquina de toques del panel (`WidgetPanelController`: soltar dentro, scroll, arrastre de volumen cada 50 ms) están en `core` con tests; `WidgetPanelView` solo dibuja.
+- **No verificado sin dispositivos:** el volumen (NAudio) y la música (sesiones multimedia de Windows) solo se han compilado, no ejecutado.

@@ -40,6 +40,32 @@ Si algo no conecta:
 3. En el trackpad: apoya **3 dedos a la vez y déjalos quietos** hasta que vibre. Levántalos y dibuja la forma con un dedo.
 4. Activa el **modo depuración** (Ajustes) para ver qué forma se ha reconocido y con qué puntuación.
 
+## Widgets (desde la v2.0)
+
+1. **Actualiza las dos partes** (APK y host): el panel solo aparece si el host es de la v2.0 o posterior. Con un host anterior, o sin conexión, el trackpad ocupa toda la pantalla.
+2. **Activa los widgets en el PC.** Si ya tenías `gestures.json` de la v1, no se toca: icono de la bandeja → **Editar gestos y widgets…** y añade, junto a `"bindings"`:
+   ```json
+   "widgets": [
+     { "type": "media" },
+     { "type": "volume" },
+     { "type": "button", "label": "Chrome",   "icon": "🌐", "action": { "type": "launch", "target": "chrome.exe", "focusIfRunning": true } },
+     { "type": "button", "label": "Copiar",   "icon": "📋", "action": { "type": "keys", "keys": "Ctrl+C" } },
+     { "type": "button", "label": "Pegar",    "icon": "📄", "action": { "type": "keys", "keys": "Ctrl+V" } },
+     { "type": "button", "label": "Captura",  "icon": "✂️", "action": { "type": "keys", "keys": "Win+Shift+S" } },
+     { "type": "button", "label": "Bloquear", "icon": "🔒", "action": { "type": "mymouse", "command": "lock" } }
+   ]
+   ```
+   (Una instalación nueva ya trae este ejemplo.) Al guardar, el panel del móvil se actualiza solo.
+3. **Panel:** aparece abajo (móvil en vertical) o a la derecha (horizontal). Tamaño y visibilidad en Ajustes → Widgets.
+4. **Qué comprobar:**
+   - Un botón se ejecuta al **levantar** el dedo dentro de él; si arrastras fuera, se cancela.
+   - Música: reproduce algo en el PC; el título y el artista salen en el móvil y ⏮ ⏯ ⏭ funcionan.
+   - Volumen: arrastra la barra y comprueba el volumen de Windows; cámbialo con el teclado del PC y mira que la barra lo sigue (menos de 0,3 s). El altavoz silencia.
+   - Ningún toque del panel mueve el cursor ni hace clic, y al revés.
+   - Si el panel no cabe, desplázalo con un dedo.
+   - Con el **modo depuración** verás anotadas las acciones (`Widget: Chrome`, `Volumen 55`, `⏭ Siguiente`).
+5. `MyMouse.TestClient.exe` (con el host abierto) imprime los widgets configurados y el estado actual de volumen y música.
+
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
 - Qué hiciste y qué pasó (y qué esperabas).
