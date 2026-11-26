@@ -1,16 +1,45 @@
 name: build
 
+# Releases: al hacer push a una rama, si existe docs/releases/<tag>.md y aún no hay release con ese
+# nombre, se compila y se publica la release <tag> apuntando a ese commit (GitHub crea la etiqueta).
 on:
   push:
     branches: ["**"]
-    tags: ["v*"]
   pull_request:
 
 permissions:
   contents: write
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=""
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            for f in $(ls docs/releases/v*.md 2>/dev/null | sort -V); do
+              t=$(basename "$f" .md)
+              gh release view "$t" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || tag="$t"
+            done
+          fi
+          if [[ -n "$tag" ]]; then version="${tag#v}"; else version="0.0-dev.${GITHUB_RUN_NUMBER}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release: ${tag:-ninguna} · versión $version"
+
   android:
+    needs: meta
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,11 +53,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Versión
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "MYMOUSE_VERSION_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          else
-            echo "MYMOUSE_VERSION_NAME=0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
-          fi
+          echo "MYMOUSE_VERSION_NAME=${{ needs.meta.outputs.version }}" >> "$GITHUB_ENV"
           echo "MYMOUSE_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
       - name: Tests y APK
         run: ./gradlew --no-daemon :core:test :app:assembleDebug
@@ -40,6 +65,7 @@ jobs:
           path: MyMouse-*.apk
 
   windows:
+    needs: meta
     runs-on: windows-latest
     defaults:
       run:
@@ -54,7 +80,7 @@ jobs:
         run: dotnet test
       - name: Publicar
         run: |
-          $name = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { "0.0-dev.$env:GITHUB_RUN_NUMBER" }
+          $name = "${{ needs.meta.outputs.version }}"
           $common = @('-c','Release','-r','win-x64','--self-contained','true','-p:PublishSingleFile=true','-p:IncludeNativeLibrariesForSelfExtract=true',"-p:InformationalVersion=$name")
           dotnet publish src/MyMouse.Host @common -o out/MyMouse
           dotnet publish src/MyMouse.TestClient @common -o out/MyMouse
@@ -66,8 +92,8 @@ jobs:
           path: MyMouse-Windows-*.zip
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [android, windows]
+    if: needs.meta.outputs.tag != ''
+    needs: [meta, android, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +104,6 @@ jobs:
       - name: Crear release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.meta.outputs.tag }}
         run: |
-          notes="docs/releases/${GITHUB_REF_NAME}.md"
-          [ -f "$notes" ] || notes=/dev/null
-          gh release create "$GITHUB_REF_NAME" dist/* --prerelease --title "$GITHUB_REF_NAME" --notes-file "$notes"
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --title "$TAG" --notes-file "docs/releases/$TAG.md"
