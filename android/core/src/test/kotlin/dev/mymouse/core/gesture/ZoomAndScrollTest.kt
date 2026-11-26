@@ -196,8 +196,9 @@ class ZoomAndScrollTest {
     }
 
     @Test
-    fun inertiaIsOffByDefault() {
-        val g = GestureInterpreter(config)
+    fun inertiaIsOnByDefaultAndCanBeDisabled() {
+        assertTrue(TrackpadConfig().scrollInertia)
+        val g = GestureInterpreter(config.copy(scrollInertia = false))
         flick(g)
         assertNull(g.nextDeadlineMs)
     }

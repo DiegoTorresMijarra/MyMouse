@@ -19,6 +19,7 @@ import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.protocol.WidgetEntry
 import dev.mymouse.core.protocol.WidgetKind
 import dev.mymouse.core.widgets.Box
+import dev.mymouse.core.widgets.PanelReveal
 import dev.mymouse.core.widgets.WidgetEvent
 import dev.mymouse.core.widgets.WidgetLayout
 import dev.mymouse.core.widgets.WidgetPanelController
@@ -57,6 +58,17 @@ class WidgetPanelView(
         private set
 
     val hasWidgets get() = entries.isNotEmpty()
+
+    /** Durante la animación de mostrar u ocultar el panel no se aceptan toques (se consumen sin hacer nada). */
+    var inputBlocked = false
+
+    private var revealStartedAt = 0L
+
+    /** Empieza el fundido escalonado de los widgets (al mostrar el panel). */
+    fun playReveal() {
+        revealStartedAt = SystemClock.uptimeMillis()
+        invalidate()
+    }
 
     private var volumeState: Message.VolumeState? = null
     private var mediaState: Message.MediaState? = null
@@ -128,6 +140,7 @@ class WidgetPanelView(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (inputBlocked) return true
         val events: List<WidgetEvent> = when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 pointerId = event.getPointerId(0)
@@ -243,14 +256,25 @@ class WidgetPanelView(
         canvas.save()
         canvas.clipRect(contentLeft, contentTop, width.toFloat(), height.toFloat())
         canvas.translate(contentLeft, contentTop - controller.scrollY)
+        val revealElapsed = SystemClock.uptimeMillis() - revealStartedAt
+        val revealing = revealStartedAt != 0L && revealElapsed < PanelReveal.totalMs(layout.rowOfCell.maxOrNull()?.plus(1) ?: 0)
         layout.cells.forEachIndexed { i, cell ->
+            // Fundido escalonado por filas al mostrar el panel (docs/spec-v3.1-ajustes.md §1.1).
+            val alpha = if (revealing) PanelReveal.rowAlpha(layout.rowOfCell[i], revealElapsed) else 1f
+            val saved = if (alpha < 1f) {
+                canvas.saveLayerAlpha(cell.box.x, cell.box.y, cell.box.right, cell.box.bottom, (alpha * 255).toInt())
+            } else {
+                -1
+            }
             when (cell.entry.kind) {
                 WidgetKind.BUTTON -> drawButton(canvas, i, cell)
                 WidgetKind.MEDIA -> drawMedia(canvas, i, cell)
                 WidgetKind.VOLUME -> drawVolume(canvas, i, cell)
             }
+            if (saved >= 0) canvas.restoreToCount(saved)
         }
         canvas.restore()
+        if (revealing) postInvalidateOnAnimation()
 
         // Indicador de scroll discreto cuando no cabe todo.
         val max = WidgetLayout.maxScroll(layout.contentHeight, height - contentTop)

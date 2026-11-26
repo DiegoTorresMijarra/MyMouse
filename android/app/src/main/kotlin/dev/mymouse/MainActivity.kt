@@ -1,11 +1,15 @@
 package dev.mymouse
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Color
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -18,6 +22,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -29,6 +35,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import dev.mymouse.core.debug.WidgetDescriber
 import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Protocol
+import dev.mymouse.core.widgets.PanelReveal
 
 /**
  * Pantalla única de la app. Dos modos (docs/spec-v0.md §2.1):
@@ -58,6 +65,11 @@ class MainActivity : Activity() {
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
     private var settings = AppSettings()
 
+    /** Estado deseado del panel de widgets (se guarda en los ajustes) y cuánto está desplegado ahora (0 a 1). */
+    private var panelShown = true
+    private var panelProgress = 1f
+    private var panelAnimator: ValueAnimator? = null
+
     /** Tamaño del contenedor con el que se calcularon los márgenes; al girar la pantalla hay que recalcularlos. */
     private var laidOutSize = 0 to 0
     private lateinit var shapes: ShapeStore
@@ -71,6 +83,8 @@ class MainActivity : Activity() {
 
         settings = AppSettings.load(this)
         shapes = ShapeStore(this)
+        panelShown = settings.showWidgets
+        panelProgress = if (panelShown) 1f else 0f
         connectionType = settings.connection
         connection = when (connectionType) {
             AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT)
@@ -80,6 +94,8 @@ class MainActivity : Activity() {
         }
         trackpad = TrackpadView(this, buildEngine(), connection::send)
         trackpad.shapeStore = shapes
+        trackpad.onPanelGesture = ::onPanelGesture
+        trackpad.systemGesturesAvailable = { connection.supportsSystemGestures }
         panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
         connection.onConnectionChanged = { connected ->
             trackpad.post {
@@ -159,6 +175,7 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        finishPanelAnimation()
         handler.removeCallbacks(autoRelock)
         handler.removeCallbacks(dim)
         setDimmed(false)
@@ -182,6 +199,10 @@ class MainActivity : Activity() {
 
     private fun applySettings() {
         settings = AppSettings.load(this)
+        if (panelAnimator == null) {
+            panelShown = settings.showWidgets
+            panelProgress = if (panelShown) 1f else 0f
+        }
         // Las formas o los ajustes pueden haber cambiado en otras pantallas: se recrea el motor.
         shapes = ShapeStore(this)
         trackpad.shapeStore = shapes
@@ -234,15 +255,10 @@ class MainActivity : Activity() {
         root.setBackgroundColor(if (window) Color.rgb(32, 32, 32) else Color.BLACK)
         applyMargins()
         trackpad.framed = window
-        trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS.mapNotNull { row ->
-            if (row.icon != CheatSheet.Icon.THREE) row
-            else when (if (connection.supportsGestures) settings.gestureFingers else 0) {
-                0 -> null
-                4 -> row.copy(text = "4 dedos quietos: modo gestos")
-                else -> row
-            }
-        } +
-            CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo")
+        trackpad.cheatSheet.rows = CheatSheet.rowsFor(
+            windowsGestures = settings.windowsGestures,
+            gestureMode = connection.supportsGestures && settings.gestureFingers == 4,
+        ) + CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo")
         trackpad.invalidate()
         applySystemBars()
     }
@@ -261,11 +277,15 @@ class MainActivity : Activity() {
         val bottom = if (window) i.bottom + m else 0 // barras ocultas en modo bloqueado: toda la pantalla
 
         // El panel va abajo en vertical y a la derecha en horizontal. Solo se ve si el PC ha enviado widgets.
+        // Se coloca siempre con su tamaño completo y se desliza con una traslación (recortada al área del trackpad);
+        // el trackpad cede el sitio en proporción a lo desplegado que esté ([panelProgress]).
         val landscape = root.width > root.height
         panel.landscape = landscape
-        val showPanel = settings.showWidgets && panel.hasWidgets && root.width > 0 && root.height > 0
+        val hasPanel = panel.hasWidgets && root.width > 0 && root.height > 0
+        val progress = panelProgress
+        val showPanel = hasPanel && progress > 0f
         var panelExtent = 0
-        if (showPanel) {
+        if (hasPanel) {
             val panelLp = panel.layoutParams as FrameLayout.LayoutParams
             if (landscape) {
                 panelExtent = settings.widgetPanelSize.extent(root.width - left - right)
@@ -283,14 +303,80 @@ class MainActivity : Activity() {
             panel.requestLayout()
         }
         panel.visibility = if (showPanel) View.VISIBLE else View.GONE
+        val hidden = ((1f - progress) * panelExtent)
+        panel.translationX = if (landscape) hidden else 0f
+        panel.translationY = if (landscape) 0f else hidden
+        panel.clipBounds = if (showPanel && progress < 1f) {
+            if (landscape) Rect(0, 0, (panelExtent - hidden).toInt(), root.height)
+            else Rect(0, 0, root.width, (panelExtent - hidden).toInt())
+        } else {
+            null
+        }
 
+        val used = (panelExtent * progress).toInt()
         val lp = trackpad.layoutParams as FrameLayout.LayoutParams
         lp.setMargins(
             left, top,
-            right + if (landscape) panelExtent else 0,
-            bottom + if (landscape) 0 else panelExtent,
+            right + if (landscape) used else 0,
+            bottom + if (landscape) 0 else used,
         )
         trackpad.requestLayout()
+    }
+
+    // ---- Panel de widgets con 4 dedos (docs/spec-v3.1-ajustes.md §1.1) ----
+
+    /** 4 dedos juntándose (show) o separándose. Con el panel vacío solo avisa. */
+    private fun onPanelGesture(show: Boolean) {
+        if (show && !panel.hasWidgets) {
+            trackpad.showNotice("No hay widgets: configúralos en el PC")
+            return
+        }
+        if (show == panelShown) return
+        panelShown = show
+        settings = settings.copy(showWidgets = show).also { it.save(this) }
+        animatePanel(show)
+    }
+
+    private fun animatePanel(show: Boolean) {
+        panelAnimator?.cancel()
+        val from = panelProgress
+        val to = if (show) 1f else 0f
+        if (from == to || !panel.hasWidgets) {
+            panelProgress = to
+            applyMargins()
+            return
+        }
+        val full = if (show) PanelReveal.SLIDE_IN_MS else PanelReveal.SLIDE_OUT_MS
+        val animator = ValueAnimator.ofFloat(from, to)
+        animator.duration = (full * kotlin.math.abs(to - from)).toLong().coerceAtLeast(1L)
+        // Entra decelerando y sale acelerando.
+        animator.interpolator = if (show) DecelerateInterpolator(1.8f) else AccelerateInterpolator(1.5f)
+        animator.addUpdateListener {
+            panelProgress = it.animatedValue as Float
+            applyMargins()
+        }
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                if (panelAnimator === animation) {
+                    panelAnimator = null
+                    panel.inputBlocked = false
+                }
+                panelProgress = to
+                applyMargins()
+            }
+        })
+        panelAnimator = animator
+        panel.inputBlocked = true
+        if (show) panel.playReveal()
+        animator.start()
+    }
+
+    /** Termina al instante una animación en curso (al pausar la app). */
+    private fun finishPanelAnimation() {
+        val a = panelAnimator ?: return
+        panelAnimator = null
+        a.cancel() // onAnimationEnd deja el panel en su estado final
+        panel.inputBlocked = false
     }
 
     private fun applySystemBars() {

@@ -20,6 +20,12 @@ interface Transport {
     /** ¿Admite el modo gestos? (Las acciones de las formas viven en el PC.) */
     val supportsGestures: Boolean
 
+    /**
+     * ¿Puede ejecutar los gestos de Windows de 3 dedos? Por USB, solo con un host de protocolo ≥ 4 (se sabe al conectar);
+     * por Bluetooth siempre (el móvil envía las teclas).
+     */
+    val supportsSystemGestures: Boolean
+
     fun start()
     fun stop()
     fun send(action: OutputAction)

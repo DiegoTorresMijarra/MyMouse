@@ -54,6 +54,13 @@ class SettingsActivity : Activity() {
         list.addView(switch("Scroll natural (el contenido sigue al dedo)", settings.naturalScroll) {
             settings = settings.copy(naturalScroll = it)
         })
+        list.addView(switch("Inercia al hacer scroll (sigue un momento al levantar los dedos)", settings.scrollInertia) {
+            settings = settings.copy(scrollInertia = it)
+        })
+        list.addView(slider(
+            "Velocidad del zoom", AppSettings.MIN_ZOOM_SPEED, AppSettings.MAX_ZOOM_SPEED, 0.1f, settings.zoomSpeed,
+            { "×%.1f".format(it) },
+        ) { settings = settings.copy(zoomSpeed = it) })
         list.addView(switch("Doble toque y mover = arrastrar (retrasa el clic ~¼ s)", settings.tapToDrag) {
             settings = settings.copy(tapToDrag = it)
         })
@@ -82,12 +89,23 @@ class SettingsActivity : Activity() {
             setTextColor(Color.rgb(150, 150, 150))
         })
 
+        list.addView(header("Gestos de varios dedos"))
+        list.addView(switch("Gestos de Windows con 3 dedos (↑ vista de tareas, ↓ escritorio, ← → cambiar de app)", settings.windowsGestures) {
+            settings = settings.copy(windowsGestures = it)
+        })
+        list.addView(TextView(this).apply {
+            text = "Pueden interferir con los gestos de 3 dedos de Xiaomi/HyperOS (captura y recorte). " +
+                "Si es así, desactívalos aquí o en los ajustes del sistema (Ajustes adicionales → Atajos de gestos). " +
+                "Por USB, el PC necesita MyMouse 3.1 o posterior."
+            textSize = 13f
+            setTextColor(Color.rgb(150, 150, 150))
+        })
         list.addView(header("Modo gestos"))
         list.addView(choice(
             "Activar con",
-            listOf("3 dedos quietos", "4 dedos quietos", "Desactivado"),
-            when (settings.gestureFingers) { 4 -> 1; 0 -> 2; else -> 0 },
-        ) { settings = settings.copy(gestureFingers = listOf(3, 4, 0)[it]) })
+            listOf("4 dedos quietos", "Desactivado"),
+            if (settings.gestureFingers == 0) 1 else 0,
+        ) { settings = settings.copy(gestureFingers = listOf(4, 0)[it]) })
         list.addView(slider(
             "Tiempo para empezar a dibujar",
             AppSettings.MIN_STROKE_TIMEOUT_S.toFloat(), AppSettings.MAX_STROKE_TIMEOUT_S.toFloat(), 1f,
@@ -105,7 +123,7 @@ class SettingsActivity : Activity() {
         })
 
         list.addView(header("Widgets"))
-        list.addView(switch("Mostrar panel de widgets", settings.showWidgets) {
+        list.addView(switch("Mostrar el panel de widgets (juntar o separar 4 dedos lo cambia)", settings.showWidgets) {
             settings = settings.copy(showWidgets = it)
         })
         list.addView(choice(

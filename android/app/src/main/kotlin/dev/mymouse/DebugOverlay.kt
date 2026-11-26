@@ -52,7 +52,6 @@ class DebugOverlay(private val density: Float) {
                 down += input.id
                 trails[input.id] = ArrayDeque<TrailPoint>().apply { addLast(TrailPoint(input.x, input.y, now)) }
                 if (down.size > maxFingers) maxFingers = down.size
-                if (down.size == 3) log(-1, "3 dedos: modo gestos (llega en la v1)", now)
             }
             is TouchInput.Move -> trails[input.id]?.addLast(TrailPoint(input.x, input.y, now))
             is TouchInput.Up -> {

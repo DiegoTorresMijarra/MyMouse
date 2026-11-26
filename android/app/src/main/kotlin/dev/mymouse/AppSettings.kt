@@ -21,8 +21,14 @@ data class AppSettings(
     val autoRelock: Boolean = false,
     /** Modo depuración: minipantalla con los dedos y las acciones enviadas. */
     val debug: Boolean = false,
-    /** Dedos que activan el modo gestos: 3, 4 o 0 (desactivado). */
-    val gestureFingers: Int = 3,
+    /** Dedos que activan el modo gestos: 4, o 0 (desactivado). Un 3 guardado antes de la v3.1 pasa a 4. */
+    val gestureFingers: Int = 4,
+    /** Gestos de Windows con 3 dedos: vista de tareas, escritorio y cambio de app (docs/spec-v3.1-ajustes.md §1). */
+    val windowsGestures: Boolean = true,
+    /** Velocidad del zoom con 2 dedos (×0,5 a ×4). */
+    val zoomSpeed: Float = 1.5f,
+    /** Scroll con inercia al levantar los 2 dedos con velocidad. */
+    val scrollInertia: Boolean = true,
     /** USB (MyMouse en el PC) o Bluetooth (el móvil como ratón, sin nada en el PC). */
     val connection: Connection = Connection.USB,
     /** Segundos para empezar a dibujar la forma tras levantar los dedos de la activación. */
@@ -40,6 +46,9 @@ data class AppSettings(
         naturalScroll = naturalScroll,
         tapToDrag = tapToDrag,
         gestureFingers = gestureFingers,
+        windowsGestures = windowsGestures,
+        zoomSpeed = zoomSpeed,
+        scrollInertia = scrollInertia,
         gestureStrokeTimeoutMs = gestureStrokeTimeoutSeconds * 1000L,
     )
 
@@ -57,6 +66,9 @@ data class AppSettings(
             .putBoolean("autoRelock", autoRelock)
             .putBoolean("debug", debug)
             .putInt("gestureFingers", gestureFingers)
+            .putBoolean("windowsGestures", windowsGestures)
+            .putFloat("zoomSpeed", zoomSpeed)
+            .putBoolean("scrollInertia", scrollInertia)
             .putString("connection", connection.name)
             .putInt("gestureStrokeTimeoutSeconds", gestureStrokeTimeoutSeconds)
             .putBoolean("showWidgets", showWidgets)
@@ -69,6 +81,8 @@ data class AppSettings(
     companion object {
         const val MIN_STROKE_TIMEOUT_S = 2
         const val MAX_STROKE_TIMEOUT_S = 15
+        const val MIN_ZOOM_SPEED = 0.5f
+        const val MAX_ZOOM_SPEED = 4f
         private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
         fun load(context: Context): AppSettings {
@@ -89,7 +103,14 @@ data class AppSettings(
                 pinApp = p.getBoolean("pinApp", d.pinApp),
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
                 debug = p.getBoolean("debug", d.debug),
-                gestureFingers = p.getInt("gestureFingers", d.gestureFingers).takeIf { it in setOf(0, 3, 4) } ?: d.gestureFingers,
+                // Con 3 dedos los gestos son los de Windows: un 3 guardado de la v3.0 pasa a 4.
+                gestureFingers = when (p.getInt("gestureFingers", d.gestureFingers)) {
+                    0 -> 0
+                    else -> 4
+                },
+                windowsGestures = p.getBoolean("windowsGestures", d.windowsGestures),
+                zoomSpeed = p.getFloat("zoomSpeed", d.zoomSpeed).coerceIn(MIN_ZOOM_SPEED, MAX_ZOOM_SPEED),
+                scrollInertia = p.getBoolean("scrollInertia", d.scrollInertia),
                 gestureStrokeTimeoutSeconds = p.getInt("gestureStrokeTimeoutSeconds", d.gestureStrokeTimeoutSeconds)
                     .coerceIn(MIN_STROKE_TIMEOUT_S, MAX_STROKE_TIMEOUT_S),
                 connection = p.getString("connection", null)

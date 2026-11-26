@@ -12,7 +12,7 @@ import android.graphics.RectF
  */
 class CheatSheet(private val density: Float) {
 
-    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE, VOLUME }
+    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE_UP, THREE_DOWN, THREE_SIDE, FOUR_HOLD, FOUR_PINCH, VOLUME }
 
     data class Row(val icon: Icon, val text: String)
 
@@ -40,7 +40,10 @@ class CheatSheet(private val density: Float) {
     private val box = RectF()
     private val path = Path()
 
-    /** [atBottom]: pegada abajo en lugar de centrada (deja sitio al modo depuración). */
+    /**
+     * [atBottom]: pegada abajo en lugar de centrada (deja sitio al modo depuración).
+     * Si la lista no cabe (móvil en horizontal), se dibuja encogida para que quepa entera.
+     */
     fun draw(canvas: Canvas, width: Int, height: Int, atBottom: Boolean = false) {
         if (rows.isEmpty()) return
         val pad = 14 * density
@@ -49,8 +52,15 @@ class CheatSheet(private val density: Float) {
         val textW = rows.maxOf { textPaint.measureText(it.text) }
         val w = (pad * 2 + iconW + 10 * density + textW).coerceAtMost(width - 32 * density)
         val h = pad * 2 + rowH * rows.size
-        val top = if (atBottom) height - h - 16 * density else (height - h) / 2
-        box.set((width - w) / 2, top, (width + w) / 2, top + h)
+        val room = height - 32 * density
+        val scale = if (h > room && room > 0f) room / h else 1f
+        val top = if (atBottom) height - h * scale - 16 * density else (height - h * scale) / 2
+        // Se dibuja a tamaño natural en (left, top) y el lienzo se escala desde esa esquina.
+        val left = (width - w * scale) / 2
+        canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(scale, scale)
+        box.set(0f, 0f, w, h)
         canvas.drawRoundRect(box, 14 * density, 14 * density, boxPaint)
 
         val baselineOffset = -(textPaint.ascent() + textPaint.descent()) / 2
@@ -59,6 +69,7 @@ class CheatSheet(private val density: Float) {
             drawIcon(canvas, row.icon, box.left + pad + iconW / 2, cy)
             canvas.drawText(row.text, box.left + pad + iconW + 10 * density, cy + baselineOffset, textPaint)
         }
+        canvas.restore()
     }
 
     private fun drawIcon(c: Canvas, icon: Icon, cx: Float, cy: Float) {
@@ -96,9 +107,33 @@ class CheatSheet(private val density: Float) {
                 c.drawCircle(cx - 10 * d, cy, ring + 3 * d, iconStroke)
                 arrow(c, cx + 1 * d, cy, cx + 16 * d, cy)
             }
-            Icon.THREE -> for (dx in listOf(-12 * d, 0f, 12 * d)) {
-                c.drawCircle(cx + dx, cy, dot, iconFill)
-                c.drawCircle(cx + dx, cy, ring - 1.5f * d, iconStroke)
+            Icon.THREE_UP -> {
+                threeDots(c, cx, cy)
+                arrow(c, cx + 14 * d, cy + 5 * d, cx + 14 * d, cy - 9 * d)
+            }
+            Icon.THREE_DOWN -> {
+                threeDots(c, cx, cy)
+                arrow(c, cx + 14 * d, cy - 5 * d, cx + 14 * d, cy + 9 * d)
+            }
+            Icon.THREE_SIDE -> {
+                threeDots(c, cx - 3 * d, cy)
+                arrow(c, cx + 11 * d, cy, cx + 20 * d, cy)
+                arrow(c, cx + 11 * d, cy, cx + 2 * d, cy)
+            }
+            Icon.FOUR_HOLD -> {
+                for (dx in listOf(-15 * d, -5 * d, 5 * d, 15 * d)) {
+                    c.drawCircle(cx + dx, cy, dot - 0.5f * d, iconFill)
+                    c.drawCircle(cx + dx, cy, ring - 1.5f * d, iconStroke)
+                }
+            }
+            Icon.FOUR_PINCH -> {
+                // Cuatro dedos en cruz y dos flechas que se juntan.
+                val fx = cx - 10 * d
+                for ((dx, dy) in listOf(-6 * d to 0f, 6 * d to 0f, 0f to -6 * d, 0f to 6 * d)) {
+                    c.drawCircle(fx + dx, cy + dy, 2.6f * d, iconFill)
+                }
+                arrow(c, cx + 12 * d, cy - 11 * d, cx + 12 * d, cy - 3 * d)
+                arrow(c, cx + 12 * d, cy + 11 * d, cx + 12 * d, cy + 3 * d)
             }
             Icon.VOLUME -> {
                 val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
@@ -106,6 +141,10 @@ class CheatSheet(private val density: Float) {
                 c.drawText("VOL−×2", cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
             }
         }
+    }
+
+    private fun threeDots(c: Canvas, cx: Float, cy: Float) {
+        for (dx in listOf(-12 * density, -4 * density, 4 * density)) c.drawCircle(cx + dx, cy, 3f * density, iconFill)
     }
 
     /** Flecha de (x0,y0) a (x1,y1) con punta en (x1,y1). */
@@ -123,14 +162,28 @@ class CheatSheet(private val density: Float) {
     }
 
     companion object {
-        val DEFAULT_ROWS = listOf(
+        /** Gestos básicos, sin los de 3 y 4 dedos (ver [rowsFor]). */
+        private val BASIC_ROWS = listOf(
             Row(Icon.MOVE, "Mover"),
             Row(Icon.TAP, "Clic"),
             Row(Icon.TWO_TAP, "Clic derecho"),
             Row(Icon.SCROLL, "Scroll"),
             Row(Icon.PINCH, "Zoom"),
             Row(Icon.DRAG, "Doble toque y mover: arrastrar"),
-            Row(Icon.THREE, "3 dedos quietos: modo gestos"),
         )
+
+        val DEFAULT_ROWS = rowsFor(windowsGestures = true, gestureMode = true)
+
+        /** Filas de la chuleta: los gestos de 3 dedos solo si están activados, el modo gestos solo si está disponible. */
+        fun rowsFor(windowsGestures: Boolean, gestureMode: Boolean): List<Row> = buildList {
+            addAll(BASIC_ROWS)
+            if (windowsGestures) {
+                add(Row(Icon.THREE_UP, "3 dedos ↑: Vista de tareas"))
+                add(Row(Icon.THREE_DOWN, "3 dedos ↓: Mostrar el escritorio"))
+                add(Row(Icon.THREE_SIDE, "3 dedos ← →: Cambiar de app"))
+            }
+            if (gestureMode) add(Row(Icon.FOUR_HOLD, "4 dedos quietos: modo gestos"))
+            add(Row(Icon.FOUR_PINCH, "4 dedos juntar / separar: widgets"))
+        }
     }
 }

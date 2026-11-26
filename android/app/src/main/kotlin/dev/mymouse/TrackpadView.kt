@@ -16,6 +16,7 @@ import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.gesture.TouchInput
 import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.GestureStatus
+import dev.mymouse.core.protocol.SystemGestureCommand
 
 /**
  * Superficie del trackpad: traduce MotionEvent a [TouchInput] (incluidas las muestras históricas),
@@ -67,11 +68,21 @@ class TrackpadView(
             invalidate()
         }
 
+    /** Juntar (true) o separar (false) 4 dedos: mostrar u ocultar el panel de widgets. Lo anima [MainActivity]. */
+    var onPanelGesture: (Boolean) -> Unit = {}
+
+    /** ¿Entiende el destino los gestos de 3 dedos de Windows? Si no (host anterior a la v4), solo se anotan en depuración. */
+    var systemGesturesAvailable: () -> Boolean = { true }
+
     /** Envía al PC y, si el modo depuración está activo, lo anota. */
     private fun emit(action: OutputAction) {
         send(action)
         debugOverlay?.onAction(action, SystemClock.uptimeMillis())
         when (action) {
+            is OutputAction.WidgetPanel -> onPanelGesture(action.show)
+            is OutputAction.SystemGesture -> if (!systemGesturesAvailable() && action.command.isStart()) {
+                noteDebug("Gestos de 3 dedos: el PC necesita MyMouse 3.1 o posterior")
+            }
             is OutputAction.GestureMode -> {
                 if (action.active) vibrate()
                 invalidate()
@@ -284,6 +295,11 @@ class TrackpadView(
         val r = 5 * density
         canvas.drawCircle(width - 16 * density, 16 * density, r, statusPaint)
     }
+
+    /** Primer mensaje de cada gesto de 3 dedos (el cambio de app envía varios). */
+    private fun SystemGestureCommand.isStart() =
+        this == SystemGestureCommand.TASK_VIEW || this == SystemGestureCommand.SHOW_DESKTOP ||
+            this == SystemGestureCommand.APP_SWITCH_START
 
     private companion object {
         const val RESULT_MS = 1_500L

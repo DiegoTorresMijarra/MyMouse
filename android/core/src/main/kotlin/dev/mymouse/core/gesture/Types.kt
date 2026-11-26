@@ -91,7 +91,7 @@ data class TrackpadConfig(
     /** Recorrido horizontal por cada paso del cambio de app (Tab). */
     val appSwitchStepPx: Float = 120f,
     /** Inercia al hacer scroll con 2 dedos. */
-    val scrollInertia: Boolean = false,
+    val scrollInertia: Boolean = true,
     /** Vida media de la inercia: cada tanto tiempo la velocidad se reduce a la mitad. */
     val inertiaHalfLifeMs: Long = 300,
     /** Velocidad mínima (unidades de rueda por ms) para que haya inercia al levantar los dedos. */

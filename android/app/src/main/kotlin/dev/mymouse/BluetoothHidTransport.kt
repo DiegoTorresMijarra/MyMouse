@@ -52,6 +52,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onMediaState: (Message.MediaState) -> Unit = {}
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
     override val supportsGestures = false
+    override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
 
     /** Estado legible para la pantalla de emparejar. */
     var status: String = "Sin iniciar"

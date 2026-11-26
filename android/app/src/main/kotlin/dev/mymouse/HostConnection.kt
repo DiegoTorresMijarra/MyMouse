@@ -29,6 +29,8 @@ class HostConnection(private val port: Int) : Transport {
 
     override val supportsGestures = true
 
+    override val supportsSystemGestures get() = protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION
+
     override var onConnectionChanged: (Boolean) -> Unit = {}
 
     /** Lista de formas del PC (para la chuleta). Se llama desde el hilo de lectura. */
@@ -118,7 +120,12 @@ class HostConnection(private val port: Int) : Transport {
             is OutputAction.Button -> queue.addLast(Message.Button(action.button, action.pressed))
             is OutputAction.Gesture ->
                 if (protocolVersion >= Protocol.GESTURES_VERSION) queue.addLast(Message.Gesture(action.name))
-            is OutputAction.GestureMode, is OutputAction.GestureRejected -> Unit // solo feedback local
+            // Un host anterior a la v4 no entiende SYSTEM_GESTURE y cerraría la conexión: sin él, los gestos no hacen nada.
+            is OutputAction.SystemGesture ->
+                if (protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION) queue.addLast(Message.SystemGesture(action.command))
+            // Solo feedback local o reservado.
+            is OutputAction.GestureMode, is OutputAction.GestureRejected,
+            is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> Unit
             is OutputAction.Zoom ->
                 if (last is Message.Zoom && fitsI16(last.delta + action.delta)) {
                     queue[queue.lastIndex] = Message.Zoom(last.delta + action.delta)
