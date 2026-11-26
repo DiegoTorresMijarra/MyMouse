@@ -34,8 +34,8 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
 | `0x03` | `BUTTON` | `u8 button`, `u8 pressed` | 3 |
 | `0x04` | `SCROLL` | `i16 vertical`, `i16 horizontal` | 5 |
 | `0x05` | `PING` | — | 1 |
-| `0x07` | `ZOOM` (pendiente de implementar) | `i16 delta` | 3 |
 | `0x06` | `GESTURE` (reservado, v1) | `u8 len`, nombre UTF-8 ([detalle](../docs/spec-v1-gestos.md#8-protocolo)) | variable |
+| `0x07` | `ZOOM` (pendiente de implementar) | `i16 delta` | 3 |
 
 ### Host → cliente
 
