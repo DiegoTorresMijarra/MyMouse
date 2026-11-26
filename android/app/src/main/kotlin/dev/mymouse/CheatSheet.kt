@@ -69,11 +69,18 @@ class CheatSheet(private val density: Float) {
         val rowH = 40 * density
         val tileW = 52 * density
         val tileH = 32 * density
-        val textW = rows.maxOf { textPaint.measureText(it.text) }
-        val w = (pad * 2 + tileW + 12 * density + textW).coerceAtMost(width - 32 * density)
-        val h = pad * 2 + titleH + rowH * rows.size
+        // En horizontal (más ancho que alto) la lista se reparte en dos columnas.
+        val cols = if (width > height && rows.size > 4) 2 else 1
+        val perCol = (rows.size + cols - 1) / cols
+        val columns = rows.chunked(perCol)
+        val colGap = 20 * density
+        val colW = columns.map { col -> tileW + 12 * density + col.maxOf { textPaint.measureText(it.text) } }
+        val w = pad * 2 + colW.sum() + colGap * (columns.size - 1)
+        val h = pad * 2 + titleH + rowH * perCol
         val room = height - 32 * density
-        val scale = if (h > room && room > 0f) room / h else 1f
+        val roomW = width - 32 * density
+        // Si no cabe a lo alto o a lo ancho, se encoge entera (sin recortar texto).
+        val scale = minOf(1f, if (room > 0f) room / h else 1f, if (roomW > 0f) roomW / w else 1f)
         val top = if (atBottom) height - h * scale - 16 * density else (height - h * scale) / 2
         // Se dibuja a tamaño natural en (left, top) y el lienzo se escala desde esa esquina.
         val left = (width - w * scale) / 2
@@ -88,22 +95,24 @@ class CheatSheet(private val density: Float) {
         canvas.translate(left, top)
         canvas.scale(scale, scale)
         box.set(0f, 0f, w, h)
-        shinePaint.shader = LinearGradient(0f, 0f, 0f, h, GlassTheme.SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
-        canvas.save()
-        canvas.clipRect(0f, 0f, w, h * 0.4f)
+        // Brillo que se desvanece de forma continua en el 40 % superior (sin corte brusco).
+        shinePaint.shader = LinearGradient(0f, 0f, 0f, h * 0.4f, GlassTheme.SHINE, Color.TRANSPARENT, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(box, radius, radius, shinePaint)
-        canvas.restore()
         canvas.drawRoundRect(box, radius, radius, borderPaint)
 
         canvas.drawText("GESTOS BÁSICOS", pad, pad + titlePaint.textSize, titlePaint)
         val baselineOffset = -(textPaint.ascent() + textPaint.descent()) / 2
-        rows.forEachIndexed { i, row ->
-            val cy = box.top + pad + titleH + rowH * i + rowH / 2
-            val tileLeft = box.left + pad
-            // Icono en baldosa, como en el PC.
-            canvas.drawRoundRect(tileLeft, cy - tileH / 2, tileLeft + tileW, cy + tileH / 2, GlassTheme.RADIUS_ROW * density, GlassTheme.RADIUS_ROW * density, tilePaint)
-            drawIcon(canvas, row.icon, tileLeft + tileW / 2, cy)
-            canvas.drawText(row.text, tileLeft + tileW + 12 * density, cy + baselineOffset, textPaint)
+        var colLeft = box.left + pad
+        columns.forEachIndexed { c, col ->
+            col.forEachIndexed { i, row ->
+                val cy = box.top + pad + titleH + rowH * i + rowH / 2
+                val tileLeft = colLeft
+                // Icono en baldosa, como en el PC.
+                canvas.drawRoundRect(tileLeft, cy - tileH / 2, tileLeft + tileW, cy + tileH / 2, GlassTheme.RADIUS_ROW * density, GlassTheme.RADIUS_ROW * density, tilePaint)
+                drawIcon(canvas, row.icon, tileLeft + tileW / 2, cy)
+                canvas.drawText(row.text, tileLeft + tileW + 12 * density, cy + baselineOffset, textPaint)
+            }
+            colLeft += colW[c] + colGap
         }
         canvas.restore()
     }

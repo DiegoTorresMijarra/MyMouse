@@ -299,9 +299,17 @@ object GlassTheme {
 
     // ---- Iconos dibujados con trazos ----
 
-    /** Botón de icono dibujado con trazos (sin fuentes ni recursos): círculo de cristal de 44 dp por defecto. */
+    /**
+     * Botón de icono dibujado con trazos (sin fuentes ni recursos): círculo de cristal de 44 dp por defecto.
+     * Con [label], es una píldora de cristal con el icono a la izquierda y el texto a la derecha.
+     */
     @SuppressLint("ViewConstructor")
-    class IconButton(context: Context, private val kind: Kind, private val circle: Boolean = true) : View(context) {
+    class IconButton(
+        context: Context,
+        private val kind: Kind,
+        private val circle: Boolean = true,
+        private val label: String? = null,
+    ) : View(context) {
         enum class Kind { BACK, SLIDERS, LOCK, POWER, CLOSE }
 
         private val d = resources.displayMetrics.density
@@ -319,15 +327,22 @@ object GlassTheme {
             strokeJoin = Paint.Join.ROUND
         }
         private val rect = RectF()
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = TEXT
+            textSize = 14 * d
+        }
 
         init {
             isClickable = true
             isFocusable = true
         }
 
+        /** Ancho de la píldora con texto: margen, icono, hueco, texto, margen. */
+        private fun pillWidth(): Int = label?.let { (14 * d + 20 * d + 8 * d + textPaint.measureText(it) + 16 * d).toInt() } ?: (44 * d).toInt()
+
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val size = (44 * d).toInt()
-            setMeasuredDimension(resolveSize(size, widthMeasureSpec), resolveSize(size, heightMeasureSpec))
+            setMeasuredDimension(resolveSize(pillWidth(), widthMeasureSpec), resolveSize(size, heightMeasureSpec))
         }
 
         override fun drawableStateChanged() {
@@ -338,13 +353,26 @@ object GlassTheme {
         override fun onDraw(canvas: Canvas) {
             val w = width.toFloat()
             val h = height.toFloat()
-            if (circle) {
+            val s: Float
+            val x0: Float
+            if (label != null) {
                 fill.color = if (isPressed) Color.parseColor("#33FFFFFF") else ELEVATED
-                canvas.drawCircle(w / 2, h / 2, w / 2 - d, fill)
-                canvas.drawCircle(w / 2, h / 2, w / 2 - d, ring)
+                rect.set(d, d, w - d, h - d)
+                canvas.drawRoundRect(rect, h / 2, h / 2, fill)
+                canvas.drawRoundRect(rect, h / 2, h / 2, ring)
+                s = 20 * d
+                x0 = 14 * d
+                val baseline = h / 2 - (textPaint.ascent() + textPaint.descent()) / 2
+                canvas.drawText(label, x0 + s + 8 * d, baseline, textPaint)
+            } else {
+                if (circle) {
+                    fill.color = if (isPressed) Color.parseColor("#33FFFFFF") else ELEVATED
+                    canvas.drawCircle(w / 2, h / 2, w / 2 - d, fill)
+                    canvas.drawCircle(w / 2, h / 2, w / 2 - d, ring)
+                }
+                s = minOf(w, h) * 0.5f // el icono ocupa la mitad del botón
+                x0 = (w - s) / 2
             }
-            val s = minOf(w, h) * 0.5f // el icono ocupa la mitad del botón
-            val x0 = (w - s) / 2
             val y0 = (h - s) / 2
             fun x(f: Float) = x0 + f * s
             fun y(f: Float) = y0 + f * s

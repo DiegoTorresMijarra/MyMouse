@@ -511,7 +511,7 @@ class MainActivity : Activity() {
 
     // ---- Botones del modo ventana ----
 
-    /** Botones del modo ventana: círculos de cristal de 44 dp con el icono dibujado con trazos. */
+    /** Botones del modo ventana: píldoras de cristal de 44 dp con icono dibujado con trazos y texto. */
     private fun buildControls(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL or Gravity.END
@@ -531,10 +531,10 @@ class MainActivity : Activity() {
     }
 
     private fun iconButton(kind: GlassTheme.IconButton.Kind, description: String, onClick: () -> Unit) =
-        GlassTheme.IconButton(this, kind).apply {
+        GlassTheme.IconButton(this, kind, label = description).apply {
             contentDescription = description
             setOnClickListener { onClick() }
-            layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
         }
 
     private fun confirmReleaseOwner() {
