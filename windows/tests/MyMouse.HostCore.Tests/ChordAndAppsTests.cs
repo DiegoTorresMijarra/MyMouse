@@ -145,7 +145,7 @@ public class StartMenuTests : IDisposable
         var apps = scanner.List();
 
         Assert.Equal(["Chrome", "Git Bash", "Visual Studio Code"], apps.Select(a => a.Name));
-        Assert.Equal(user, apps.Single(a => a.Name == "Visual Studio Code").Path);
+        Assert.Equal(Path.GetFullPath(user), Path.GetFullPath(apps.Single(a => a.Name == "Visual Studio Code").Path));
     }
 
     private static readonly IReadOnlyList<InstalledApp> Apps =
