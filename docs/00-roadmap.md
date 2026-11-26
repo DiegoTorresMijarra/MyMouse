@@ -22,6 +22,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 - Scroll con 2 dedos (vertical y horizontal).
 - Doble toque y arrastrar = arrastrar con el botón pulsado.
 - Ajustes básicos en el móvil: sensibilidad, aceleración y velocidad de scroll.
+- Modo bloqueado (kiosco, pantalla siempre encendida) y modo ventana, que se alternan con una doble pulsación de volumen.
 - Programa de bandeja en Windows: estado, pausar, salir.
 
 **Criterios de "hecho":**
@@ -45,6 +46,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 - Trazado con feedback visual en pantalla; reconocimiento con el algoritmo $1 (o $P) en el móvil.
 - Mapa configurable `forma → acción` (atajo, abrir app/URL, texto, multimedia), que se guarda **en el PC**. El móvil solo envía el nombre de la forma reconocida.
 - Grabación de formas propias (de 1 a 3 ejemplos por forma).
+- Chuleta en el centro del trackpad con las formas fijadas y su texto de ayuda; al activar el modo gestos, la lista completa.
 - Un catálogo de 16 formas incluidas (líneas, ángulos, círculo, triángulo, cuadrado, check, Z, S, L).
 - Mensaje de protocolo `GESTURE`.
 - Detalle: [spec-v1-gestos.md](spec-v1-gestos.md).

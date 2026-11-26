@@ -15,11 +15,34 @@
 ## 2. App Android
 
 ### 2.1 Pantalla del trackpad
-- Una Activity a pantalla completa en **modo inmersivo**: barras del sistema ocultas, que reaparecen al deslizar desde el borde.
-- Fondo negro. Un indicador de estado discreto en una esquina: gris = desconectado, verde = conectado.
-- `FLAG_KEEP_SCREEN_ON` mientras la app está en primer plano.
+- Una Activity a pantalla completa, fondo negro, `FLAG_KEEP_SCREEN_ON` mientras está en primer plano.
+- Un indicador de estado discreto en una esquina: gris = desconectado, verde = conectado.
 - Orientación **bloqueada** (configurable: vertical u horizontal).
-- **Botón de ajustes:** icono pequeño en una esquina. Para no abrirlo sin querer mientras se usa el trackpad, se abre con una pulsación larga sobre él.
+- La app tiene dos modos: **bloqueado** (el normal) y **ventana**.
+
+### 2.1.1 Modo bloqueado (kiosco)
+El móvil es un dispositivo dedicado: la app ocupa toda la pantalla, la pantalla no se apaga y no se puede salir de la app por accidente.
+
+- Toda la pantalla es trackpad. No hay barras del sistema ni botón de ajustes.
+- Se bloquea la salida con el **modo de tarea bloqueada** de Android (`startLockTask`): los botones Inicio y Recientes y la barra de notificaciones no hacen nada.
+- **Salir:** pulsar **dos veces Volumen −** en menos de 500 ms (configurable: Vol− ×2, Vol+ ×2, Vol+ y luego Vol−, o mantener Vol− 3 s). La app recibe las teclas de volumen mientras está en primer plano y las consume, así que el volumen del móvil no cambia.
+- Pantalla siempre encendida: `KEEP_SCREEN_ON` en la app y, con el nivel completo (ver abajo), "mantener encendida mientras carga" a nivel de sistema. Atenuación tras X s sin uso, **sin llegar a apagarse**. El P10 es LCD IPS: no hay riesgo de pantalla quemada.
+
+Dos niveles, porque Android solo permite el bloqueo completo a la app "propietaria del dispositivo":
+
+| Nivel | Cómo se activa | Qué se consigue | Cómo se sale |
+|---|---|---|---|
+| **Básico** (por defecto) | Nada: la app llama a `startLockTask` y Android pide confirmación una vez ("Fijar aplicación"). | Inicio, Recientes y notificaciones bloqueados. | La combinación del atajo de volumen. Android también deja salir manteniendo Atrás + Recientes; es poco probable hacerlo sin querer. |
+| **Completo** | Una vez, desde el PC: `adb shell dpm set-device-owner dev.mymouse/.AdminReceiver`. Exige quitar antes las cuentas del móvil (Google, Huawei). | Sin confirmación ni combinación de escape del sistema. Arranque automático de la app al encender el móvil, sin pantalla de bloqueo, pantalla siempre encendida mientras carga. | Solo con el atajo de volumen. En ajustes hay un botón "Dejar de ser propietaria" para volver a un móvil normal. |
+
+Riesgo del nivel completo: si la app falla al arrancar, el móvil queda atrapado. Mitigación: si la app se cierra por un error 3 veces seguidas, arranca sin bloqueo. **Hay que comprobar en el P10 que EMUI acepta `set-device-owner`** (añadido a M0).
+
+### 2.1.2 Modo ventana
+Se entra con el atajo de volumen. Sirve para cambiar ajustes o salir de la app.
+
+- El trackpad se reduce y deja **un margen alrededor**, como una ventana, para que se vea a simple vista que no está bloqueado. Dentro del recuadro sigue funcionando como trackpad.
+- Se muestran las barras del sistema y, en el margen, los botones **Ajustes** y **Salir**.
+- Se vuelve al modo bloqueado con el mismo atajo de volumen, con un botón "Bloquear", o solo tras 30 s sin tocar el margen (configurable o desactivable).
 
 ### 2.2 Interpretación de gestos
 
@@ -65,7 +88,7 @@ El scroll usa el mismo acumulador fraccionario.
 - Envío desde un único hilo con cola. Los `MOVE` pendientes se **fusionan**: si la cola se atasca, se suman los deltas en lugar de acumular mensajes.
 
 ### 2.5 Ajustes (v0)
-Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), orientación, segundos hasta atenuar la pantalla.
+Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), orientación, segundos hasta atenuar la pantalla, atajo de volumen para salir del modo bloqueado, volver solo al modo bloqueado.
 
 ## 3. Host de Windows
 

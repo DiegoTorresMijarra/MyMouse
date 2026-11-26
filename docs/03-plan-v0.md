@@ -36,6 +36,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [ ] Instalar el driver ADB (HiSuite) y platform-tools en Windows.
 - [ ] Comprobar que `adb devices` lista el móvil como `device`, no como `unauthorized`.
 - [ ] (Opcional) Probar el Bluetooth HID con una app de la Play Store.
+- [ ] (Opcional) Comprobar que EMUI acepta `dpm set-device-owner` (necesario para el modo bloqueado completo).
 
 ### M1: host de Windows
 - [~] App de bandeja en .NET 10 con menú (Pausar, Logs, Salir) y estado en el tooltip. Faltan iconos propios por estado.
@@ -59,7 +60,10 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 ### M4: ajuste fino
 - [~] Curva de aceleración propia (implementada y testeada). Falta la UI de ajustes y guardarlos.
 - [ ] Velocidad de scroll configurable.
-- [ ] Atenuar la pantalla tras X segundos sin uso.
+- [ ] Atenuar la pantalla tras X segundos sin uso (sin apagarla).
+- [ ] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen −.
+- [ ] Modo ventana: trackpad con margen, botones Ajustes y Salir.
+- [ ] (Opcional) Modo bloqueado completo como propietaria del dispositivo, arranque al encender.
 - [ ] Prueba de un día entero y lista de molestias, que alimentará la v1.
 
 ## Fuera de v0
