@@ -126,6 +126,9 @@ public sealed class ClientSession
             case ScrollMessage s:
                 _injector.Scroll(s.Vertical, s.Horizontal);
                 break;
+            case ZoomMessage z:
+                _injector.Zoom(z.Delta);
+                break;
             case HelloMessage:
                 throw new ProtocolException("HELLO duplicado");
             default:

@@ -67,13 +67,14 @@ class TrackpadView(
 
             MotionEvent.ACTION_MOVE -> buildList {
                 // Android agrupa varias muestras por frame: procesarlas todas da más resolución.
+                val last = e.pointerCount - 1
                 for (h in 0 until e.historySize) {
-                    for (p in 0 until e.pointerCount) {
-                        add(TouchInput.Move(e.getPointerId(p), e.getHistoricalX(p, h), e.getHistoricalY(p, h), e.getHistoricalEventTime(h)))
+                    for (p in 0..last) {
+                        add(TouchInput.Move(e.getPointerId(p), e.getHistoricalX(p, h), e.getHistoricalY(p, h), e.getHistoricalEventTime(h), p == last))
                     }
                 }
-                for (p in 0 until e.pointerCount) {
-                    add(TouchInput.Move(e.getPointerId(p), e.getX(p), e.getY(p), e.eventTime))
+                for (p in 0..last) {
+                    add(TouchInput.Move(e.getPointerId(p), e.getX(p), e.getY(p), e.eventTime, p == last))
                 }
             }
 

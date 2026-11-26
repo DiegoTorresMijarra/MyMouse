@@ -14,6 +14,7 @@ public class MessageCodecTests
         { new ButtonMessage(MouseButton.Left, true), "03 00 01" },
         { new ButtonMessage(MouseButton.Right, false), "03 01 00" },
         { new ScrollMessage(120, -40), "04 78 00 D8 FF" },
+        { new ZoomMessage(-120), "07 88 FF" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -50,6 +51,7 @@ public class MessageCodecTests
     [InlineData("06 00 00 00")] // GESTURE no existe en la versión 1
     [InlineData("FF")]
     [InlineData("02 05 00")] // MOVE truncado
+    [InlineData("07 78")] // ZOOM truncado
     [InlineData("03 03 01")] // botón inválido
     [InlineData("03 00 02")] // booleano inválido
     public async Task Read_InvalidInput_Throws(string hex)

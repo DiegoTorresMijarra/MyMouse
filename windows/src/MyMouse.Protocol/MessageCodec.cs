@@ -10,7 +10,7 @@ public static class MessageCodec
     {
         MessageType.Hello or MessageType.HelloAck => 1,
         MessageType.Move or MessageType.Scroll => 4,
-        MessageType.Button => 2,
+        MessageType.Button or MessageType.Zoom => 2,
         MessageType.Ping or MessageType.Pong => 0,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
@@ -41,6 +41,9 @@ public static class MessageCodec
                 BinaryPrimitives.WriteInt16LittleEndian(payload, m.Vertical);
                 BinaryPrimitives.WriteInt16LittleEndian(payload[2..], m.Horizontal);
                 break;
+            case ZoomMessage m:
+                BinaryPrimitives.WriteInt16LittleEndian(payload, m.Delta);
+                break;
             case PingMessage or PongMessage:
                 break;
             default:
@@ -67,6 +70,7 @@ public static class MessageCodec
             MessageType.Scroll => new ScrollMessage(
                 BinaryPrimitives.ReadInt16LittleEndian(payload),
                 BinaryPrimitives.ReadInt16LittleEndian(payload[2..])),
+            MessageType.Zoom => new ZoomMessage(BinaryPrimitives.ReadInt16LittleEndian(payload)),
             MessageType.Ping => PingMessage.Instance,
             MessageType.Pong => PongMessage.Instance,
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),

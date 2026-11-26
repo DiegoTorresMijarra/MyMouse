@@ -35,7 +35,7 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
 | `0x04` | `SCROLL` | `i16 vertical`, `i16 horizontal` | 5 |
 | `0x05` | `PING` | — | 1 |
 | `0x06` | `GESTURE` (reservado, v1) | `u8 len`, nombre UTF-8 ([detalle](../docs/spec-v1-gestos.md#8-protocolo)) | variable |
-| `0x07` | `ZOOM` (pendiente de implementar) | `i16 delta` | 3 |
+| `0x07` | `ZOOM` | `i16 delta` | 3 |
 
 ### Host → cliente
 
@@ -58,7 +58,8 @@ Versión actual: **1**. Este documento es la **fuente de verdad**: las implement
   - `horizontal` positivo = scroll hacia la derecha.
   - Se permiten valores menores que 120 (scroll suave).
 - **PING / PONG.** El cliente envía `PING` cada segundo y el host responde `PONG`. Si cualquiera de los dos extremos pasa **3 s sin recibir nada**, da la conexión por muerta.
-- **ZOOM** (pendiente de implementar; entra en la versión 1 porque aún no hay ninguna publicada). Pellizco en el trackpad.
+- **ZOOM.** Pellizco en el trackpad. Entra en la versión 1 porque se añadió antes de publicar ninguna.
+  - El cliente lo envía en múltiplos de 120 (pasos enteros): muchas aplicaciones hacen un paso de zoom por evento, sea cual sea el valor.
   - `delta` en unidades de rueda: positivo = acercar. `120` equivale a un paso.
   - El host lo ejecuta como **Ctrl + rueda**: pulsa Ctrl, envía `WHEEL` con `delta` y suelta Ctrl. Funciona en navegadores, Office, VS Code, el Explorador y la mayoría de visores.
 - **GESTURE** (v1, reservado). El móvil envía el nombre de la forma reconocida; las acciones se definen en el PC. Detalle en [spec-v1-gestos.md](../docs/spec-v1-gestos.md#8-protocolo).

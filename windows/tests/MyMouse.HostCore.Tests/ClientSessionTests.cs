@@ -11,6 +11,7 @@ public class ClientSessionTests
         public void MoveRelative(int dx, int dy) => Calls.Add($"move {dx},{dy}");
         public void SetButton(MouseButton button, bool pressed) => Calls.Add($"{button} {(pressed ? "down" : "up")}");
         public void Scroll(int vertical, int horizontal) => Calls.Add($"scroll {vertical},{horizontal}");
+        public void Zoom(int delta) => Calls.Add($"zoom {delta}");
     }
 
     private static byte[] Bytes(params Message[] messages) => messages.SelectMany(MessageCodec.Encode).ToArray();
@@ -60,9 +61,10 @@ public class ClientSessionTests
             new MoveMessage(5, -3),
             new ButtonMessage(MouseButton.Left, true),
             new ButtonMessage(MouseButton.Left, false),
-            new ScrollMessage(120, -40)));
+            new ScrollMessage(120, -40),
+            new ZoomMessage(-120)));
 
-        Assert.Equal(["move 5,-3", "Left down", "Left up", "scroll 120,-40"], injector.Calls);
+        Assert.Equal(["move 5,-3", "Left down", "Left up", "scroll 120,-40", "zoom -120"], injector.Calls);
     }
 
     [Fact]

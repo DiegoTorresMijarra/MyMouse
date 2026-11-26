@@ -17,6 +17,7 @@ class MessageCodecTest {
         Message.Button(MouseButton.LEFT, true) to "03 00 01",
         Message.Button(MouseButton.RIGHT, false) to "03 01 00",
         Message.Scroll(120, -40) to "04 78 00 D8 FF",
+        Message.Zoom(-120) to "07 88 FF",
         Message.Ping to "05",
         Message.Pong to "85",
     )
@@ -39,7 +40,7 @@ class MessageCodecTest {
 
     @Test
     fun invalidInputThrows() {
-        for (hex in listOf("06 00 00 00", "FF", "02 05 00", "03 03 01", "03 00 02")) {
+        for (hex in listOf("06 00 00 00", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78")) {
             assertFailsWith<ProtocolException>(hex) { MessageReader(ByteArrayInputStream(hex(hex))).read() }
         }
     }

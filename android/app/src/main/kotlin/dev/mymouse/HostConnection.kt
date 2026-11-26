@@ -78,6 +78,12 @@ class HostConnection(private val port: Int) {
                     queue.addLast(Message.Scroll(action.vertical, action.horizontal))
                 }
             is OutputAction.Button -> queue.addLast(Message.Button(action.button, action.pressed))
+            is OutputAction.Zoom ->
+                if (last is Message.Zoom && fitsI16(last.delta + action.delta)) {
+                    queue[queue.lastIndex] = Message.Zoom(last.delta + action.delta)
+                } else {
+                    queue.addLast(Message.Zoom(action.delta))
+                }
         }
     }
 

@@ -85,6 +85,7 @@ Valores por defecto (configurables internamente, no en la UI de v0):
 | `TAP_TIMEOUT` | 180 ms |
 | `DOUBLE_TAP_TIMEOUT` | 250 ms |
 | `PINCH_SLOP` | 24 px de cambio en la distancia entre dedos |
+| `ZOOM_STEP` | 40 px de cambio en la distancia = un paso de zoom |
 
 **Decisión sobre el clic diferido.** Para poder detectar el arrastre, el `BUTTON ↑` del primer toque espera hasta `DOUBLE_TAP_TIMEOUT`, o se envía en cuanto se descarta el arrastre. Así se evita el "clic fantasma" al empezar a arrastrar. El precio es que **el clic llega con hasta 250 ms de retraso**. Si molesta en la prueba de uso, se puede desactivar el arrastre por doble toque.
 

@@ -33,6 +33,13 @@ sealed interface Message {
         }
     }
 
+    /** Zoom en unidades de rueda (120 = un paso). Positivo = acercar. Rango i16. */
+    data class Zoom(val delta: Int) : Message {
+        init {
+            require(delta in Short.MIN_VALUE..Short.MAX_VALUE)
+        }
+    }
+
     data object Ping : Message
     data object Pong : Message
 }
@@ -45,13 +52,14 @@ object MessageCodec {
     private const val BUTTON = 0x03
     private const val SCROLL = 0x04
     private const val PING = 0x05
+    private const val ZOOM = 0x07
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
 
     fun payloadSize(type: Int): Int = when (type) {
         HELLO, HELLO_ACK -> 1
         MOVE, SCROLL -> 4
-        BUTTON -> 2
+        BUTTON, ZOOM -> 2
         PING, PONG -> 0
         else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
     }
@@ -64,6 +72,7 @@ object MessageCodec {
             BUTTON.toByte(), message.button.code.toByte(), (if (message.pressed) 1 else 0).toByte(),
         )
         is Message.Scroll -> byteArrayOf(SCROLL.toByte()) + i16(message.vertical) + i16(message.horizontal)
+        is Message.Zoom -> byteArrayOf(ZOOM.toByte()) + i16(message.delta)
         Message.Ping -> byteArrayOf(PING.toByte())
         Message.Pong -> byteArrayOf(PONG.toByte())
     }
@@ -87,6 +96,7 @@ object MessageCodec {
                 },
             )
             SCROLL -> Message.Scroll(payload.i16(0), payload.i16(2))
+            ZOOM -> Message.Zoom(payload.i16(0))
             PING -> Message.Ping
             PONG -> Message.Pong
             else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))

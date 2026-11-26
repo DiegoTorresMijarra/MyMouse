@@ -55,7 +55,7 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [~] Tocar = clic izquierdo (con umbral de tiempo y distancia). La lógica está testeada.
 - [~] Tocar con dos dedos = clic derecho. La lógica está testeada.
 - [~] Arrastrar con dos dedos = scroll vertical y horizontal. La lógica está testeada.
-- [ ] Pellizco = zoom (Ctrl + rueda): mensaje `ZOOM` en los dos lados y estado nuevo en el intérprete.
+- [~] Pellizco = zoom (Ctrl + rueda). La lógica está testeada. (release v0.1)
 - [~] Doble toque y arrastrar = mantener el clic pulsado (seleccionar, mover ventanas). La lógica está testeada.
 
 ### M4: ajuste fino

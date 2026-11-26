@@ -3,7 +3,7 @@ using MyMouse.Protocol;
 
 // Cliente de prueba: simula al móvil para probar el host sin Android.
 // Uso: dotnet run --project src/MyMouse.TestClient [puerto]
-// Mueve el cursor en círculo, hace clic derecho (y clic izquierdo para cerrar el menú) y termina con scroll.
+// Mueve el cursor en círculo, hace clic derecho (y clic izquierdo para cerrar el menú) termina con scroll y hace zoom (Ctrl + rueda).
 
 var port = args.Length > 0 ? int.Parse(args[0]) : ProtocolInfo.DefaultPort;
 
@@ -43,6 +43,10 @@ for (var i = 0; i < 30; i++)
     await Send(new ScrollMessage(-20, 0));
     await Task.Delay(33);
 }
+
+Console.WriteLine("Zoom: acercar 2 pasos y alejar 2 pasos...");
+for (var i = 0; i < 2; i++) { await Send(new ZoomMessage(120)); await Task.Delay(400); }
+for (var i = 0; i < 2; i++) { await Send(new ZoomMessage(-120)); await Task.Delay(400); }
 
 await Send(PingMessage.Instance);
 Console.WriteLine($"Ping: {await reader.ReadAsync()}");

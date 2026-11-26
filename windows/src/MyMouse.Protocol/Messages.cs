@@ -17,7 +17,8 @@ public enum MessageType : byte
     Button = 0x03,
     Scroll = 0x04,
     Ping = 0x05,
-    // 0x06 Gesture: reservado para la versión 2 (v1 de la app).
+    // 0x06 Gesture: reservado para el modo gestos (v1 de la app).
+    Zoom = 0x07,
     HelloAck = 0x81,
     Pong = 0x85,
 }
@@ -59,6 +60,12 @@ public sealed record ButtonMessage(MouseButton Button, bool Pressed) : Message
 public sealed record ScrollMessage(short Vertical, short Horizontal) : Message
 {
     public override MessageType Type => MessageType.Scroll;
+}
+
+/// <summary>Zoom en unidades de rueda (120 = un paso). Positivo = acercar. El host lo ejecuta como Ctrl + rueda.</summary>
+public sealed record ZoomMessage(short Delta) : Message
+{
+    public override MessageType Type => MessageType.Zoom;
 }
 
 public sealed record PingMessage : Message

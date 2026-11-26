@@ -10,4 +10,7 @@ public interface IInputInjector
 
     /// <summary>Unidades de rueda (120 = un paso). Vertical positivo = arriba; horizontal positivo = derecha.</summary>
     void Scroll(int vertical, int horizontal);
+
+    /// <summary>Zoom como Ctrl + rueda vertical (120 = un paso; positivo = acercar).</summary>
+    void Zoom(int delta);
 }

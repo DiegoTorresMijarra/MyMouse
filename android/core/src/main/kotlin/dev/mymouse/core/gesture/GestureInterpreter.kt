@@ -1,6 +1,7 @@
 package dev.mymouse.core.gesture
 
 import dev.mymouse.core.protocol.MouseButton
+import kotlin.math.abs
 import kotlin.math.hypot
 
 /**
@@ -26,6 +27,9 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         data class TwoDown(val startTime: Long, val starts: Map<Int, Point>) : State
 
         data class Scrolling(var lastCentroid: Point) : State
+
+        /** Pellizco: [accumulated] guarda el cambio de distancia aún no convertido en pasos de zoom. */
+        data class Zooming(var lastSpread: Float, var accumulated: Float = 0f) : State
 
         /** Se ignora todo hasta que se levanten todos los dedos. */
         data object Ignoring : State
@@ -80,7 +84,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 state = startScrolling()
             }
             is State.Dragging -> Unit // dedos extra durante el arrastre: se ignoran
-            is State.TwoDown, is State.Scrolling -> state = State.Ignoring // 3+ dedos: reservado para v1
+            is State.TwoDown, is State.Scrolling, is State.Zooming -> state = State.Ignoring // 3+ dedos: reservado para v1
             State.Ignoring -> Unit
         }
     }
@@ -106,9 +110,27 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 s.last = p
                 s.lastTime = e.timeMs
             }
-            is State.TwoDown -> {
-                val moved = s.starts.any { (id, start) -> pointers[id]?.let { distance(start, it) > config.touchSlopPx } == true }
-                if (moved) state = startScrolling()
+            is State.TwoDown -> if (e.endOfSample) {
+                // Scroll: los dedos se desplazan juntos (se mueve el centro). Zoom: cambia la distancia entre ellos.
+                // Un pellizco con un dedo quieto también mueve el centro, pero siempre menos que la distancia.
+                val startSpread = spread(s.starts.values)
+                val spreadChange = abs(spread(pointers.values) - startSpread)
+                val centroidMove = distance(centroid(s.starts.values), centroid())
+                if (spreadChange >= config.pinchSlopPx && spreadChange > centroidMove) {
+                    state = State.Zooming(spread(pointers.values))
+                } else if (centroidMove > config.touchSlopPx && centroidMove > spreadChange) {
+                    state = startScrolling()
+                }
+            }
+            is State.Zooming -> {
+                val now = spread(pointers.values)
+                s.accumulated += now - s.lastSpread
+                s.lastSpread = now
+                val steps = (s.accumulated / config.zoomStepPx).toInt() // trunca hacia 0
+                if (steps != 0) {
+                    s.accumulated -= steps * config.zoomStepPx
+                    out += OutputAction.Zoom((steps * WHEEL_STEP).clampI16())
+                }
             }
             is State.Scrolling -> {
                 val c = centroid()
@@ -148,7 +170,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 }
                 state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             }
-            is State.Scrolling -> state = if (pointers.isEmpty()) State.Idle else State.Ignoring
+            is State.Scrolling, is State.Zooming -> state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             State.Ignoring -> if (pointers.isEmpty()) state = State.Idle
             State.Idle -> Unit
         }
@@ -175,14 +197,25 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         return State.Scrolling(centroid())
     }
 
-    private fun centroid(): Point = Point(
-        pointers.values.map { it.x }.average().toFloat(),
-        pointers.values.map { it.y }.average().toFloat(),
+    private fun centroid(points: Collection<Point> = pointers.values): Point = Point(
+        points.map { it.x }.average().toFloat(),
+        points.map { it.y }.average().toFloat(),
     )
+
+    /** Distancia entre los dos primeros dedos (0 si hay menos de dos). */
+    private fun spread(points: Collection<Point>): Float {
+        if (points.size < 2) return 0f
+        val (a, b) = points.take(2)
+        return distance(a, b)
+    }
 
     private fun distance(a: Point, b: Point) = hypot(a.x - b.x, a.y - b.y)
 
     private fun leftUp() = OutputAction.Button(MouseButton.LEFT, false)
 
     private fun Int.clampI16() = coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+
+    private companion object {
+        const val WHEEL_STEP = 120
+    }
 }

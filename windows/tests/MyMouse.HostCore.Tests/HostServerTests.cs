@@ -14,6 +14,7 @@ public class HostServerTests
         public void MoveRelative(int dx, int dy) => Calls.Enqueue($"move {dx},{dy}");
         public void SetButton(MouseButton button, bool pressed) => Calls.Enqueue($"{button} {(pressed ? "down" : "up")}");
         public void Scroll(int vertical, int horizontal) => Calls.Enqueue($"scroll {vertical},{horizontal}");
+        public void Zoom(int delta) => Calls.Enqueue($"zoom {delta}");
     }
 
     private static int FreePort()

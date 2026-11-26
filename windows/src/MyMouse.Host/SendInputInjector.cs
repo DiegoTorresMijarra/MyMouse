@@ -33,6 +33,29 @@ internal sealed class SendInputInjector : IInputInjector
         if (horizontal != 0) Send(0, 0, horizontal, MOUSEEVENTF_HWHEEL);
     }
 
+    public void Zoom(int delta)
+    {
+        if (delta == 0) return;
+        // Ctrl pulsado + rueda + Ctrl soltado en una sola llamada, para que nada se cuele en medio.
+        INPUT[] inputs =
+        [
+            Key(VK_CONTROL, up: false),
+            new INPUT
+            {
+                type = INPUT_MOUSE,
+                u = new InputUnion { mi = new MOUSEINPUT { mouseData = unchecked((uint)delta), dwFlags = MOUSEEVENTF_WHEEL } },
+            },
+            Key(VK_CONTROL, up: true),
+        ];
+        _ = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+    }
+
+    private static INPUT Key(ushort vk, bool up) => new()
+    {
+        type = INPUT_KEYBOARD,
+        u = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = up ? KEYEVENTF_KEYUP : 0 } },
+    };
+
     private static void Send(int dx, int dy, int mouseData, uint flags)
     {
         var input = new INPUT
@@ -49,6 +72,9 @@ internal sealed class SendInputInjector : IInputInjector
     }
 
     private const uint INPUT_MOUSE = 0;
+    private const uint INPUT_KEYBOARD = 1;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const ushort VK_CONTROL = 0x11;
     private const uint MOUSEEVENTF_MOVE = 0x0001;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     private const uint MOUSEEVENTF_LEFTUP = 0x0004;
@@ -70,7 +96,7 @@ internal sealed class SendInputInjector : IInputInjector
     private struct InputUnion
     {
         [FieldOffset(0)] public MOUSEINPUT mi;
-        [FieldOffset(0)] public KEYBDINPUT ki; // usado en v1 (acciones de teclado); fija el tamaño correcto de la unión
+        [FieldOffset(0)] public KEYBDINPUT ki; // Ctrl del zoom y, en v1, acciones de teclado
     }
 
     [StructLayout(LayoutKind.Sequential)]

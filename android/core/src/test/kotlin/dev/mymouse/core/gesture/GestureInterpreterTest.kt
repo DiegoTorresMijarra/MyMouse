@@ -3,6 +3,7 @@ package dev.mymouse.core.gesture
 import dev.mymouse.core.gesture.OutputAction.Button
 import dev.mymouse.core.gesture.OutputAction.PointerMove
 import dev.mymouse.core.gesture.OutputAction.Scroll
+import dev.mymouse.core.gesture.OutputAction.Zoom
 import dev.mymouse.core.gesture.TouchInput.Down
 import dev.mymouse.core.gesture.TouchInput.Move
 import dev.mymouse.core.gesture.TouchInput.Up
@@ -124,13 +125,13 @@ class GestureInterpreterTest {
     fun twoFingerDragScrolls() {
         val out = feed(
             Down(0, 0f, 0f, 0), Down(1, 50f, 0f, 10),
-            Move(0, 0f, 20f, 30), Move(1, 50f, 20f, 30),   // cruza el umbral → empieza scroll
-            Move(0, 0f, 30f, 40), Move(1, 50f, 30f, 40),   // centroide baja 10 px
+            Move(0, 0f, 20f, 30, false), Move(1, 50f, 20f, 30),   // cruza el umbral → empieza scroll
+            Move(0, 0f, 30f, 40, false), Move(1, 50f, 30f, 40),   // centroide baja 10 px
             Up(0, 0f, 30f, 500), Up(1, 50f, 30f, 500),
         )
-        // El scroll cuenta desde que se cruza el umbral: el centroide pasa de y=10 a y=30.
+        // El scroll cuenta desde la muestra que cruza el umbral (centroide en y=20) hasta y=30.
         // Scroll natural: dedos hacia abajo = rueda positiva (contenido baja).
-        assertEquals(20, out.filterIsInstance<Scroll>().sumOf { it.vertical })
+        assertEquals(10, out.filterIsInstance<Scroll>().sumOf { it.vertical })
         assertTrue(out.none { it is Button })
     }
 
@@ -139,11 +140,11 @@ class GestureInterpreterTest {
         val g = GestureInterpreter(config.copy(naturalScroll = false))
         val out = listOf(
             Down(0, 0f, 0f, 0), Down(1, 50f, 0f, 10),
-            Move(0, 20f, 0f, 30), Move(1, 70f, 0f, 30),
-            Move(0, 30f, 0f, 40), Move(1, 80f, 0f, 40),
+            Move(0, 20f, 0f, 30, false), Move(1, 70f, 0f, 30),
+            Move(0, 30f, 0f, 40, false), Move(1, 80f, 0f, 40),
         ).flatMap { g.onTouch(it) }
-        // Dedos a la derecha (centroide de x=35 a x=55), scroll invertido: rueda horizontal positiva.
-        assertEquals(20, out.filterIsInstance<Scroll>().sumOf { it.horizontal })
+        // Dedos a la derecha (centroide de x=45 a x=55), scroll invertido: rueda horizontal positiva.
+        assertEquals(10, out.filterIsInstance<Scroll>().sumOf { it.horizontal })
     }
 
     @Test
@@ -152,7 +153,7 @@ class GestureInterpreterTest {
             Down(0, 0f, 0f, 0),
             Move(0, 20f, 0f, 10),
             Down(1, 70f, 0f, 20),
-            Move(0, 20f, 10f, 30), Move(1, 70f, 10f, 30),
+            Move(0, 20f, 10f, 30, false), Move(1, 70f, 10f, 30),
             Up(1, 70f, 10f, 40),
             Move(0, 60f, 60f, 50), // con un dedo tras el scroll: ignorado
             Up(0, 60f, 60f, 60),
@@ -162,10 +163,46 @@ class GestureInterpreterTest {
     }
 
     @Test
+    fun pinchOutZoomsIn() {
+        val out = feed(
+            Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 10),
+            Move(0, 80f, 100f, 30, false), Move(1, 220f, 100f, 30),   // distancia 100 → 140: empieza el zoom
+            Move(0, 60f, 100f, 40, false), Move(1, 240f, 100f, 40),   // 140 → 180: 40 px = 1 paso
+            Move(0, 40f, 100f, 50, false), Move(1, 260f, 100f, 50),   // 180 → 220: otro paso
+            Up(0, 40f, 100f, 500), Up(1, 260f, 100f, 500),
+        )
+        assertEquals(listOf(Zoom(120), Zoom(120)), out)
+    }
+
+    @Test
+    fun pinchInWithOneFingerStillZoomsOut() {
+        // Pulgar quieto, índice acercándose: el centro se mueve, pero menos que la distancia.
+        val out = feed(
+            Down(0, 100f, 100f, 0), Down(1, 300f, 100f, 10),
+            Move(1, 270f, 100f, 30),   // distancia 200 → 170: empieza el zoom
+            Move(1, 230f, 100f, 40),   // 170 → 130: un paso
+            Move(1, 190f, 100f, 50),   // 130 → 90: otro paso
+        )
+        assertEquals(listOf(Zoom(-120), Zoom(-120)), out)
+        assertTrue(out.none { it is Scroll })
+    }
+
+    @Test
+    fun scrollNeverTurnsIntoZoom() {
+        val out = feed(
+            Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 10),
+            Move(0, 100f, 120f, 30, false), Move(1, 200f, 120f, 30),  // empieza el scroll
+            Move(0, 50f, 140f, 40, false), Move(1, 250f, 140f, 40),   // ahora se separan: sigue siendo scroll
+        )
+        assertTrue(out.any { it is Scroll })
+        assertTrue(out.none { it is Zoom })
+    }
+
+    @Test
     fun threeFingersAreIgnored() {
         val out = feed(
             Down(0, 0f, 0f, 0), Down(1, 50f, 0f, 5), Down(2, 100f, 0f, 10),
-            Move(0, 0f, 50f, 20), Move(1, 50f, 50f, 20), Move(2, 100f, 50f, 20),
+            Move(0, 0f, 50f, 20, false), Move(1, 50f, 50f, 20), Move(2, 100f, 50f, 20),
             Up(0, 0f, 50f, 50), Up(1, 50f, 50f, 50), Up(2, 100f, 50f, 50),
         )
         assertEquals(emptyList(), out)
