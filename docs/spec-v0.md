@@ -91,7 +91,7 @@ Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), or
 
 ### 3.5 Configuración y logs
 - `%APPDATA%\MyMouse\config.json`, con el puerto y la ruta de adb.
-- Log rotativo en `%APPDATA%\MyMouse\logs\`.
+- Log diario en `%APPDATA%\MyMouse\logs\`; se conservan los 7 últimos ficheros.
 
 ## 4. Seguridad
 - El host solo escucha en loopback. A ese puerto solo llegan procesos locales y el móvil a través de `adb reverse`.
