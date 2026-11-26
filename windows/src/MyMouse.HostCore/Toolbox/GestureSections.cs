@@ -33,16 +33,7 @@ public sealed record GestureSections(IReadOnlyList<GestureRow> Pinned, IReadOnly
         var assigned = new List<GestureRow>();
         foreach (var gesture in config.Bindings.Select(b => b.Gesture).Distinct(StringComparer.Ordinal))
         {
-            var (general, appRules) = config.RulesOf(gesture);
-            var binding = general ?? appRules.FirstOrDefault();
-            if (binding is null) continue;
-            var row = new GestureRow(
-                gesture,
-                binding.HelpText,
-                binding.Action,
-                config.Bindings.Any(b => b.Gesture == gesture && b.Pinned),
-                OnlyInSomeApps: general is null,
-                IsCustom: gesture.StartsWith(ShapeCatalog.CustomPrefix, StringComparison.Ordinal));
+            var row = RowFor(config, gesture);
             (row.Pinned ? pinned : assigned).Add(row);
         }
 
@@ -64,6 +55,17 @@ public sealed record GestureSections(IReadOnlyList<GestureRow> Pinned, IReadOnly
             r.Gesture.Contains(q, StringComparison.OrdinalIgnoreCase) ||
             ActionChip.Format(r.Action).Text.Contains(q, StringComparison.CurrentCultureIgnoreCase);
         return new GestureSections([.. Pinned.Where(Match)], [.. Assigned.Where(Match)], [.. Unassigned.Where(Match)]);
+    }
+
+    /// <summary>La fila de una forma concreta (con o sin acción), para la lista del editor.</summary>
+    public static GestureRow RowFor(GestureConfig config, string gesture)
+    {
+        var (general, appRules) = config.RulesOf(gesture);
+        var binding = general ?? appRules.FirstOrDefault();
+        var custom = gesture.StartsWith(ShapeCatalog.CustomPrefix, StringComparison.Ordinal);
+        if (binding is null) return Empty(gesture, custom);
+        return new GestureRow(gesture, binding.HelpText, binding.Action,
+            config.Bindings.Any(b => b.Gesture == gesture && b.Pinned), OnlyInSomeApps: general is null, IsCustom: custom);
     }
 
     private static GestureRow Empty(string name, bool isCustom) =>

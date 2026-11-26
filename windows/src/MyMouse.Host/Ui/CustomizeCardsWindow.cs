@@ -36,6 +36,10 @@ internal sealed class CustomizeCardsWindow : Window
         hint.Margin = new Thickness(0, 6, 0, 14);
         panel.Children.Add(hint);
         panel.Children.Add(_rows);
+        var glass = Theme.Check("Efecto cristal (fondo translúcido de Windows 11; desmarcado, fondo sólido)", _app.Layout.GlassEffect);
+        glass.Margin = new Thickness(0, 6, 0, 0);
+        glass.Click += (_, _) => _app.Layout = _app.Layout.WithGlass(glass.IsChecked == true);
+        panel.Children.Add(glass);
         var close = Theme.AccentButton("Listo");
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.Margin = new Thickness(0, 16, 0, 0);

@@ -164,6 +164,9 @@ internal sealed class HostApp : IDisposable
 
     public string StatusText { get; private set; } = "";
 
+    /// <summary>Línea secundaria bajo el estado (null si no hace falta): en "Sin dispositivo", recuerda el modo Bluetooth.</summary>
+    public string? StatusHint { get; private set; }
+
     public Brush StatusBrush { get; private set; } = Theme.Gray;
 
     /// <summary>Cambió algo que muestran las ventanas: estado, configuración, formas, música o volumen.</summary>
@@ -174,6 +177,7 @@ internal sealed class HostApp : IDisposable
         get => _layout;
         set
         {
+            var old = _layout;
             _layout = value;
             try
             {
@@ -184,6 +188,7 @@ internal sealed class HostApp : IDisposable
                 FileLog.Write($"No se pudo guardar toolbox.json: {ex.Message}");
             }
             if (!value.ShowLiveGesture) Live.Hide();
+            if (old.GlassEffect != value.GlassEffect) RecreateGlassWindows();
             _toolbox?.Rebuild();
             StateChanged?.Invoke();
         }
@@ -216,15 +221,30 @@ internal sealed class HostApp : IDisposable
         }
     }
 
+    /// <summary>
+    /// El "Efecto cristal" se decide al crear cada ventana (con o sin <c>AllowsTransparency</c>): al cambiarlo se destruyen la toolbox y el
+    /// gesto en vivo y se crean de nuevo al usarlas. Si la toolbox estaba abierta, se vuelve a abrir.
+    /// </summary>
+    private void RecreateGlassWindows()
+    {
+        var reopen = _toolbox is { IsOpen: true };
+        _toolbox?.Destroy();
+        _toolbox = null;
+        _live?.Destroy();
+        _live = null;
+        if (reopen) Toolbox.Open(fromPhone: false);
+    }
+
     public bool EditorOpen => _editor is { IsVisible: true };
 
     private ToolboxWindow Toolbox => _toolbox ??= new ToolboxWindow(this);
 
     private LiveGestureWindow LiveWindow => _live ??= new LiveGestureWindow(
         Live,
-        () => _toolbox is { IsOpen: true } t ? t.CardHeightDip + 8 : 0,
+        () => _toolbox is { IsOpen: true, IsDocked: true } t ? t.CardHeightDip + 8 : 0,
         ShapePoints,
-        name => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
+        name => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true),
+        Layout.GlassEffect);
 
     /// <summary>Puntos de la forma ideal (catálogo) o de la primera muestra (forma propia del móvil), en 0–1.</summary>
     public IReadOnlyList<PointF>? ShapePoints(string name)
@@ -355,6 +375,7 @@ internal sealed class HostApp : IDisposable
 
     private void UpdateStatus()
     {
+        StatusHint = null;
         var (status, icon, brush) = (_paused, _connected, _adb.Status) switch
         {
             (true, _, _) => ("En pausa", TrayIcons.Paused, Theme.Gray),
@@ -365,11 +386,16 @@ internal sealed class HostApp : IDisposable
         };
         StatusText = status;
         StatusBrush = brush;
+        if (!_paused && !_connected && _adb.Status is AdbStatus.NoDevice or AdbStatus.AdbNotFound)
+            StatusHint = SinDispositivoHint;
         _icon.Icon = icon;
         // El tooltip de NotifyIcon admite como máximo 127 caracteres.
         _icon.Text = ($"MyMouse: {status}").Length > 120 ? ("MyMouse: " + status)[..120] : "MyMouse: " + status;
         StateChanged?.Invoke();
     }
+
+    /// <summary>Es normal que el host diga "Sin dispositivo" en el modo Bluetooth (docs/spec-v4.5-estilo.md §4).</summary>
+    public const string SinDispositivoHint = "¿Usas el modo Bluetooth? En ese modo el móvil funciona como ratón sin MyMouse en el PC";
 
     private readonly Dictionary<string, DateTime> _lastUnassignedNotice = [];
 

@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using System.Windows.Shell;
 using MyMouse.HostCore.Shapes;
 
 namespace MyMouse.Host.Ui;
@@ -28,6 +29,12 @@ internal sealed class ShapeThumb : FrameworkElement
     public double Thickness { get; set; } = 2;
 
     public bool ShowStart { get; set; } = true;
+
+    /// <summary>Color del punto de inicio: verde por defecto; acento en las baldosas de la v4.5.</summary>
+    public Brush StartBrush { get; set; } = Theme.Green;
+
+    /// <summary>Margen interior al encajar la forma.</summary>
+    public double Padding { get; set; } = 5;
 
     public IReadOnlyList<PointF>? Points
     {
@@ -70,11 +77,11 @@ internal sealed class ShapeThumb : FrameworkElement
 
     protected override void OnRender(DrawingContext dc)
     {
-        var geometry = Fit(_points, ActualWidth, ActualHeight, 5, out var start);
+        var geometry = Fit(_points, ActualWidth, ActualHeight, Padding, out var start);
         if (geometry is null) return;
         var pen = new Pen(Stroke, Thickness) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
         dc.DrawGeometry(null, pen, geometry);
-        if (ShowStart) dc.DrawEllipse(Theme.Green, null, start, 2.5, 2.5); // dónde empieza el trazo
+        if (ShowStart) dc.DrawEllipse(StartBrush, null, start, 2.5, 2.5); // dónde empieza el trazo
     }
 }
 
@@ -108,9 +115,9 @@ internal sealed class MiniSlider : FrameworkElement
     {
         var w = ActualWidth;
         var cy = ActualHeight / 2;
-        dc.DrawRoundedRectangle(Theme.Line, null, new Rect(0, cy - 2, w, 4), 2, 2);
+        dc.DrawRoundedRectangle(Theme.Hover, null, new Rect(0, cy - 1.5, w, 3), 1.5, 1.5); // slider fino con el acento
         var x = w * _value / 100;
-        dc.DrawRoundedRectangle(Theme.Accent, null, new Rect(0, cy - 2, x, 4), 2, 2);
+        dc.DrawRoundedRectangle(Theme.Accent, null, new Rect(0, cy - 1.5, x, 3), 1.5, 1.5);
         dc.DrawEllipse(Brushes.White, null, new Point(Math.Clamp(x, 6, w - 6), cy), 6, 6);
     }
 
@@ -141,22 +148,28 @@ internal sealed class MiniSlider : FrameworkElement
     }
 }
 
-/// <summary>Ventana flotante sin bordes del tema de la v4: tarjeta redondeada con sombra y animación de entrada y salida.</summary>
+/// <summary>
+/// Ventana flotante sin bordes con el cristal de la v4.5 (docs/spec-v4.5-estilo.md §2.1). Con Windows 11 22H2 o posterior y el
+/// "Efecto cristal" activado usa el Acrylic del sistema: <c>WindowChrome</c> con marco de cristal, sin <c>AllowsTransparency</c> y con
+/// la sombra y las esquinas del sistema. Si no, un color sólido translúcido con la sombra de siempre (la ventana lleva entonces un
+/// margen transparente para dibujarla). Hay que decidirlo al crear la ventana: si cambia el ajuste, se crea otra.
+/// </summary>
 internal abstract class FloatingWindow : Window
 {
-    protected const double ShadowMargin = 16;
-    protected const double EdgeGap = 12;
+    protected const double EdgeGap = 8;
     protected const double SlideDistance = 24;
+    private const double FallbackShadow = 16;
 
     private readonly TranslateTransform _slide = new();
     private int _animationVersion;
     private (int X, int Y, int W, int H) _placement;
 
-    protected FloatingWindow(double cardWidth)
+    protected FloatingWindow(double cardWidth, bool glass)
     {
+        UseBackdrop = glass && NativeUi.BackdropSupported;
+        ShadowMargin = UseBackdrop ? 0 : FallbackShadow;
+
         WindowStyle = WindowStyle.None;
-        AllowsTransparency = true;
-        Background = Theme.Transparent;
         ShowInTaskbar = false;
         ResizeMode = ResizeMode.NoResize;
         Topmost = true;
@@ -165,25 +178,52 @@ internal abstract class FloatingWindow : Window
         Width = cardWidth + 2 * ShadowMargin;
         UseLayoutRounding = true;
         TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+        Background = Theme.Transparent;
+        if (!UseBackdrop) AllowsTransparency = true;
 
-        Card = new Border
+        Chrome = new WindowChrome
         {
-            Background = Theme.Bg,
-            BorderBrush = Theme.Line,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(Theme.CornerRadius),
-            Margin = new Thickness(ShadowMargin),
-            Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 2, Opacity = 0.55, Color = Colors.Black },
-            RenderTransform = _slide,
-            ClipToBounds = false,
+            CaptionHeight = 0,
+            ResizeBorderThickness = new Thickness(0),
+            GlassFrameThickness = UseBackdrop ? new Thickness(-1) : new Thickness(0),
+            UseAeroCaptionButtons = false,
+            CornerRadius = new CornerRadius(0),
         };
+        WindowChrome.SetWindowChrome(this, Chrome);
+
+        Card = UseBackdrop
+            ? new Border { Background = Theme.GlassPanel, ClipToBounds = false, RenderTransform = _slide }
+            : new Border
+            {
+                Background = Theme.PanelSolid,
+                BorderBrush = Theme.Line,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(Theme.PanelRadius),
+                Margin = new Thickness(ShadowMargin),
+                Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 2, Opacity = 0.55, Color = Colors.Black },
+                RenderTransform = _slide,
+                ClipToBounds = false,
+            };
         Content = Card;
 
         Handle = new WindowInteropHelper(this).EnsureHandle();
         NativeUi.SetExStyle(Handle, NativeUi.WS_EX_TOOLWINDOW, true); // sin entrada en Alt+Tab
+        if (UseBackdrop && !NativeUi.TryEnableBackdrop(this, Handle, NativeUi.DWMSBT_TRANSIENTWINDOW, roundCorners: true))
+        {
+            FileLog.Write("No se pudo activar el Acrylic del sistema: se usa el fondo sólido.");
+            Card.Background = Theme.PanelSolid;
+        }
     }
 
-    /// <summary>La tarjeta visible (el resto de la ventana es el margen de la sombra).</summary>
+    /// <summary>Acrylic del sistema (sin margen de sombra) en lugar del color sólido con sombra propia.</summary>
+    protected bool UseBackdrop { get; }
+
+    /// <summary>Margen transparente alrededor de la tarjeta para la sombra propia (0 con el cristal del sistema).</summary>
+    protected double ShadowMargin { get; }
+
+    protected WindowChrome Chrome { get; }
+
+    /// <summary>La tarjeta visible (con el cristal del sistema ocupa toda la ventana).</summary>
     protected Border Card { get; }
 
     protected IntPtr Handle { get; }
@@ -191,8 +231,15 @@ internal abstract class FloatingWindow : Window
     /// <summary>¿Está la barra de tareas arriba? Entonces la ventana se ancla arriba y se desliza hacia abajo.</summary>
     protected bool AnchoredTop { get; private set; }
 
-    /// <summary>Esquina que se ocupa (por defecto, la de la bandeja) y alto de la tarjeta más el margen de la sombra, en DIP.</summary>
+    /// <summary>Alto de la tarjeta más el margen de la sombra, en DIP.</summary>
     public double WindowHeightDip { get; private set; }
+
+    /// <summary>Permite cambiar el tamaño arrastrando los bordes (la toolbox maximizada).</summary>
+    protected void SetResizable(bool resizable)
+    {
+        Chrome.ResizeBorderThickness = resizable ? new Thickness(Math.Max(6, ShadowMargin)) : new Thickness(0);
+        ResizeMode = resizable ? ResizeMode.CanResize : ResizeMode.NoResize;
+    }
 
     /// <summary>
     /// Mide el contenido y coloca la ventana en la esquina de la bandeja, <paramref name="liftDip"/> por encima del borde
@@ -223,36 +270,63 @@ internal abstract class FloatingWindow : Window
         return y + shadow;
     }
 
+    /// <summary>Coloca la ventana centrada en el área de trabajo del monitor de la bandeja, con el tamaño dado (DIP de la tarjeta).</summary>
+    protected void PlaceCentered(double cardWidthDip, double cardHeightDip)
+    {
+        var area = NativeUi.GetTrayArea();
+        var s = area.Scale;
+        AnchoredTop = false;
+        Card.VerticalAlignment = VerticalAlignment.Stretch;
+        Width = cardWidthDip + 2 * ShadowMargin;
+        Height = cardHeightDip + 2 * ShadowMargin;
+        WindowHeightDip = Height;
+
+        var w = (int)Math.Round(Width * s);
+        var h = (int)Math.Round(Height * s);
+        var x = area.Work.Left + (area.Work.Width - w) / 2;
+        var y = area.Work.Top + (area.Work.Height - h) / 2;
+        _placement = (x, y, w, h);
+        ApplyPlacement();
+    }
+
+    /// <summary>Tamaño útil del área de trabajo de la bandeja, en DIP (para dimensionar la ventana maximizada).</summary>
+    protected static Size WorkAreaDip()
+    {
+        var area = NativeUi.GetTrayArea();
+        return new Size(area.Work.Width / area.Scale, area.Work.Height / area.Scale);
+    }
+
     /// <summary>WPF puede recolocar la ventana al mostrarla por primera vez: se vuelve a aplicar la posición calculada.</summary>
     private void ApplyPlacement()
     {
         var (x, y, w, h) = _placement;
-        if (w > 0) NativeUi.SetWindowPos(Handle, NativeUi.HWND_TOPMOST, x, y, w, h, NativeUi.SWP_NOACTIVATE);
+        if (w > 0) NativeUi.SetWindowPos(Handle, Topmost ? NativeUi.HWND_TOPMOST : NativeUi.HWND_NOTOPMOST, x, y, w, h, NativeUi.SWP_NOACTIVATE);
     }
 
     /// <summary>Alto máximo de una tarjeta para que la ventana no pase del 85 % del área de trabajo, en DIP.</summary>
-    protected static double MaxCardHeightDip()
+    protected double MaxCardHeightDip()
     {
         var area = NativeUi.GetTrayArea();
         return area.Work.Height / area.Scale * 0.85 - 2 * ShadowMargin;
     }
 
-    /// <summary>Muestra la ventana subiendo 24 px con fundido (220 ms, suavizado cubic out).</summary>
+    /// <summary>Muestra la ventana subiendo 24 px con fundido (220 ms, suavizado cubic out). Con el cristal del sistema solo hay fundido.</summary>
     protected void AnimateIn(bool animate = true)
     {
         ++_animationVersion;
         var direction = AnchoredTop ? -1 : 1;
+        var slide = animate && !UseBackdrop;
         Card.BeginAnimation(OpacityProperty, null);
         _slide.BeginAnimation(TranslateTransform.YProperty, null);
         Card.Opacity = animate ? 0 : 1; // sin parpadeo: empieza invisible antes de mostrarse
-        _slide.Y = animate ? SlideDistance * direction : 0;
+        _slide.Y = slide ? SlideDistance * direction : 0;
         Show();
         ApplyPlacement();
         if (!animate) return;
         var duration = TimeSpan.FromMilliseconds(220);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         Card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = ease });
-        _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(SlideDistance * direction, 0, duration) { EasingFunction = ease });
+        if (slide) _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(SlideDistance * direction, 0, duration) { EasingFunction = ease });
     }
 
     /// <summary>Oculta la ventana bajando con fundido (160 ms). Si se vuelve a mostrar antes de terminar, no se oculta.</summary>
@@ -270,7 +344,8 @@ internal abstract class FloatingWindow : Window
             completed?.Invoke();
         };
         Card.BeginAnimation(OpacityProperty, fade);
-        _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(_slide.Y, SlideDistance * direction, duration) { EasingFunction = ease });
+        if (!UseBackdrop)
+            _slide.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(_slide.Y, SlideDistance * direction, duration) { EasingFunction = ease });
     }
 
     /// <summary>Interrumpe cualquier animación de salida pendiente (la ventana se va a mostrar otra vez).</summary>

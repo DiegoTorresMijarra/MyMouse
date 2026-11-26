@@ -90,6 +90,17 @@ public class GestureSectionsTests
     }
 
     [Fact]
+    public void RowFor_WorksForShapesWithAndWithoutAction()
+    {
+        var config = GestureConfig.Parse(Json);
+        Assert.True(GestureSections.RowFor(config, "circle").HasAction);
+        var none = GestureSections.RowFor(config, "custom:nueva");
+        Assert.False(none.HasAction);
+        Assert.True(none.IsCustom);
+        Assert.Equal("nueva", none.Title);
+    }
+
+    [Fact]
     public void Filter_MatchesTitleNameAndAction()
     {
         var s = GestureSections.Build(GestureConfig.Parse(Json), []);

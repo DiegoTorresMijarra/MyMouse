@@ -15,16 +15,50 @@ internal static class Theme
         return brush;
     }
 
-    public static readonly SolidColorBrush Bg = Brush("#1E1F22");
-    public static readonly SolidColorBrush CardBg = Brush("#2B2D30");
+    // ---- Tokens "glass" (docs/spec-v4.5-estilo.md §1): un único sitio en Windows ----
+
+    /// <summary>Fondo sólido de la base (diálogos y alternativa sin cristal). El degradado es <see cref="BaseGradient"/>.</summary>
+    public static readonly SolidColorBrush Bg = Brush("#1B1E26");
+
+    /// <summary>Cristal: panel sin desenfoque disponible: #1E2128 al 92 %.</summary>
+    public static readonly SolidColorBrush PanelSolid = Brush("#EB1E2128");
+
+    /// <summary>Cristal: panel sobre el fondo con desenfoque: blanco al 6 %.</summary>
+    public static readonly SolidColorBrush GlassPanel = Brush("#0FFFFFFF");
+
+    /// <summary>Cristal: tarjeta (plano): blanco al 5 %.</summary>
+    public static readonly SolidColorBrush CardBg = Brush("#0DFFFFFF");
+
+    /// <summary>Cristal: tarjeta con el brillo superior (blanco del 8 % al 0 % en el 40 % de arriba, sobre el 5 %).</summary>
+    public static readonly Brush CardGlass = Gradient(
+        [(Color.FromArgb(0x21, 255, 255, 255), 0), (Color.FromArgb(0x0D, 255, 255, 255), 0.4), (Color.FromArgb(0x0D, 255, 255, 255), 1)],
+        new Point(0, 0), new Point(0, 1));
+
+    /// <summary>Degradado oscuro de la base: #14161B a #1B1E26 en diagonal.</summary>
+    public static readonly Brush BaseGradient = Gradient(
+        [((Color)ColorConverter.ConvertFromString("#14161B"), 0), ((Color)ColorConverter.ConvertFromString("#1B1E26"), 1)],
+        new Point(0, 0), new Point(1, 1));
+
+    /// <summary>Borde de la tarjeta: 1 px blanco al 10 %.</summary>
+    public static readonly SolidColorBrush Line = Brush("#1AFFFFFF");
+
+    /// <summary>Elemento elevado o hover: blanco al 9 %.</summary>
+    public static readonly SolidColorBrush Hover = Brush("#17FFFFFF");
+
+    /// <summary>Seleccionado: acento al 22 % con borde de acento al 45 %.</summary>
+    public static readonly SolidColorBrush Selected = Brush("#383574F0");
+    public static readonly SolidColorBrush SelectedBorder = Brush("#733574F0");
+
+    /// <summary>Fondo de los cuadros de texto.</summary>
+    public static readonly SolidColorBrush InputBg = Brush("#40000000");
+
     public static readonly SolidColorBrush Accent = Brush("#3574F0");
-    public static readonly SolidColorBrush Text = Brush("#DFE1E5");
-    public static readonly SolidColorBrush Dim = Brush("#868A91");
-    public static readonly SolidColorBrush Line = Brush("#393B40");
-    public static readonly SolidColorBrush Hover = Brush("#35373B");
+    public static readonly SolidColorBrush Text = Brush("#ECEEF2");
+    public static readonly SolidColorBrush Dim = Brush("#9AA0AA");
+    public static readonly SolidColorBrush Faint = Brush("#6B717C");
     public static readonly SolidColorBrush Green = Brush("#5FB865");
     public static readonly SolidColorBrush Amber = Brush("#E5A50A");
-    public static readonly SolidColorBrush Red = Brush("#F2525F");
+    public static readonly SolidColorBrush Red = Brush("#E5534B");
     public static readonly SolidColorBrush Gray = Brush("#8C9097");
     public static readonly SolidColorBrush Transparent = Brush("#00000000");
 
@@ -33,9 +67,30 @@ internal static class Theme
     /// <summary>Segoe UI Variable si está instalada (Windows 11) y, si no, Segoe UI.</summary>
     public static readonly FontFamily Font = new("Segoe UI Variable Text, Segoe UI");
 
+    /// <summary>Títulos: Segoe UI Variable Display.</summary>
+    public static readonly FontFamily DisplayFont = new("Segoe UI Variable Display, Segoe UI");
+
+    public static readonly FontFamily Mono = new("Cascadia Mono, Consolas");
+
+    /// <summary>Iconos de línea del sistema: Segoe Fluent Icons (Windows 11) o Segoe MDL2 Assets (Windows 10).</summary>
+    public static readonly FontFamily Icons = new("Segoe Fluent Icons, Segoe MDL2 Assets");
+
+    // Radios: panel 16, tarjeta 12, fila o botón 8, chip 6. Espaciado en rejilla de 4.
+    public const double PanelRadius = 16;
     public const double CornerRadius = 12;
+    public const double RowRadius = 8;
+    public const double ChipRadius = 6;
+
+    private static LinearGradientBrush Gradient((Color Color, double Offset)[] stops, Point start, Point end)
+    {
+        var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
+        foreach (var (color, offset) in stops) brush.GradientStops.Add(new GradientStop(color, offset));
+        brush.Freeze();
+        return brush;
+    }
 
     private static ControlTemplate? _buttonTemplate;
+    private static ControlTemplate? _roundButtonTemplate;
     private static ControlTemplate? _textBoxTemplate;
     private static ControlTemplate? _checkBoxTemplate;
     private static Style? _scrollBarStyle;
@@ -43,20 +98,8 @@ internal static class Theme
     /// <summary>Instala los estilos de scroll en los recursos de la aplicación. Si una plantilla falla, se usa la de Windows.</summary>
     public static void Apply(ResourceDictionary resources)
     {
-        _buttonTemplate = Load("botón", """
-            <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="Button">
-              <Grid SnapsToDevicePixels="True">
-                <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="8"/>
-                <Border x:Name="hover" Background="White" CornerRadius="8" Opacity="0" IsHitTestVisible="False"/>
-                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-              </Grid>
-              <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="hover" Property="Opacity" Value="0.09"/></Trigger>
-                <Trigger Property="IsPressed" Value="True"><Setter TargetName="hover" Property="Opacity" Value="0.18"/></Trigger>
-                <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
-              </ControlTemplate.Triggers>
-            </ControlTemplate>
-            """);
+        _buttonTemplate = Load("botón", ButtonXaml(8));
+        _roundButtonTemplate = Load("botón redondo", ButtonXaml(999));
         _textBoxTemplate = Load("cuadro de texto", """
             <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="TextBox">
               <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="6">
@@ -73,7 +116,7 @@ internal static class Theme
             <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="CheckBox">
               <StackPanel Orientation="Horizontal" Background="Transparent">
                 <Border x:Name="box" Width="16" Height="16" CornerRadius="4" BorderThickness="1"
-                        BorderBrush="#5A5D63" Background="#2B2D30" VerticalAlignment="Center">
+                        BorderBrush="#40FFFFFF" Background="#17FFFFFF" VerticalAlignment="Center">
                   <Path x:Name="tick" Data="M3.5,8.5 L6.5,11.5 L12.5,4.5" Stroke="White" StrokeThickness="2" Visibility="Collapsed"/>
                 </Border>
                 <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
@@ -89,21 +132,27 @@ internal static class Theme
             </ControlTemplate>
             """);
 
+        // Barra fina (4 px) que solo se ve al pasar el ratón por el ScrollViewer.
         var scrollTemplate = Load("barra de desplazamiento", """
             <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="ScrollBar">
-              <Grid Width="8" Background="Transparent">
+              <Grid x:Name="root" Width="8" Background="Transparent" Opacity="0">
                 <Track x:Name="PART_Track" IsDirectionReversed="True">
                   <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/></Track.DecreaseRepeatButton>
                   <Track.Thumb>
                     <Thumb>
                       <Thumb.Template>
-                        <ControlTemplate TargetType="Thumb"><Border Background="#4A4D53" CornerRadius="4" Margin="1,0"/></ControlTemplate>
+                        <ControlTemplate TargetType="Thumb"><Border Background="#66FFFFFF" CornerRadius="2" Margin="2,0"/></ControlTemplate>
                       </Thumb.Template>
                     </Thumb>
                   </Track.Thumb>
                   <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/></Track.IncreaseRepeatButton>
                 </Track>
               </Grid>
+              <ControlTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Value="True">
+                  <Setter TargetName="root" Property="Opacity" Value="1"/>
+                </DataTrigger>
+              </ControlTemplate.Triggers>
             </ControlTemplate>
             """);
         if (scrollTemplate is not null)
@@ -113,6 +162,21 @@ internal static class Theme
             resources[typeof(System.Windows.Controls.Primitives.ScrollBar)] = _scrollBarStyle;
         }
     }
+
+    private static string ButtonXaml(int radius) => $$"""
+        <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="Button">
+          <Grid SnapsToDevicePixels="True">
+            <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="{{radius}}"/>
+            <Border x:Name="hover" Background="White" CornerRadius="{{radius}}" Opacity="0" IsHitTestVisible="False"/>
+            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="hover" Property="Opacity" Value="0.09"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="hover" Property="Opacity" Value="0.18"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+        """;
 
     private static ControlTemplate? Load(string what, string xaml)
     {
@@ -155,7 +219,7 @@ internal static class Theme
         var t = new TextBox
         {
             Text = text,
-            Background = Bg,
+            Background = InputBg,
             Foreground = Text,
             CaretBrush = Text,
             SelectionBrush = Accent,
@@ -176,6 +240,87 @@ internal static class Theme
         var c = new CheckBox { Content = label, IsChecked = isChecked, Foreground = Text, FontFamily = Font, FontSize = 13, Cursor = System.Windows.Input.Cursors.Hand };
         if (_checkBoxTemplate is not null) c.Template = _checkBoxTemplate;
         return c;
+    }
+
+    /// <summary>Botón de icono (glifo de <see cref="Icons"/>) cuadrado, transparente y con hover de cristal.</summary>
+    public static Button IconButton(string glyph, double size = 28, string? tooltip = null, double glyphSize = 12)
+    {
+        var b = FlatButton(new TextBlock
+        {
+            Text = glyph,
+            FontFamily = Icons,
+            FontSize = glyphSize,
+            Foreground = Text,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        }, Transparent, padding: new Thickness(0));
+        b.Width = b.Height = size;
+        b.HorizontalContentAlignment = HorizontalAlignment.Center;
+        if (tooltip is not null) b.ToolTip = tooltip;
+        return b;
+    }
+
+    /// <summary>Botón circular de cristal con un glifo de <see cref="Icons"/> (controles de música).</summary>
+    public static Button RoundButton(TextBlock glyph, double size = 36)
+    {
+        glyph.FontFamily = Icons;
+        glyph.HorizontalAlignment = HorizontalAlignment.Center;
+        glyph.VerticalAlignment = VerticalAlignment.Center;
+        var b = FlatButton(glyph, Hover, padding: new Thickness(0));
+        b.Width = b.Height = size;
+        b.HorizontalContentAlignment = HorizontalAlignment.Center;
+        if (_roundButtonTemplate is not null) b.Template = _roundButtonTemplate;
+        return b;
+    }
+
+    public static TextBlock Glyph(string glyph, double size = 14, Brush? color = null) => new()
+    {
+        Text = glyph,
+        FontFamily = Icons,
+        FontSize = size,
+        Foreground = color ?? Text,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    /// <summary>Chip: texto pequeño sobre un fondo de cristal (radio 6). Monoespaciado si <paramref name="mono"/>.</summary>
+    public static Border Chip(string text, Brush? foreground = null, Brush? background = null, bool mono = false, double size = 11)
+    {
+        var label = Label(text, size, foreground ?? Dim);
+        if (mono) label.FontFamily = Mono;
+        return new Border
+        {
+            Background = background ?? Hover,
+            CornerRadius = new CornerRadius(ChipRadius),
+            Padding = new Thickness(6, 1, 6, 2),
+            Child = label,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+    }
+
+    /// <summary>"Píldora" de estado: punto de color y texto sobre cristal.</summary>
+    public static Border Pill(Brush dot, string text, Brush? foreground = null) => new()
+    {
+        Background = Hover,
+        CornerRadius = new CornerRadius(999),
+        Padding = new Thickness(10, 3, 12, 4),
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Child = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children =
+            {
+                new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = dot, Margin = new Thickness(0, 1, 7, 0), VerticalAlignment = VerticalAlignment.Center },
+                Label(text, 12, foreground ?? Dim),
+            },
+        },
+    };
+
+    /// <summary>Título de tarjeta: mayúsculas pequeñas (11 px), color secundario. (WPF no tiene espaciado de letras: se omite el +0,06 em.)</summary>
+    public static TextBlock CardTitle(string text)
+    {
+        var t = Label(text.ToUpperInvariant(), 11, Dim, FontWeights.SemiBold);
+        t.FontFamily = DisplayFont;
+        return t;
     }
 
     public static TextBlock Label(string text, double size = 13, Brush? color = null, FontWeight? weight = null) => new()

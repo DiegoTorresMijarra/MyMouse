@@ -13,6 +13,17 @@ namespace MyMouse.Host.Ui;
 internal sealed class StrokeCanvas : FrameworkElement
 {
     private const double Padding = 28;
+
+    private static readonly Brush Glow = MakeGlow();
+
+    private static Brush MakeGlow()
+    {
+        var brush = new RadialGradientBrush { Center = new Point(0.5, 0.35), GradientOrigin = new Point(0.5, 0.35), RadiusX = 0.8, RadiusY = 0.8 };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x1F, 255, 255, 255), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0x05, 255, 255, 255), 1));
+        brush.Freeze();
+        return brush;
+    }
     private readonly LiveStrokeModel _model;
     private StrokeFit _fit;
     private int _generation = -1;
@@ -62,6 +73,8 @@ internal sealed class StrokeCanvas : FrameworkElement
         var w = ActualWidth;
         var h = ActualHeight;
         dc.DrawRectangle(Theme.Transparent, null, new Rect(0, 0, w, h));
+        // Un ligero brillo en el lienzo.
+        dc.DrawRoundedRectangle(Glow, new Pen(Theme.Line, 1), new Rect(12.5, 4.5, Math.Max(0, w - 25), Math.Max(0, h - 9)), Theme.CornerRadius, Theme.CornerRadius);
 
         if (_model.Phase == LivePhase.Waiting)
         {
@@ -122,6 +135,7 @@ internal sealed class LiveGestureWindow : FloatingWindow
     private readonly StrokeCanvas _canvas;
     private readonly Border _countdown;
     private readonly TextBlock _headline;
+    private readonly Border _chip;
     private readonly TextBlock _detail;
     private readonly Button _assignButton;
     private readonly DispatcherTimer _timer;
@@ -131,8 +145,8 @@ internal sealed class LiveGestureWindow : FloatingWindow
     /// <param name="liftDip">Cuánto subirla desde la esquina (para ponerla sobre la toolbox si está abierta).</param>
     /// <param name="idealShape">Puntos de la forma ideal de un nombre, para superponerla tenue.</param>
     /// <param name="assign">Se pulsa "Asignar" en una forma sin acción: abre el editor con esa forma.</param>
-    public LiveGestureWindow(LiveStrokeModel model, Func<double> liftDip, Func<string, IReadOnlyList<PointF>?> idealShape, Action<string> assign)
-        : base(CardWidth)
+    public LiveGestureWindow(LiveStrokeModel model, Func<double> liftDip, Func<string, IReadOnlyList<PointF>?> idealShape, Action<string> assign, bool glass)
+        : base(CardWidth, glass)
     {
         _model = model;
         _liftDip = liftDip;
@@ -148,8 +162,12 @@ internal sealed class LiveGestureWindow : FloatingWindow
         _headline = Theme.Label("", 16, weight: FontWeights.SemiBold);
         _headline.TextWrapping = TextWrapping.Wrap;
         _headline.TextTrimming = TextTrimming.None;
+        _headline.FontFamily = Theme.DisplayFont;
+        // El resultado va en un chip de color (el color del resultado al 22 % de opacidad).
+        _chip = new Border { CornerRadius = new CornerRadius(Theme.RowRadius), Padding = new Thickness(10, 3, 10, 4), HorizontalAlignment = HorizontalAlignment.Left, Child = _headline };
         _detail = Theme.Label("", 12, Theme.Dim);
         _detail.TextWrapping = TextWrapping.Wrap;
+        _detail.Margin = new Thickness(2, 6, 0, 0);
         _assignButton = Theme.AccentButton("Asignar");
         _assignButton.HorizontalAlignment = HorizontalAlignment.Left;
         _assignButton.Margin = new Thickness(0, 6, 0, 0);
@@ -161,7 +179,7 @@ internal sealed class LiveGestureWindow : FloatingWindow
         };
 
         var result = new StackPanel { Margin = new Thickness(16, 6, 16, 12), VerticalAlignment = VerticalAlignment.Top };
-        result.Children.Add(_headline);
+        result.Children.Add(_chip);
         result.Children.Add(_detail);
         result.Children.Add(_assignButton);
 
@@ -181,6 +199,14 @@ internal sealed class LiveGestureWindow : FloatingWindow
         _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(16) };
         _timer.Tick += OnTick;
         _model.Changed += OnModelChanged;
+    }
+
+    /// <summary>Quita la ventana de verdad (se vuelve a crear al cambiar el "Efecto cristal").</summary>
+    public void Destroy()
+    {
+        _model.Changed -= OnModelChanged;
+        _timer.Stop();
+        Close();
     }
 
     private void OnModelChanged()
@@ -248,6 +274,10 @@ internal sealed class LiveGestureWindow : FloatingWindow
         };
         _headline.Text = head;
         _headline.Foreground = color;
+        _chip.Background = color is SolidColorBrush solid && !ReferenceEquals(color, Theme.Text) && !ReferenceEquals(color, Theme.Dim)
+            ? new SolidColorBrush(Color.FromArgb(0x38, solid.Color.R, solid.Color.G, solid.Color.B))
+            : Theme.Transparent;
+        _chip.Visibility = head.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         _headline.FontSize = r.Kind == LiveResultKind.NotRecognized && _model.Phase == LivePhase.Finished ? 28 : 16;
         _detail.Text = detail;
         _detail.Visibility = detail.Length == 0 ? Visibility.Collapsed : Visibility.Visible;

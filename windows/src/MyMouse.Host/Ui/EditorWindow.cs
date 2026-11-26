@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MyMouse.HostCore.Gestures;
+using MyMouse.HostCore.Toolbox;
 using MyMouse.HostCore.Shapes;
 using MyMouse.Protocol;
 
@@ -44,7 +45,14 @@ internal sealed class EditorWindow : Window
         FontFamily = Theme.Font;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         UseLayoutRounding = true;
-        SourceInitialized += (_, _) => NativeUi.UseDarkTitleBar(new WindowInteropHelper(this).Handle);
+        SourceInitialized += (_, _) =>
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            NativeUi.UseDarkTitleBar(handle);
+            // Cristal (v4.5 §2.5): Mica en Windows 11 si el "Efecto cristal" está activado; si no, el fondo sólido.
+            if (_app.Layout.GlassEffect && NativeUi.TryEnableBackdrop(this, handle, NativeUi.DWMSBT_MAINWINDOW, roundCorners: false)) return;
+            Background = Theme.Bg;
+        };
 
         _gesturesTab.Click += (_, _) => ShowTab(EditorTab.Gestures);
         _widgetsTab.Click += (_, _) => ShowTab(EditorTab.Widgets);
@@ -243,15 +251,19 @@ internal sealed class GesturesPane : Grid
         _onlyUnassigned.Click += (_, _) => RefreshList();
         DockPanel.SetDock(_onlyUnassigned, Dock.Top);
         left.Children.Add(_onlyUnassigned);
-        var add = Theme.AccentButton("+ Nueva forma");
+        var add = CardChrome.HeaderButton("+ Nueva forma");
         add.Margin = new Thickness(0, 8, 0, 0);
+        add.HorizontalAlignment = HorizontalAlignment.Stretch;
         add.Click += (_, _) => NewShape();
         DockPanel.SetDock(add, Dock.Bottom);
         left.Children.Add(add);
         left.Children.Add(new Border
         {
-            Background = Theme.CardBg,
-            CornerRadius = new CornerRadius(10),
+            Background = Theme.CardGlass,
+            BorderBrush = Theme.Line,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(6),
+            CornerRadius = new CornerRadius(Theme.CornerRadius),
             Child = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _list, Focusable = false },
         });
         SetColumn(left, 0);
@@ -365,24 +377,9 @@ internal sealed class GesturesPane : Grid
         if (_list.Children.Count == 0) _list.Children.Add(new TextBlock { Text = "Todas las formas tienen acción.", Foreground = Theme.Dim, Margin = new Thickness(12), FontFamily = Theme.Font });
     }
 
-    private UIElement BuildRow(string name, bool hasAction)
-    {
-        var (general, apps) = _config.RulesOf(name);
-        var binding = general ?? apps.FirstOrDefault();
-        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-        texts.Children.Add(Theme.Label(ShapeCatalog.Label(name), 13));
-        texts.Children.Add(hasAction
-            ? Theme.Label(binding!.HelpText, 11, Theme.Dim)
-            : Theme.Label("Sin acción", 11, Theme.Amber));
-        var row = new DockPanel();
-        var thumb = new ShapeThumb(_app.ShapePoints(name), 34) { VerticalAlignment = VerticalAlignment.Center, Stroke = hasAction ? Theme.Text : Theme.Dim };
-        DockPanel.SetDock(thumb, Dock.Left);
-        row.Children.Add(thumb);
-        row.Children.Add(texts);
-        var button = CardChrome.Row(row, () => Select(name, focusAction: false));
-        if (name == _selected) button.Background = Theme.Hover;
-        return button;
-    }
+    /// <summary>La misma fila que la tarjeta Gestos de la toolbox (baldosa, título y chip de la acción).</summary>
+    private UIElement BuildRow(string name, bool hasAction) =>
+        GestureRows.Row(_app, GestureSections.RowFor(_config, name), () => Select(name, focusAction: false), selected: name == _selected);
 
     // ---- Selección y carga ----
 
@@ -616,8 +613,10 @@ internal sealed class AppRuleRow : Border
     {
         _action = new ActionEditor(owner, app.StartMenu);
         _pinned = rule?.Pinned ?? false;
-        Background = Theme.CardBg;
-        CornerRadius = new CornerRadius(10);
+        Background = Theme.CardGlass;
+        BorderBrush = Theme.Line;
+        BorderThickness = new Thickness(1);
+        CornerRadius = new CornerRadius(Theme.CornerRadius);
         Padding = new Thickness(12);
         Margin = new Thickness(0, 0, 0, 8);
 

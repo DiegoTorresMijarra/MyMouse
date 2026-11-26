@@ -19,37 +19,41 @@ internal interface IToolboxCard
 {
     FrameworkElement View { get; }
 
+    /// <summary>La tarjeta avisa de que ha cambiado de alto por una acción del usuario (buscar, plegar): hay que recolocar la ventana.</summary>
+    Action? Resized { get; set; }
+
     /// <summary>Actualiza la vista con el estado actual. Devuelve true si ha cambiado de alto (hay que recolocar la ventana).</summary>
     bool Refresh();
 }
 
-/// <summary>Un menú pequeño del tema oscuro que se abre sobre un control (el menú de Ajustes).</summary>
+/// <summary>Un menú pequeño de cristal que se abre junto a un control (el menú de Ajustes).</summary>
 internal static class MiniMenu
 {
-    public static void Show(UIElement target, IEnumerable<(string Text, bool? Checked, Action Click)> items)
+    public static void Show(UIElement target, IEnumerable<(string Text, bool? Checked, Action Click)> items,
+        PlacementMode placement = PlacementMode.Top)
     {
         var panel = new StackPanel { Margin = new Thickness(4) };
         var popup = new Popup
         {
             PlacementTarget = target,
-            Placement = PlacementMode.Top,
+            Placement = placement,
             StaysOpen = false,
             AllowsTransparency = true,
             IsOpen = false,
             Child = new Border
             {
-                Background = Theme.CardBg,
+                Background = Theme.PanelSolid,
                 BorderBrush = Theme.Line,
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Margin = new Thickness(0, 0, 0, 6),
+                CornerRadius = new CornerRadius(Theme.RowRadius + 2),
+                Margin = new Thickness(0, 6, 0, 6),
                 Child = panel,
             },
         };
         foreach (var (text, isChecked, click) in items)
         {
             var label = (isChecked is null ? "" : isChecked == true ? "✓  " : "     ") + text;
-            var button = Theme.FlatButton(label, Theme.CardBg);
+            var button = Theme.FlatButton(label, Theme.Transparent);
             button.HorizontalContentAlignment = HorizontalAlignment.Left;
             button.Click += (_, _) =>
             {
@@ -63,35 +67,95 @@ internal static class MiniMenu
 }
 
 /// <summary>
-/// La toolbox: panel flotante de 400 px anclado sobre la bandeja, con las tarjetas de <see cref="ToolboxLayout"/>
-/// (docs/spec-v4-toolbox.md §2). Se abre con un clic en el icono o con 4 dedos ↑ en el móvil (sin robar el foco) y se cierra con
-/// Esc, un clic fuera, el icono o 4 dedos ↓.
+/// La toolbox (docs/spec-v4-toolbox.md §2 y docs/spec-v4.5-estilo.md §2): un panel flotante de 400 px anclado sobre la bandeja, con una
+/// barra superior (⚙ ajustes, ⤢ maximizar, ✕ cerrar) y las tarjetas de <see cref="ToolboxLayout"/>. Maximizada pasa a ser una ventana
+/// normal centrada, redimensionable y con las tarjetas en dos columnas. Se abre con un clic en el icono o con 4 dedos ↑ en el móvil
+/// (sin robar el foco) y se cierra con Esc, un clic fuera (solo anclada), el icono, ✕ o 4 dedos ↓.
 /// </summary>
 internal sealed class ToolboxWindow : FloatingWindow
 {
     private const double PanelWidth = 400;
+    private const double TopBarHeight = 40;
 
     private readonly HostApp _app;
-    private readonly StackPanel _stack = new() { Margin = new Thickness(0, 8, 0, 0) };
+    private readonly StackPanel _stack = new() { Margin = new Thickness(12, 4, 12, 12) };
+    private readonly Grid _columns = new() { Margin = new Thickness(12, 4, 12, 12) };
+    private readonly StackPanel _left = new() { Margin = new Thickness(0, 0, 6, 0) };
+    private readonly StackPanel _right = new() { Margin = new Thickness(6, 0, 0, 0) };
     private readonly ScrollViewer _scroll;
+    private readonly Button _maximizeButton;
+    private readonly TextBlock _maximizeGlyph;
     private List<IToolboxCard> _cards = [];
     private bool _noActivate;
+    private bool _maximized;
+    private bool _destroying;
     private DateTime _closedByFocusLossAt = DateTime.MinValue;
 
     public ToolboxWindow(HostApp app)
-        : base(PanelWidth)
+        : base(PanelWidth, app.Layout.GlassEffect)
     {
         _app = app;
+        Title = "MyMouse";
         Card.Width = PanelWidth;
+
+        _columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(_right, 1);
+        _columns.Children.Add(_left);
+        _columns.Children.Add(_right);
+
         _scroll = new ScrollViewer
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Content = _stack,
             Focusable = false,
         };
-        Card.Child = _scroll;
-        Card.Padding = new Thickness(0, 0, 0, 2);
+
+        // Barra superior de 40 px: logo y nombre a la izquierda; ⚙ ⤢ ✕ de 28 × 28 a la derecha.
+        var settings = Theme.IconButton("", tooltip: "Ajustes");
+        settings.Click += (_, _) => MiniMenu.Show(settings, SettingsItems(), PlacementMode.Bottom);
+        _maximizeButton = Theme.IconButton("", tooltip: "Maximizar");
+        _maximizeGlyph = (TextBlock)_maximizeButton.Content;
+        _maximizeButton.Click += (_, _) => ToggleMaximized();
+        var close = Theme.IconButton("", tooltip: "Cerrar");
+        close.Click += (_, _) => Close();
+
+        var icons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        foreach (var b in new[] { settings, _maximizeButton, close })
+        {
+            b.Margin = new Thickness(2, 0, 0, 0);
+            icons.Children.Add(b);
+        }
+        var brand = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
+        brand.Children.Add(Logo(18));
+        var name = Theme.Label("MyMouse", 13, weight: FontWeights.SemiBold);
+        name.FontFamily = Theme.DisplayFont;
+        name.Margin = new Thickness(10, 0, 0, 0);
+        name.VerticalAlignment = VerticalAlignment.Center;
+        brand.Children.Add(name);
+        var bar = new DockPanel { Height = TopBarHeight, Background = Theme.Transparent };
+        DockPanel.SetDock(icons, Dock.Right);
+        bar.Children.Add(icons);
+        bar.Children.Add(brand);
+        // Arrastrar la barra mueve la ventana solo cuando está maximizada; anclada no se mueve.
+        bar.MouseLeftButtonDown += (_, e) =>
+        {
+            if (!_maximized || e.ButtonState != MouseButtonState.Pressed) return;
+            if (_noActivate) SetNoActivate(false);
+            try
+            {
+                DragMove();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        };
+
+        var root = new DockPanel();
+        DockPanel.SetDock(bar, Dock.Top);
+        root.Children.Add(bar);
+        root.Children.Add(_scroll);
+        Card.Child = root;
 
         PreviewKeyDown += (_, e) =>
         {
@@ -106,8 +170,15 @@ internal sealed class ToolboxWindow : FloatingWindow
         };
         Deactivated += (_, _) =>
         {
-            if (!IsVisible || _noActivate || _app.EditorOpen) return;
+            if (!IsVisible || _noActivate || _maximized || _app.EditorOpen) return;
             _closedByFocusLossAt = DateTime.UtcNow;
+            Close();
+        };
+        Closing += (_, e) =>
+        {
+            // Alt+F4 sobre la ventana maximizada: se oculta, no se destruye.
+            if (_destroying) return;
+            e.Cancel = true;
             Close();
         };
         _app.StateChanged += () =>
@@ -118,15 +189,17 @@ internal sealed class ToolboxWindow : FloatingWindow
 
     public bool IsOpen => IsVisible;
 
-    /// <summary>Alto de la tarjeta visible (sin la sombra), para colocar encima el gesto en vivo.</summary>
+    /// <summary>Anclada sobre la bandeja (no maximizada): solo entonces el gesto en vivo se coloca encima.</summary>
+    public bool IsDocked => !_maximized;
+
+    /// <summary>Alto de la tarjeta visible, para colocar encima el gesto en vivo.</summary>
     public double CardHeightDip => Math.Max(0, WindowHeightDip - 2 * ShadowMargin);
 
-    /// <summary>
-    /// Abre la toolbox. <paramref name="fromPhone"/>: sin activarla, para no quitarle el foco a la app en la que se trabaja.
-    /// </summary>
+    /// <summary>Abre la toolbox. <paramref name="fromPhone"/>: sin activarla, para no quitarle el foco a la app en la que se trabaja.</summary>
     public void Open(bool fromPhone)
     {
         if (IsVisible) return;
+        _maximized = _app.Layout.Maximized;
         Build();
         CancelPendingHide();
         SetNoActivate(fromPhone);
@@ -143,6 +216,13 @@ internal sealed class ToolboxWindow : FloatingWindow
         AnimateOut(_app.RaiseToolboxChanged);
     }
 
+    /// <summary>Cierra la ventana de verdad (se vuelve a crear al cambiar el "Efecto cristal").</summary>
+    public void Destroy()
+    {
+        _destroying = true;
+        base.Close();
+    }
+
     /// <summary>Clic en el icono de la bandeja: abre, o cierra si ya estaba abierta (también si el propio clic le quitó el foco).</summary>
     public void Toggle()
     {
@@ -157,6 +237,17 @@ internal sealed class ToolboxWindow : FloatingWindow
         // Si se cerró hace un instante por perder el foco, el clic en el icono era para cerrarla: no se vuelve a abrir.
     }
 
+    private void ToggleMaximized() => _app.Layout = _app.Layout.WithMaximized(!_app.Layout.Maximized); // Rebuild() la recoloca
+
+    private IEnumerable<(string, bool?, Action)> SettingsItems() =>
+    [
+        ("Iniciar con Windows", _app.AutostartEnabled, () => _app.AutostartEnabled = !_app.AutostartEnabled),
+        ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
+        ("Efecto cristal", _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
+        ("Personalizar tarjetas…", null, _app.CustomizeCards),
+        ("Abrir la carpeta de logs", null, _app.OpenLogs),
+    ];
+
     private void SetNoActivate(bool on)
     {
         _noActivate = on;
@@ -164,9 +255,35 @@ internal sealed class ToolboxWindow : FloatingWindow
         if (!on && IsVisible) Activate();
     }
 
+    /// <summary>Logo pequeño: el contorno de un ratón con la rueda en acento.</summary>
+    public static FrameworkElement Logo(double height)
+    {
+        var scale = height / 32;
+        var logo = new Grid { Width = 26 * scale, Height = height, VerticalAlignment = VerticalAlignment.Center };
+        logo.Children.Add(new Border
+        {
+            BorderBrush = Theme.Text,
+            BorderThickness = new Thickness(Math.Max(1.5, 2 * scale)),
+            CornerRadius = new CornerRadius(10 * scale),
+            Background = Theme.Transparent,
+        });
+        logo.Children.Add(new Border
+        {
+            Width = Math.Max(1.5, 2 * scale),
+            Height = 8 * scale,
+            Background = Theme.Accent,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 5 * scale, 0, 0),
+        });
+        return logo;
+    }
+
     private void Build()
     {
         _stack.Children.Clear();
+        _left.Children.Clear();
+        _right.Children.Clear();
+        var built = new Dictionary<ToolboxCard, IToolboxCard>();
         _cards = [];
         foreach (var kind in _app.Layout.Visible)
         {
@@ -178,129 +295,217 @@ internal sealed class ToolboxWindow : FloatingWindow
                 _ => new WidgetsCard(_app),
             };
             card.Refresh();
+            card.Resized = OnCardResized;
+            built[kind] = card;
             _cards.Add(card);
-            _stack.Children.Add(card.View);
+        }
+
+        if (_maximized)
+        {
+            // Dos columnas: Opciones y Música a la izquierda, Gestos a la derecha y Widgets debajo de la columna más baja.
+            var columnWidth = 480 - 24;
+            double HeightOf(ToolboxCard c)
+            {
+                var view = built[c].View;
+                view.Measure(new Size(columnWidth, double.PositiveInfinity));
+                return view.DesiredSize.Height;
+            }
+            var (left, right) = ToolboxColumns.Split(_app.Layout.Visible, HeightOf);
+            foreach (var c in left) _left.Children.Add(built[c].View);
+            foreach (var c in right) _right.Children.Add(built[c].View);
+            TrimLastMargin(_left);
+            TrimLastMargin(_right);
+        }
+        else
+        {
+            foreach (var kind in _app.Layout.Visible) _stack.Children.Add(built[kind].View);
+            TrimLastMargin(_stack);
+        }
+    }
+
+    /// <summary>Sin hueco tras la última tarjeta: el relleno inferior de la ventana es igual al superior (12 px).</summary>
+    private static void TrimLastMargin(StackPanel panel)
+    {
+        if (panel.Children.Count > 0 && panel.Children[^1] is FrameworkElement last) last.Margin = new Thickness(0);
+    }
+
+    private void ApplyMode()
+    {
+        if (_maximized)
+        {
+            Topmost = false;
+            ShowInTaskbar = true;
+            NativeUi.SetExStyle(Handle, NativeUi.WS_EX_TOOLWINDOW, false);
+            SetResizable(true);
+            Card.Width = double.NaN;
+            _scroll.Content = _columns;
+            _scroll.MaxHeight = double.PositiveInfinity;
+            _maximizeGlyph.Text = ""; // restaurar
+            _maximizeButton.ToolTip = "Restaurar";
+        }
+        else
+        {
+            Topmost = true;
+            ShowInTaskbar = false;
+            NativeUi.SetExStyle(Handle, NativeUi.WS_EX_TOOLWINDOW, true);
+            SetResizable(false);
+            Card.Width = PanelWidth;
+            Width = PanelWidth + 2 * ShadowMargin;
+            _scroll.Content = _stack;
+            _maximizeGlyph.Text = ""; // maximizar
+            _maximizeButton.ToolTip = "Maximizar";
         }
     }
 
     private void PlaceNow()
     {
-        var max = MaxCardHeightDip();
-        _scroll.MaxHeight = max;
-        Place(maxHeightDip: max);
+        // El contenido se quita de un contenedor antes de ponerlo en el otro.
+        _scroll.Content = null;
+        ApplyMode();
+        if (_maximized)
+        {
+            var work = WorkAreaDip();
+            var (w, h) = ToolboxColumns.WindowSize(work.Width, work.Height);
+            PlaceCentered(w - 2 * ShadowMargin, h - 2 * ShadowMargin);
+        }
+        else
+        {
+            var max = MaxCardHeightDip();
+            _scroll.MaxHeight = max - TopBarHeight;
+            Place(maxHeightDip: max);
+        }
+    }
+
+    private void OnCardResized()
+    {
+        if (IsVisible && !_maximized) PlaceNow();
     }
 
     private void RefreshCards()
     {
         var resized = false;
         foreach (var card in _cards) resized |= card.Refresh();
-        if (resized) PlaceNow();
+        if (resized && !_maximized) PlaceNow();
     }
 
-    /// <summary>Se cambió la distribución en "Personalizar tarjetas": se reconstruye con la ventana abierta.</summary>
+    /// <summary>Se cambió la distribución o el modo: se reconstruye con la ventana abierta.</summary>
     public void Rebuild()
     {
         if (!IsVisible) return;
+        _maximized = _app.Layout.Maximized;
         Build();
         PlaceNow();
+        if (_maximized && _noActivate) SetNoActivate(false);
     }
 }
 
 internal static class CardChrome
 {
+    /// <summary>Tarjeta de cristal: blanco al 5 % con brillo superior, borde de 1 px al 10 % y radio 12. Sin sombra.</summary>
     public static Border Wrap(UIElement content) => new()
     {
-        Background = Theme.CardBg,
-        CornerRadius = new CornerRadius(10),
+        Background = Theme.CardGlass,
+        BorderBrush = Theme.Line,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(Theme.CornerRadius),
         Padding = new Thickness(12),
-        Margin = new Thickness(8, 0, 8, 8),
+        Margin = new Thickness(0, 0, 0, 8),
         Child = content,
     };
 
-    public static TextBlock Title(string text) => Theme.Label(text, 11, Theme.Dim, FontWeights.SemiBold);
+    public static TextBlock Title(string text) => Theme.CardTitle(text);
 
-    /// <summary>Una fila pulsable (fondo que se ilumina al pasar el ratón) con un contenido.</summary>
+    /// <summary>Botón secundario de cristal para las cabeceras de tarjeta ("+ Nueva forma").</summary>
+    public static Button HeaderButton(string text)
+    {
+        var b = Theme.FlatButton(text, Theme.Hover, padding: new Thickness(10, 3, 10, 4));
+        b.FontSize = 12;
+        return b;
+    }
+
+    /// <summary>Una fila pulsable (hover de cristal) con un contenido, alineada a la izquierda.</summary>
     public static Button Row(UIElement content, Action click)
     {
-        var button = Theme.FlatButton(content, Theme.CardBg, padding: new Thickness(6, 5, 6, 5));
+        var button = Theme.FlatButton(content, Theme.Transparent, padding: new Thickness(6, 5, 6, 5));
         button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         button.Click += (_, _) => click();
         return button;
     }
 }
 
-/// <summary>Cabecera con el estado y los botones de siempre. No se puede quitar.</summary>
+/// <summary>Estado y botones de siempre, en una fila de iconos con etiqueta. No se puede quitar.</summary>
 internal sealed class OptionsCard : IToolboxCard
 {
     private readonly HostApp _app;
     private readonly Border _view;
-    private readonly Ellipse _dot = new() { Width = 9, Height = 9, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _status = Theme.Label("", 12, Theme.Dim);
-    private readonly Button _pause = Theme.FlatButton("Pausar");
+    private readonly StackPanel _pillHost = new();
+    private readonly TextBlock _hint = Theme.Label("", 11, Theme.Faint);
+    private readonly TextBlock _pauseGlyph = Theme.Glyph("", 16);
+    private readonly TextBlock _pauseLabel = Theme.Label("Pausar", 11);
+    private string _shown = "";
 
     public OptionsCard(HostApp app)
     {
         _app = app;
-        var logo = new Grid { Width = 26, Height = 32, Margin = new Thickness(2, 0, 12, 0) };
-        logo.Children.Add(new Border
-        {
-            BorderBrush = Theme.Text,
-            BorderThickness = new Thickness(2),
-            CornerRadius = new CornerRadius(10),
-            Background = Theme.Transparent,
-        });
-        logo.Children.Add(new Border { Width = 2, Height = 8, Background = Theme.Accent, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 5, 0, 0) });
+        _hint.TextWrapping = TextWrapping.Wrap;
+        _hint.TextTrimming = TextTrimming.None;
+        _hint.Margin = new Thickness(2, 8, 0, 0);
 
-        var statusRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
-        _dot.Margin = new Thickness(0, 0, 6, 0);
-        statusRow.Children.Add(_dot);
-        statusRow.Children.Add(_status);
-        var titles = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        titles.Children.Add(Theme.Label("MyMouse", 17, weight: FontWeights.SemiBold));
-        titles.Children.Add(statusRow);
-        var header = new StackPanel { Orientation = Orientation.Horizontal };
-        header.Children.Add(logo);
-        header.Children.Add(titles);
-
-        _pause.Click += (_, _) => _app.TogglePause();
-        var editor = Theme.FlatButton("Gestos y widgets");
+        var pause = Tile(_pauseGlyph, _pauseLabel);
+        pause.Click += (_, _) => _app.TogglePause();
+        var editor = Tile(Theme.Glyph("", 16), Theme.Label("Gestos", 11));
+        editor.ToolTip = "Gestos y widgets";
         editor.Click += (_, _) => _app.OpenEditor(EditorTab.Gestures);
-        var help = Theme.FlatButton("Ayuda");
+        var help = Tile(Theme.Glyph("", 16), Theme.Label("Ayuda", 11));
         help.Click += (_, _) => _app.ShowHelp();
-        var settings = Theme.FlatButton("Ajustes");
-        settings.Click += (_, _) => MiniMenu.Show(settings, SettingsItems());
-        var quit = Theme.FlatButton("Salir");
+        var quit = Tile(Theme.Glyph("", 16), Theme.Label("Salir", 11));
+        quit.ToolTip = "Salir de MyMouse";
         quit.Click += (_, _) => _app.Quit();
 
-        var buttons = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
-        foreach (var b in new[] { _pause, editor, help, settings, quit })
-        {
-            b.Margin = new Thickness(0, 0, 6, 6);
-            buttons.Children.Add(b);
-        }
+        var tiles = new UniformGrid { Columns = 4, Margin = new Thickness(-3, 12, -3, 0) };
+        foreach (var t in new[] { pause, editor, help, quit }) tiles.Children.Add(t);
 
         var stack = new StackPanel();
-        stack.Children.Add(header);
-        stack.Children.Add(buttons);
+        stack.Children.Add(_pillHost);
+        stack.Children.Add(_hint);
+        stack.Children.Add(tiles);
         _view = CardChrome.Wrap(stack);
     }
 
     public FrameworkElement View => _view;
 
-    private IEnumerable<(string, bool?, Action)> SettingsItems() =>
-    [
-        ("Iniciar con Windows", _app.AutostartEnabled, () => _app.AutostartEnabled = !_app.AutostartEnabled),
-        ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
-        ("Personalizar tarjetas…", null, _app.CustomizeCards),
-        ("Abrir la carpeta de logs", null, _app.OpenLogs),
-    ];
+    public Action? Resized { get; set; }
+
+    /// <summary>Botón de icono con etiqueta debajo, en cristal elevado.</summary>
+    private static Button Tile(TextBlock glyph, TextBlock label)
+    {
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.Foreground = Theme.Dim;
+        glyph.HorizontalAlignment = HorizontalAlignment.Center;
+        var content = new StackPanel { Margin = new Thickness(0, 2, 0, 0) };
+        content.Children.Add(glyph);
+        label.Margin = new Thickness(0, 4, 0, 0);
+        content.Children.Add(label);
+        var b = Theme.FlatButton(content, Theme.Hover, padding: new Thickness(4, 8, 4, 8));
+        b.Margin = new Thickness(3);
+        b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        return b;
+    }
 
     public bool Refresh()
     {
-        _dot.Fill = _app.StatusBrush;
-        _status.Text = _app.StatusText;
-        _pause.Content = _app.Paused ? "Reanudar" : "Pausar";
-        return false;
+        var hint = _app.StatusHint ?? "";
+        var key = _app.StatusText + "|" + _app.Paused + "|" + hint;
+        _pauseGlyph.Text = _app.Paused ? "" : "";
+        _pauseLabel.Text = _app.Paused ? "Reanudar" : "Pausar";
+        if (key == _shown) return false;
+        _shown = key;
+        // El estado va en una "píldora" con punto de color.
+        _pillHost.Children.Clear();
+        _pillHost.Children.Add(Theme.Pill(_app.StatusBrush, _app.StatusText));
+        _hint.Text = hint;
+        _hint.Visibility = hint.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        return true; // la línea secundaria puede cambiar el alto
     }
 }
 
@@ -310,11 +515,13 @@ internal sealed class MusicCard : IToolboxCard
     private readonly HostApp _app;
     private readonly Border _view;
     private readonly Border _cover;
-    private readonly TextBlock _glyph = Theme.Label("♪", 22, Theme.Dim);
+    private readonly TextBlock _glyph = Theme.Glyph("", 20, Theme.Dim);
     private readonly TextBlock _title = Theme.Label("", 14, weight: FontWeights.SemiBold);
     private readonly TextBlock _artist = Theme.Label("", 12, Theme.Dim);
-    private readonly Button _play = Theme.FlatButton("⏯", fontSize: 16);
-    private readonly Button _mute = Theme.FlatButton("🔊", fontSize: 14);
+    private readonly TextBlock _playGlyph = new() { FontSize = 16, Foreground = Theme.Text, Text = "" };
+    private readonly TextBlock _muteGlyph = new() { FontSize = 14, Foreground = Theme.Text, Text = "" };
+    private readonly Button _play;
+    private readonly Button _mute;
     private readonly TextBlock _percent = Theme.Label("", 12, Theme.Dim);
     private readonly MiniSlider _slider = new();
     private byte[]? _shownCover;
@@ -324,9 +531,9 @@ internal sealed class MusicCard : IToolboxCard
         _app = app;
         _cover = new Border
         {
-            Width = 60,
-            Height = 60,
-            CornerRadius = new CornerRadius(8),
+            Width = 56,
+            Height = 56,
+            CornerRadius = new CornerRadius(10),
             Background = Theme.Hover,
             Margin = new Thickness(0, 0, 12, 0),
             Child = new Grid { Children = { _glyph } },
@@ -334,16 +541,16 @@ internal sealed class MusicCard : IToolboxCard
         _glyph.HorizontalAlignment = HorizontalAlignment.Center;
         _glyph.VerticalAlignment = VerticalAlignment.Center;
 
-        var previous = Theme.FlatButton("⏮", fontSize: 16);
-        var next = Theme.FlatButton("⏭", fontSize: 16);
+        var previous = Theme.RoundButton(new TextBlock { FontSize = 14, Foreground = Theme.Text, Text = "" });
+        _play = Theme.RoundButton(_playGlyph);
+        var next = Theme.RoundButton(new TextBlock { FontSize = 14, Foreground = Theme.Text, Text = "" });
         previous.Click += (_, _) => _app.SendMedia(MediaCommand.Previous);
         _play.Click += (_, _) => _app.SendMedia(MediaCommand.PlayPause);
         next.Click += (_, _) => _app.SendMedia(MediaCommand.Next);
         var controls = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
         foreach (var b in new[] { previous, _play, next })
         {
-            b.Margin = new Thickness(0, 0, 6, 0);
-            b.MinWidth = 40;
+            b.Margin = new Thickness(0, 0, 8, 0);
             controls.Children.Add(b);
         }
 
@@ -356,8 +563,8 @@ internal sealed class MusicCard : IToolboxCard
         top.Children.Add(_cover);
         top.Children.Add(texts);
 
+        _mute = Theme.RoundButton(_muteGlyph, 32);
         _mute.Click += (_, _) => _app.ToggleMute();
-        _mute.Width = 40;
         _slider.UserChanged += level => _app.SetVolume(level);
         _percent.Width = 38;
         _percent.TextAlignment = TextAlignment.Right;
@@ -370,7 +577,7 @@ internal sealed class MusicCard : IToolboxCard
         volume.Children.Add(_slider);
 
         var stack = new StackPanel();
-        stack.Children.Add(CardChrome.Title("MÚSICA"));
+        stack.Children.Add(CardChrome.Title("Música"));
         stack.Children.Add(new Border { Height = 8 });
         stack.Children.Add(top);
         stack.Children.Add(volume);
@@ -378,6 +585,8 @@ internal sealed class MusicCard : IToolboxCard
     }
 
     public FrameworkElement View => _view;
+
+    public Action? Resized { get; set; }
 
     public bool Refresh()
     {
@@ -388,6 +597,7 @@ internal sealed class MusicCard : IToolboxCard
         _artist.Text = media.Artist;
         _artist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         _play.IsEnabled = !nothing;
+        _playGlyph.Text = media.Playing ? "" : "";
 
         var cover = nothing ? null : _app.Media.CurrentThumbnail;
         if (!ReferenceEquals(cover, _shownCover))
@@ -418,108 +628,104 @@ internal sealed class MusicCard : IToolboxCard
         var volume = _app.Volume.Get();
         _slider.Value = volume.Level;
         _percent.Text = volume.Muted ? "mute" : $"{volume.Level} %";
-        _mute.Content = volume.Muted || volume.Level == 0 ? "🔇" : "🔊";
+        _muteGlyph.Text = volume.Muted || volume.Level == 0 ? "" : "";
         return false;
     }
 }
 
-/// <summary>Formas con acción (miniatura, ayuda y chincheta), "+ Nueva forma" y las formas sin acción al final, atenuadas.</summary>
+/// <summary>
+/// Las formas en secciones (docs/spec-v4.5-estilo.md §2.4): "Fijadas", "Asignadas" y "Sin acción" (plegada, con contador), con
+/// la fila de <see cref="GestureRows"/>, "+ Nueva forma" de cristal y una búsqueda opcional.
+/// </summary>
 internal sealed class GesturesCard : IToolboxCard
 {
     private readonly HostApp _app;
     private readonly Border _view;
-    private readonly StackPanel _rows = new();
+    private readonly StackPanel _rows = new() { Margin = new Thickness(0, 8, 0, 0) };
+    private readonly TextBox _search;
     private string _signature = "";
+    private string _filter = "";
+    private bool _unassignedOpen;
 
     public GesturesCard(HostApp app)
     {
         _app = app;
-        var add = Theme.AccentButton("+ Nueva forma");
-        add.Padding = new Thickness(10, 3, 10, 3);
-        add.FontSize = 12;
+        var add = CardChrome.HeaderButton("+ Nueva forma");
         add.Click += (_, _) => _app.OpenEditor(EditorTab.Gestures, newShape: true);
+        var searchButton = Theme.IconButton("", 26, "Buscar");
+        searchButton.Margin = new Thickness(0, 0, 6, 0);
+        _search = Theme.Input();
+        _search.Margin = new Thickness(0, 8, 0, 0);
+        _search.Visibility = Visibility.Collapsed;
+        _search.TextChanged += (_, _) =>
+        {
+            _filter = _search.Text.Trim();
+            if (Refresh()) Resized?.Invoke();
+        };
+        searchButton.Click += (_, _) =>
+        {
+            var show = _search.Visibility != Visibility.Visible;
+            _search.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (show) _search.Focus();
+            else _search.Text = "";
+            Resized?.Invoke();
+        };
+
+        var right = new StackPanel { Orientation = Orientation.Horizontal };
+        right.Children.Add(searchButton);
+        right.Children.Add(add);
         var header = new DockPanel();
-        DockPanel.SetDock(add, Dock.Right);
-        header.Children.Add(add);
-        header.Children.Add(new Border { Child = CardChrome.Title("GESTOS"), VerticalAlignment = VerticalAlignment.Center });
+        DockPanel.SetDock(right, Dock.Right);
+        header.Children.Add(right);
+        header.Children.Add(new Border { Child = CardChrome.Title("Gestos"), VerticalAlignment = VerticalAlignment.Center });
 
         var stack = new StackPanel();
         stack.Children.Add(header);
-        _rows.Margin = new Thickness(0, 8, 0, 0);
+        stack.Children.Add(_search);
         stack.Children.Add(_rows);
         _view = CardChrome.Wrap(stack);
     }
 
     public FrameworkElement View => _view;
 
+    public Action? Resized { get; set; }
+
     public bool Refresh()
     {
         var config = _app.Config;
-        var withAction = config.Bindings.Select(b => b.Gesture).Distinct(StringComparer.Ordinal).ToList();
-        var customWithout = _app.Shapes.Shapes.Select(s => s.Name).Where(n => !config.HasAction(n)).ToList();
-        var catalogWithout = ShapeCatalog.All.Count(s => !config.HasAction(s.Id));
-        var signature = string.Join("|", withAction.Select(g => g + ":" + HelpFor(config, g))) + "#" + string.Join("|", customWithout) + "#" + catalogWithout;
+        var sections = GestureSections.Build(config, _app.Shapes.Shapes.Select(s => s.Name)).Filter(_filter);
+        var open = _unassignedOpen || _filter.Length > 0; // al buscar se abre la sección para ver las coincidencias
+        var signature = string.Join("|", sections.Pinned.Concat(sections.Assigned).Concat(sections.Unassigned)
+            .Select(r => $"{r.Gesture}:{r.Title}:{ActionChip.Format(r.Action).Text}:{r.Pinned}:{r.OnlyInSomeApps}")) + $"#{open}#{_filter}";
         if (signature == _signature) return false;
         _signature = signature;
 
         _rows.Children.Clear();
-        foreach (var gesture in withAction) _rows.Children.Add(BuildRow(config, gesture));
-        foreach (var name in customWithout) _rows.Children.Add(BuildUnassignedRow(name));
-        if (catalogWithout > 0)
+        void Add(string title, IReadOnlyList<GestureRow> rows)
         {
-            var more = CardChrome.Row(
-                Theme.Label($"{catalogWithout} formas más sin acción · Asignar…", 12, Theme.Dim),
-                () => _app.OpenEditor(EditorTab.Gestures, onlyUnassigned: true));
-            _rows.Children.Add(more);
+            if (rows.Count == 0) return;
+            _rows.Children.Add(GestureRows.SectionHeader(title));
+            foreach (var row in rows) _rows.Children.Add(BuildRow(row));
         }
-        if (_rows.Children.Count == 0) _rows.Children.Add(Theme.Label("Todavía no hay formas.", 12, Theme.Dim));
+        Add("Fijadas", sections.Pinned);
+        Add("Asignadas", sections.Assigned);
+        if (sections.Unassigned.Count > 0)
+        {
+            _rows.Children.Add(GestureRows.SectionHeader(sections.UnassignedTitle, open, () =>
+            {
+                _unassignedOpen = !_unassignedOpen;
+                _signature = "";
+                Refresh();
+                Resized?.Invoke();
+            }));
+            if (open) foreach (var row in sections.Unassigned) _rows.Children.Add(BuildRow(row));
+        }
+        if (sections.IsEmpty) _rows.Children.Add(Theme.Label(_filter.Length > 0 ? $"Nada coincide con «{_filter}»." : "Todavía no hay formas.", 12, Theme.Dim));
         return true;
     }
 
-    private static string HelpFor(GestureConfig config, string gesture)
-    {
-        var (general, app) = config.RulesOf(gesture);
-        return (general ?? app.FirstOrDefault())?.HelpText ?? "";
-    }
-
-    private UIElement BuildRow(GestureConfig config, string gesture)
-    {
-        var (general, appRules) = config.RulesOf(gesture);
-        var binding = general ?? appRules.FirstOrDefault();
-        var help = binding?.HelpText ?? gesture;
-        var detail = ActionText.Summary(binding?.Action) + (general is null ? " (solo en algunas apps)" : "");
-        var pinned = config.Bindings.Any(b => b.Gesture == gesture && b.Pinned);
-
-        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-        texts.Children.Add(Theme.Label(help, 13));
-        texts.Children.Add(Theme.Label(detail, 11, Theme.Dim));
-        var row = new DockPanel();
-        var thumb = new ShapeThumb(_app.ShapePoints(gesture), 34) { VerticalAlignment = VerticalAlignment.Center };
-        DockPanel.SetDock(thumb, Dock.Left);
-        row.Children.Add(thumb);
-        if (pinned)
-        {
-            var pin = Theme.Label("📌", 12, Theme.Dim);
-            pin.VerticalAlignment = VerticalAlignment.Center;
-            DockPanel.SetDock(pin, Dock.Right);
-            row.Children.Add(pin);
-        }
-        row.Children.Add(texts);
-        return CardChrome.Row(row, () => _app.OpenEditor(EditorTab.Gestures, gesture: gesture));
-    }
-
-    private UIElement BuildUnassignedRow(string name)
-    {
-        var row = new DockPanel { Opacity = 0.6 };
-        var thumb = new ShapeThumb(_app.ShapePoints(name), 34) { VerticalAlignment = VerticalAlignment.Center, Stroke = Theme.Dim };
-        DockPanel.SetDock(thumb, Dock.Left);
-        row.Children.Add(thumb);
-        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-        texts.Children.Add(Theme.Label(ShapeCatalog.Label(name), 13));
-        texts.Children.Add(Theme.Label("Sin acción · Asignar", 11, Theme.Amber));
-        row.Children.Add(texts);
-        return CardChrome.Row(row, () => _app.OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
-    }
+    private Button BuildRow(GestureRow row) =>
+        GestureRows.Row(_app, row, () => _app.OpenEditor(EditorTab.Gestures, gesture: row.Gesture, focusAction: !row.HasAction));
 }
 
 /// <summary>Los widgets del panel del móvil, en orden, con "+ Añadir". Oculta por defecto.</summary>
@@ -533,14 +739,12 @@ internal sealed class WidgetsCard : IToolboxCard
     public WidgetsCard(HostApp app)
     {
         _app = app;
-        var add = Theme.AccentButton("+ Añadir");
-        add.Padding = new Thickness(10, 3, 10, 3);
-        add.FontSize = 12;
+        var add = CardChrome.HeaderButton("+ Añadir");
         add.Click += (_, _) => _app.OpenEditor(EditorTab.Widgets, newWidget: true);
         var header = new DockPanel();
         DockPanel.SetDock(add, Dock.Right);
         header.Children.Add(add);
-        header.Children.Add(new Border { Child = CardChrome.Title("WIDGETS DEL MÓVIL"), VerticalAlignment = VerticalAlignment.Center });
+        header.Children.Add(new Border { Child = CardChrome.Title("Widgets del móvil"), VerticalAlignment = VerticalAlignment.Center });
         var stack = new StackPanel();
         stack.Children.Add(header);
         _rows.Margin = new Thickness(0, 8, 0, 0);
@@ -549,6 +753,8 @@ internal sealed class WidgetsCard : IToolboxCard
     }
 
     public FrameworkElement View => _view;
+
+    public Action? Resized { get; set; }
 
     public bool Refresh()
     {

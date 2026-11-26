@@ -12,6 +12,7 @@ internal static class NativeUi
     public const long WS_EX_NOACTIVATE = 0x08000000;
 
     public static readonly IntPtr HWND_TOPMOST = new(-1);
+    public static readonly IntPtr HWND_NOTOPMOST = new(-2);
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_SHOWWINDOW = 0x0040;
 
@@ -47,6 +48,55 @@ internal static class NativeUi
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
+        }
+    }
+
+    // ---- Fondo de cristal del sistema (docs/spec-v4.5-estilo.md §2.1) ----
+
+    public const int DWMSBT_MAINWINDOW = 2;       // Mica
+    public const int DWMSBT_TRANSIENTWINDOW = 3;  // Acrylic
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int Left, Right, Top, Bottom;
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
+
+    /// <summary>Windows 11 22H2 (compilación 22621) o posterior: el primero con <c>DWMWA_SYSTEMBACKDROP_TYPE</c>.</summary>
+    public static bool BackdropSupported { get; } = Environment.OSVersion.Platform == PlatformID.Win32NT && Environment.OSVersion.Version.Build >= 22621;
+
+    /// <summary>
+    /// Pide al sistema el fondo Acrylic (<see cref="DWMSBT_TRANSIENTWINDOW"/>) o Mica (<see cref="DWMSBT_MAINWINDOW"/>), con modo oscuro
+    /// y esquinas redondeadas. La ventana debe tener fondo transparente y no usar <c>AllowsTransparency</c>. Devuelve false si no se
+    /// pudo (Windows 10, o la llamada falla): entonces se usa el color sólido. No se usa la API no documentada <c>SetWindowCompositionAttribute</c>.
+    /// </summary>
+    public static bool TryEnableBackdrop(System.Windows.Window window, IntPtr hwnd, int backdropType, bool roundCorners)
+    {
+        if (!BackdropSupported || hwnd == IntPtr.Zero) return false;
+        try
+        {
+            var source = System.Windows.Interop.HwndSource.FromHwnd(hwnd);
+            if (source?.CompositionTarget is { } target) target.BackgroundColor = System.Windows.Media.Colors.Transparent;
+            window.Background = System.Windows.Media.Brushes.Transparent;
+
+            var margins = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+            DwmExtendFrameIntoClientArea(hwnd, ref margins);
+            var dark = 1;
+            DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref dark, sizeof(int));
+            if (roundCorners)
+            {
+                var round = 2; // DWMWCP_ROUND
+                DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, ref round, sizeof(int));
+            }
+            var type = backdropType;
+            return DwmSetWindowAttribute(hwnd, 38 /* DWMWA_SYSTEMBACKDROP_TYPE */, ref type, sizeof(int)) == 0;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return false;
         }
     }
 
