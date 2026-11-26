@@ -86,6 +86,11 @@ class SettingsActivity : Activity() {
             settings = settings.copy(autoRelock = it)
         })
 
+        list.addView(header("Depuración"))
+        list.addView(switch("Modo depuración: ver los dedos y las acciones en pantalla", settings.debug) {
+            settings = settings.copy(debug = it)
+        })
+
         list.addView(Button(this).apply {
             text = "Valores por defecto"
             isAllCaps = false
@@ -105,6 +110,12 @@ class SettingsActivity : Activity() {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
+        list.addView(TextView(this).apply {
+            text = "MyMouse ${packageManager.getPackageInfo(packageName, 0).versionName}"
+            textSize = 13f
+            setTextColor(Color.rgb(120, 120, 120))
+            setPadding(0, (16 * density).toInt(), 0, 0)
+        })
         setContentView(scroll)
     }
 

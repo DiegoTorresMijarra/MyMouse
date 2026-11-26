@@ -40,7 +40,8 @@ class CheatSheet(private val density: Float) {
     private val box = RectF()
     private val path = Path()
 
-    fun draw(canvas: Canvas, width: Int, height: Int) {
+    /** [atBottom]: pegada abajo en lugar de centrada (deja sitio al modo depuración). */
+    fun draw(canvas: Canvas, width: Int, height: Int, atBottom: Boolean = false) {
         if (rows.isEmpty()) return
         val pad = 14 * density
         val rowH = 30 * density
@@ -48,7 +49,8 @@ class CheatSheet(private val density: Float) {
         val textW = rows.maxOf { textPaint.measureText(it.text) }
         val w = (pad * 2 + iconW + 10 * density + textW).coerceAtMost(width - 32 * density)
         val h = pad * 2 + rowH * rows.size
-        box.set((width - w) / 2, (height - h) / 2, (width + w) / 2, (height + h) / 2)
+        val top = if (atBottom) height - h - 16 * density else (height - h) / 2
+        box.set((width - w) / 2, top, (width + w) / 2, top + h)
         canvas.drawRoundRect(box, 14 * density, 14 * density, boxPaint)
 
         val baselineOffset = -(textPaint.ascent() + textPaint.descent()) / 2

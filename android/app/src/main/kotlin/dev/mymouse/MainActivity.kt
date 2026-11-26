@@ -121,6 +121,9 @@ class MainActivity : Activity() {
         }
         settings = loaded
         trackpad.showCheatSheet = settings.showCheatSheet
+        if (settings.debug != (trackpad.debugOverlay != null)) {
+            trackpad.debugOverlay = if (settings.debug) DebugOverlay(density) else null
+        }
         requestedOrientation = when (settings.orientation) {
             AppSettings.Orientation.FREE -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
             AppSettings.Orientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT

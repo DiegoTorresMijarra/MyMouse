@@ -113,8 +113,15 @@ El scroll usa el mismo acumulador fraccionario.
 - Enviar `PING` cada 1 s; dar la conexión por perdida tras 3 s sin recibir nada.
 - Envío desde un único hilo con cola. Los `MOVE` pendientes se **fusionan**: si la cola se atasca, se suman los deltas en lugar de acumular mensajes.
 
+### 2.4.1 Modo depuración
+Se activa en Ajustes. Sobre el trackpad muestra:
+- Una minipantalla (arriba a la izquierda, misma proporción que el trackpad) con cada dedo y su trazo del último segundo.
+- El número de dedos y si se está enviando al PC.
+- Las últimas acciones enviadas en texto ("Clic", "Doble clic", "Scroll ↓ 2"…), agrupando las seguidas del mismo tipo y desvaneciéndose a los pocos segundos. La traducción acción → texto está en `core` (`ActionDescriber`) y tiene tests.
+- En la v1 mostrará también la forma reconocida en el modo gestos.
+
 ### 2.5 Ajustes (v0)
-Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), arrastrar con doble toque, orientación (libre / vertical / horizontal), segundos hasta atenuar la pantalla, mostrar la chuleta, fijar la app con Android en el modo bloqueado, volver solo al modo bloqueado tras 30 s. Pendiente: elegir el atajo de volumen (fijo en Vol− ×2).
+Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), arrastrar con doble toque, orientación (libre / vertical / horizontal), segundos hasta atenuar la pantalla, mostrar la chuleta, fijar la app con Android en el modo bloqueado, volver solo al modo bloqueado tras 30 s, modo depuración. Pendiente: elegir el atajo de volumen (fijo en Vol− ×2).
 
 ## 3. Host de Windows
 

@@ -18,6 +18,8 @@ data class AppSettings(
     val pinApp: Boolean = true,
     /** En modo ventana, volver solo al modo bloqueado tras 30 s sin tocar la pantalla. */
     val autoRelock: Boolean = false,
+    /** Modo depuración: minipantalla con los dedos y las acciones enviadas. */
+    val debug: Boolean = false,
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -41,6 +43,7 @@ data class AppSettings(
             .putString("orientation", orientation.name)
             .putBoolean("pinApp", pinApp)
             .putBoolean("autoRelock", autoRelock)
+            .putBoolean("debug", debug)
             .apply()
     }
 
@@ -64,6 +67,7 @@ data class AppSettings(
                     ?: if (p.getBoolean("landscape", false)) Orientation.LANDSCAPE else d.orientation,
                 pinApp = p.getBoolean("pinApp", d.pinApp),
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
+                debug = p.getBoolean("debug", d.debug),
             )
         }
     }

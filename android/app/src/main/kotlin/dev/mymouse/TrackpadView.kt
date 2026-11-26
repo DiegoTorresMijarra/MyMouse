@@ -56,6 +56,19 @@ class TrackpadView(
         strokeWidth = 2 * resources.displayMetrics.density
     }
 
+    /** Modo depuración: minipantalla con los dedos y lista de acciones (null = desactivado). */
+    var debugOverlay: DebugOverlay? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Envía al PC y, si el modo depuración está activo, lo anota. */
+    private fun emit(action: OutputAction) {
+        send(action)
+        debugOverlay?.onAction(action, SystemClock.uptimeMillis())
+    }
+
     /** Mostrar la chuleta de gestos en el centro. */
     var showCheatSheet: Boolean = true
         set(value) {
@@ -64,7 +77,7 @@ class TrackpadView(
         }
 
     private val tick = Runnable {
-        interpreter.onTick(SystemClock.uptimeMillis()).forEach(send)
+        interpreter.onTick(SystemClock.uptimeMillis()).forEach(::emit)
         scheduleTick()
     }
 
@@ -79,10 +92,13 @@ class TrackpadView(
             requestUnbufferedDispatch(event)
         }
 
+        val debug = debugOverlay
         for (input in toInputs(event)) {
-            interpreter.onTouch(input).forEach(send)
+            debug?.onTouch(input)
+            interpreter.onTouch(input).forEach(::emit)
         }
         scheduleTick()
+        if (debug != null) invalidate()
         return true
     }
 
@@ -122,7 +138,11 @@ class TrackpadView(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (showCheatSheet) cheatSheet.draw(canvas, width, height)
+        if (showCheatSheet) cheatSheet.draw(canvas, width, height, atBottom = debugOverlay != null)
+        debugOverlay?.let {
+            it.draw(canvas, width, height, SystemClock.uptimeMillis(), connected)
+            if (it.animating) postInvalidateDelayed(50) // trazos y textos que se desvanecen
+        }
         if (framed) {
             val inset = framePaint.strokeWidth / 2
             canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, framePaint)
