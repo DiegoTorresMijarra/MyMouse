@@ -91,7 +91,7 @@ Fichero `%APPDATA%\MyMouse\gestures.json`. Al principio se edita a mano; el host
 
 Campos opcionales de cada regla:
 - `help`: texto de ayuda que se muestra en la chuleta del móvil (hasta 40 caracteres). Si falta, se genera uno a partir de la acción ("Ctrl+Tab", "Abrir chrome.exe").
-- `pin`: `true` para que la forma aparezca también en la chuleta de reposo, en la sección "Tus formas" (ver §6).
+- `pin`: `true` para destacar la forma en la sección "Tus formas" de la chuleta del modo gestos (ver §6).
 
 Sintaxis de `keys`: modificadores `Ctrl`, `Alt`, `Shift` y `Win`, unidos con `+`, más una tecla: `A`–`Z`, `0`–`9`, `F1`–`F24`, `Enter`, `Tab`, `Esc`, `Space`, `Backspace`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right`, `PrintScreen`… Las secuencias van separadas por comas. Se envían como teclas virtuales (VK), así que **no dependen de la distribución del teclado** para letras y teclas especiales. Los símbolos (`ñ`, `@`) se escriben mejor con `text`.
 
@@ -122,10 +122,10 @@ El recuadro gris del centro del trackpad cambia según el modo.
 
 **En reposo (modo trackpad):**
 - Muestra los **gestos básicos del trackpad**: mover, clic, clic derecho, scroll, zoom, arrastrar, "3 dedos = modo gestos" y cómo salir del bloqueo. Está definida en la [spec de la v0](spec-v0.md#212-chuleta).
-- Opcional: debajo, una sección "Tus formas" con las formas marcadas con `pin: true` (hasta 4), con su miniatura y su texto de ayuda. Vacía por defecto.
 
 **Al activar el modo gestos:**
-- El recuadro crece y cambia de contenido: muestra **todas las formas** con acción asignada, en una cuadrícula de **dibujo en miniatura** (generado a partir de la plantilla) + **texto de ayuda** ("Abrir Chrome").
+- El recuadro crece y cambia de contenido: muestra las formas con acción asignada, en una cuadrícula de **dibujo en miniatura** (generado a partir de la plantilla) + **texto de ayuda** ("Abrir Chrome").
+- Arriba, la sección **"Tus formas"**: las marcadas con `pin: true`, destacadas. Debajo, el resto.
 - Si hay reglas por aplicación, muestra las que valen para la **ventana activa** del PC, con su nombre arriba ("Chrome").
 - El trazo se dibuja por encima. Al soltar, se resalta la forma reconocida (o se indica "No reconocido") y vuelve la chuleta de reposo.
 

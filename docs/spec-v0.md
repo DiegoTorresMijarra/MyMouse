@@ -54,7 +54,7 @@ Un recuadro gris oscuro, de poco contraste y esquinas redondeadas, en el centro 
 - Es solo dibujo: el recuadro también es trackpad.
 - Se atenúa con el resto de la pantalla. En ajustes se puede ocultar entera o quitar filas sueltas.
 - No necesita el PC: es fija y está en el móvil.
-- Desde la v1 cambia al activar el modo gestos y puede incluir formas propias (ver [spec-v1-gestos.md](spec-v1-gestos.md#6-chuleta)).
+- Desde la v1, al activar el modo gestos, cambia para mostrar las formas y la sección "Tus formas" (ver [spec-v1-gestos.md](spec-v1-gestos.md#6-chuleta)).
 
 ### 2.1.3 Modo ventana
 Se entra con el atajo de volumen. Sirve para cambiar ajustes o salir de la app.
