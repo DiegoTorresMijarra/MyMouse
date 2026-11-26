@@ -36,14 +36,14 @@ Si algo no conecta:
 ## Modo gestos (desde la v1.0)
 
 1. En el móvil: modo ventana → **Ajustes → Formas…** para ver y activar las formas. Lo que hace cada una se configura en el PC.
-2. En el PC: icono de MyMouse en la bandeja → **Editar gestos…**. Se abre `gestures.json` con ejemplos (círculo = abrir Chrome, Z = deshacer, V = reproducir/pausar…). Al guardar, MyMouse lo recarga solo.
+2. En el PC: icono de MyMouse en la bandeja → **Editar gestos…** (desde la v4: toolbox → **Gestos y widgets**, ver más abajo). Se abre `gestures.json` con ejemplos (círculo = abrir Chrome, Z = deshacer, V = reproducir/pausar…). Al guardar, MyMouse lo recarga solo.
 3. En el trackpad: apoya **4 dedos a la vez y déjalos quietos** hasta que vibre. Levántalos y dibuja la forma con un dedo.
 4. Activa el **modo depuración** (Ajustes) para ver qué forma se ha reconocido y con qué puntuación.
 
 ## Widgets (desde la v2.0)
 
 1. **Actualiza las dos partes** (APK y host): el panel solo aparece si el host es de la v2.0 o posterior. Con un host anterior, o sin conexión, el trackpad ocupa toda la pantalla.
-2. **Activa los widgets en el PC.** Si ya tenías `gestures.json` de la v1, no se toca: icono de la bandeja → **Editar gestos y widgets…** y añade, junto a `"bindings"`:
+2. **Activa los widgets en el PC.** Si ya tenías `gestures.json` de la v1, no se toca: icono de la bandeja → **Editar gestos y widgets…** (desde la v4, el editor de la toolbox lo hace por ti) y añade, junto a `"bindings"`:
    ```json
    "widgets": [
      { "type": "media" },
@@ -75,7 +75,22 @@ Actualiza el APK y el host (los gestos de 3 dedos por USB necesitan el host 3.1;
 3. **Panel de widgets:** 4 dedos **juntar** lo muestra y **separar** lo oculta, con animación; el estado se recuerda. Sin widgets en el PC, juntar avisa "No hay widgets".
 4. **Zoom:** más fino y rápido; "Velocidad del zoom" en Ajustes (×0,5 a ×4). Comprueba que el pellizco no se queda en scroll.
 5. **Inercia al hacer scroll:** activada por defecto; se corta con cualquier toque.
-6. Con el modo depuración, 4 dedos deslizando ↑/↓ solo se anota ("4 dedos ↑", reservado para la v4).
+6. Con el modo depuración, 4 dedos deslizando ↑/↓ se anota ("4 dedos ↑: abrir la toolbox del PC"); desde la v4 abre y cierra la toolbox.
+
+## La toolbox del PC (desde la v4.0)
+
+Actualiza el APK y el host: el host de la v4 es una app WPF (el mismo `MyMouse.exe`, más grande) y la toolbox desde el móvil necesita las dos partes en la v4 (protocolo 5). Con una parte antigua, 4 dedos ↑ / ↓ avisan "Actualiza MyMouse en el PC" y lo demás funciona como antes. Por Bluetooth no hay toolbox.
+1. **Abrir y cerrar:** clic izquierdo en el icono de la bandeja (otro clic la cierra); o **4 dedos hacia arriba** en el trackpad del móvil. Se cierra con **4 dedos hacia abajo**, `Esc` o un clic fuera. Abierta desde el móvil no te quita el foco: sigue escribiendo en la app en la que estabas; al hacer clic en la toolbox ya se comporta como una ventana normal. Clic derecho en el icono: Abrir MyMouse, Pausar, Salir.
+2. **Tarjetas:** Opciones (estado, Pausar, Gestos y widgets, Ayuda, Ajustes, Salir), Música (carátula, ⏮ ⏯ ⏭, volumen y silencio), Gestos y Widgets del móvil (oculta por defecto). Ajustes → *Personalizar tarjetas…* para quitar, añadir y reordenar (se guarda en `%APPDATA%\MyMouse\toolbox.json`; Opciones no se puede quitar). La toolbox funciona sin móvil.
+3. **Gesto en vivo:** activa el modo gestos en el móvil (4 dedos quietos) y mira el PC: sube una tarjeta con una cuenta atrás; dibuja y verás el trazo en directo. Al terminar se colorea: **verde** = reconocida y ejecutada (ayuda y acción), **ámbar** = reconocida sin acción (con botón *Asignar*), **gris** = no reconocida o cancelada, **rojo** = la acción falló. Baja sola al cabo de ~1,5 s. Se desactiva en Ajustes → *Mostrar el gesto en vivo*.
+4. **Editor** (Opciones → *Gestos y widgets*, o clic en una forma de la tarjeta Gestos):
+   - Pestaña **Gestos:** elige la forma, el tipo de acción (atajo: haz clic en el campo y pulsa la combinación, también con la tecla Win; abrir app: *Elegir programa…* o la lista de apps del menú Inicio con buscador; texto; multimedia; MyMouse), el texto de ayuda y si va fijada en la chuleta. *Probar* la ejecuta (las teclas y el texto, a los 3 s para que cambies de ventana). *Guardar* escribe `gestures.json` con formato limpio (la primera vez deja una copia `gestures.json.bak`; los comentarios se pierden) y el móvil recibe la lista al momento.
+   - Si `gestures.json` tiene un error de sintaxis, el editor lo dice y ofrece abrirlo en el Bloc de notas en vez de pisarlo.
+   - Pestaña **Widgets:** añadir, ordenar (↑ ↓) y borrar; un botón tiene etiqueta, icono (emoji con `Win+.`) y acción; vista previa del panel.
+5. **Forma nueva desde el PC:** *+ Nueva forma* → nombre → 3 muestras con el ratón o el touchpad → *Guardar en el móvil*. Si se confunde con otra, te lo dice. Después asígnale una acción (p. ej. abrir Chrome). Con el móvil sin conectar, o con un host/móvil antiguo, el botón queda desactivado: "Conecta el móvil por USB para grabar formas".
+6. **Forma nueva desde el móvil:** Ajustes → Formas → Nueva forma. Al volver al trackpad, el PC avisa con un globo "Nueva forma «x»: ¿qué quieres que haga?"; al pulsarlo se abre el editor con esa forma.
+7. **`MyMouse.TestClient.exe`** (con el host abierto) abre y cierra la toolbox, simula un trazo y envía una forma de prueba; con `--formas` se queda 60 s contestando a lo que el editor mande al móvil (probar *+ Nueva forma* sin móvil).
+8. **Qué comprobar con más cuidado** (no se ha probado en Windows real): colocación sobre la bandeja con varios monitores o escalas distintas, que abrir desde el móvil no robe el foco, el campo de atajos con la tecla Win, el selector de emojis y la carátula de la música. Si algo falla, apunta qué hiciste y el log del día.
 
 ## Bluetooth (desde la v3.0)
 

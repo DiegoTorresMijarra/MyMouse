@@ -2,7 +2,7 @@
 
 > Objetivos: [00-roadmap.md](00-roadmap.md) · Base: [spec-v1-gestos.md](spec-v1-gestos.md), [spec-v2-widgets.md](spec-v2-widgets.md), [spec-v3.1-ajustes.md](spec-v3.1-ajustes.md) · Protocolo: [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md)
 >
-> Estado: **especificada**. Las decisiones marcadas con *(decisión)* se tomaron sin el usuario.
+> Estado: **implementada** en la rama de desarrollo (release `v4.0` pendiente), sin probar en Windows ni en el móvil: ver [§10](#10-notas-de-implementación). Las decisiones marcadas con *(decisión)* se tomaron sin el usuario.
 
 ## 1. Qué es
 
@@ -182,3 +182,30 @@ Sube a la versión 5 (la 4 es la de la v3.1). Mismo formato de longitud variable
 - Instalador de Windows con adb incluido.
 - Temas claros.
 - Varios móviles a la vez.
+
+## 10. Notas de implementación
+
+Implementado: protocolo v5 en Kotlin y C# (vectores en `PROTOCOL.md`), lógica en `core` y en `MyMouse.HostCore` con tests, app y host WPF. Desviaciones respecto a lo anterior y lo que **no se ha podido verificar**:
+
+### Desviaciones
+- **Coordenadas normalizadas con una sola escala.** En `STROKE_POINTS` y en las muestras de `SHAPE_INFO`/`SHAPE_ADD`, el lado largo del área (o de la caja de la forma) ocupa 0–65535 y el corto, menos, en lugar de normalizar cada eje por separado: así el trazo no se deforma en un trackpad que no es cuadrado. El origen es la esquina superior izquierda. Está escrito en `PROTOCOL.md`.
+- **Aviso de forma nueva con el globo de `NotifyIcon`**, sin NuGet de toast: un `.exe` sin empaquetar necesita registrar un AUMID y un acceso directo para los toast. El clic en el globo abre el editor con la forma seleccionada. Solo se avisa de formas nuevas **sin acción** y no en la primera sincronización (con la copia `shapes-cache.json` vacía) ni de las creadas desde el propio PC.
+- **Interfaz WPF sin XAML.** Todas las ventanas se construyen en C# (el XAML no compilaría de forma fiable en Linux, donde se verifica el build); solo las plantillas de botón, cuadro de texto, casilla y barra de desplazamiento son XAML dentro de cadenas que se cargan al arrancar (`Ui/Theme.cs`). Si una no se puede cargar, se apunta en el log y se usa la de Windows. Los desplegables son botones-chip, no `ComboBox`, para no depender de plantillas complejas.
+- **Tarjeta Gestos de la toolbox:** muestra las formas con acción, las formas propias del móvil sin acción (atenuadas, "Sin acción · Asignar") y, para las del catálogo sin acción, una sola fila resumen "N formas más sin acción · Asignar…" que abre el editor con el filtro "solo sin acción" (15 filas atenuadas harían la tarjeta interminable).
+- **Atajos grabados:** el hook de teclado de bajo nivel traga todas las teclas mientras el campo tiene el foco (si no, Win abriría el menú Inicio). Se desinstala al perder el foco. El botón ✎ lo desactiva para escribir el atajo a mano. La combinación termina al pulsar una tecla no modificadora o, si solo hay modificadores, al soltarlos todos (`Win`, `Ctrl+Shift`).
+- **Probar** una acción de teclas o de texto espera 3 s antes de ejecutarla (si no, las teclas irían al propio editor). Las demás se ejecutan al instante.
+- **Gesto en vivo clicable:** la ventana es transparente al ratón salvo mientras se muestra el botón "Asignar" (resultado "sin acción"), que necesita recibir el clic.
+- **Modo gestos sin ejecutar nada** (PC en pausa): no llega ningún resultado de la acción, así que a los 700 ms la tarjeta pasa a rojo con "No se ha ejecutado (¿MyMouse en pausa?)" en lugar de quedarse en verde.
+- **Nombres de forma de `SHAPE_ADD`:** el PC manda el nombre completo (`custom:firma`, normalizado como en el móvil: minúsculas y guiones); el móvil valida que lleve el prefijo, que sean ≤ 64 bytes y que cada muestra tenga ≥ 2 puntos y al menos un 2 % del rango de extensión. Las muestras del PC se guardan en el móvil en coordenadas 0–65535 (el reconocedor no depende de la escala).
+- **Móvil dueño de las formas:** tras guardar o borrar por petición del PC, el móvil contesta `SHAPE_RESULT` y reenvía la lista completa. Al volver a la pantalla principal tras grabar o borrar formas en el móvil, la lista se reenvía solo si cambió. La conexión USB se para mientras Ajustes/Formas están abiertas (`MainActivity.onPause`), así que el refresco de `ShapesActivity` por una petición del PC (`ShapeStore.onExternalChange`) está implementado pero en la práctica no llega a dispararse con la conexión actual.
+- **Toolbox:** las Opciones van siempre primero y visibles; el ajuste "Mostrar el gesto en vivo" se guarda también en `toolbox.json` (`liveGesture`). Con el gesto en vivo desactivado vuelven los globos de forma sin asignar o con error.
+- **Editor:** guardar reescribe `gestures.json` sin comentarios ni propiedades desconocidas (copia `gestures.json.bak` la primera vez). Las reglas por app pueden tener su propio texto de ayuda. Cambiar de forma o cerrar con cambios sin guardar pregunta.
+- **Nombre del móvil** en el estado ("Conectado · Poco X8 Pro Max por USB"): sale de `adb devices -l` (campo `model:`); si no se conoce, solo "Conectado".
+- **Publicación:** se añade `EnableCompressionInSingleFile` (el ejecutable autocontenido con WPF y WinForms pasa de ~200 MB a ~82 MB). Los usings implícitos de `System.IO`, `System.Drawing` y `System.Windows.Forms` se ajustan en el `.csproj` para evitar choques entre WPF y WinForms.
+- **Chuleta del móvil:** no se ha añadido una fila nueva para "4 dedos ↑ / ↓: toolbox" (haría falta un icono nuevo).
+- **Motor de gestos:** emite siempre `StrokeEnd` antes del resultado (`Gesture` o `GestureRejected`) y `GestureMode(true)` lleva el tiempo de espera; los tests del motor existentes se ajustaron para ignorar `StrokeEnd`.
+
+### Sin verificar
+- **Todo lo que dibuja o interactúa en Windows.** El host se compila y se publica (`win-x64`, un solo fichero, autocontenido) en Linux con `EnableWindowsTargeting`, y la lógica tiene tests, pero **ninguna ventana se ha ejecutado**: animaciones, tema, plantillas XAML de las cadenas, posición sobre la bandeja con varios monitores o escalas (se coloca con `SetWindowPos` en píxeles y la escala del monitor de la barra de tareas; WPF puede reescalar la ventana al cambiar de monitor), `WS_EX_NOACTIVATE` al abrir desde el móvil, clic fuera, el hook de teclado, el selector de emojis (`Win+.`), la carátula de la sesión multimedia (WinRT), el globo con clic y el icono de la bandeja con WPF.
+- **El módulo `app` de Android** no se ha compilado (sin Android SDK local): solo `core` (con tests).
+- **Sincronización de formas y gesto en vivo de extremo a extremo** entre un móvil real y el host. `MyMouse.TestClient` los simula (`--formas` se queda 60 s contestando a `SHAPE_ADD` y `SHAPE_DELETE`).

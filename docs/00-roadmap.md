@@ -105,5 +105,29 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 ---
 
+## v4: La toolbox del PC
+
+**Objetivo:** que MyMouse en Windows sea una app de verdad (un panel flotante al estilo de la Toolbox de JetBrains) desde la que ver lo que suena, configurar gestos y widgets sin tocar `gestures.json` y ver el trazo de las formas en el PC.
+
+**Alcance:**
+- Host de Windows en **WPF**: toolbox anclada sobre la bandeja con tarjetas (Opciones, Música, Gestos, Widgets del móvil) personalizables; se abre con clic en el icono o con 4 dedos ↑ en el móvil y se cierra con 4 dedos ↓, Esc o un clic fuera.
+- **Gesto en vivo:** tarjeta que sube desde la esquina y dibuja el trazo del móvil con el resultado (reconocida, sin acción, no reconocida, error).
+- **Editor de gestos y widgets** con formularios (atajo grabado, abrir app con lista del menú Inicio, texto, multimedia…), botón Probar y reglas por app.
+- **Formas nuevas** dibujadas con el ratón del PC, sincronizadas con el móvil (que sigue siendo su dueño); aviso en el PC al grabar una en el móvil.
+- Protocolo versión 5: `TOOLBOX`, `GESTURE_MODE`, `STROKE_POINTS`, `STROKE_END`, `SHAPE_INFO`, `SHAPE_LIST_END`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`.
+- Detalle: [spec-v4-toolbox.md](spec-v4-toolbox.md).
+
+> Estado: implementada en la rama de desarrollo (release `v4.0` pendiente). La lógica tiene tests (protocolo en los dos lados, edición y escritura de `gestures.json`, sincronización de formas, modelo del trazo en vivo, tarjetas, atajos, apps), pero las ventanas de Windows y el módulo `app` no se han ejecutado ni compilado aquí: ver las notas de [§10 de la spec](spec-v4-toolbox.md#10-notas-de-implementación).
+
+**Criterios de "hecho":**
+1. Abrir y cerrar la toolbox con 4 dedos ↑ / ↓ desde el móvil, y con clic en la bandeja.
+2. Ver el trazo en vivo en el PC al dibujar, con el resultado, sin mirar el móvil.
+3. Crear una forma nueva con el ratón del PC y asignarle "abrir Chrome" sin tocar el fichero, en menos de un minuto.
+4. Grabar una forma en el móvil hace que aparezca el aviso en el PC y se pueda asignar desde él.
+5. Quitar y reordenar tarjetas; la de Opciones no se puede quitar.
+6. Tests de protocolo (en los dos lados), de la edición de la configuración, de la sincronización de formas y del modelo del trazo en vivo.
+
+---
+
 ## Ideas sin versión
 Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio) · instalador y arranque con Windows.
