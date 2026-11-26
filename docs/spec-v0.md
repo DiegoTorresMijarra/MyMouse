@@ -33,9 +33,9 @@ Dos niveles, porque Android solo permite el bloqueo completo a la app "propietar
 | Nivel | Cómo se activa | Qué se consigue | Cómo se sale |
 |---|---|---|---|
 | **Básico** (por defecto) | Nada: la app llama a `startLockTask` y Android pide confirmación una vez ("Fijar aplicación"). | Inicio, Recientes y notificaciones bloqueados. | La combinación del atajo de volumen. Android también deja salir manteniendo Atrás + Recientes; es poco probable hacerlo sin querer. |
-| **Completo** | Una vez, desde el PC: `adb shell dpm set-device-owner dev.mymouse/.AdminReceiver`. Exige quitar antes las cuentas del móvil (Google, Huawei). | Sin confirmación ni combinación de escape del sistema. Arranque automático de la app al encender el móvil, sin pantalla de bloqueo, pantalla siempre encendida mientras carga. | Solo con el atajo de volumen. En ajustes hay un botón "Dejar de ser propietaria" para volver a un móvil normal. |
+| **Completo** | Una vez, desde el PC: `adb shell dpm set-device-owner dev.mymouse/.AdminReceiver`. Exige quitar antes las cuentas del móvil (Google, Huawei). | Sin confirmación ni combinación de escape del sistema. Sin pantalla de bloqueo, pantalla siempre encendida mientras carga. (Pendiente: arranque automático al encender el móvil.) | Solo con el atajo de volumen. En modo ventana hay un botón "Quitar propietario" para volver a un móvil normal. |
 
-Riesgo del nivel completo: si la app falla al arrancar, el móvil queda atrapado. Mitigación: si la app se cierra por un error 3 veces seguidas, arranca sin bloqueo. **Hay que comprobar en el P10 que EMUI acepta `set-device-owner`** (añadido a M0).
+Riesgo del nivel completo: mientras no haya arranque automático, un fallo de la app no deja el móvil atrapado (al reiniciar no se abre sola). Cuando se añada, si la app se cierra por un error 3 veces seguidas, arrancará sin bloqueo. **Hay que comprobar en el P10 que EMUI acepta `set-device-owner`** (añadido a M0).
 
 ### 2.1.2 Chuleta
 Un recuadro gris oscuro, de poco contraste y esquinas redondeadas, en el centro del trackpad, que recuerda los gestos básicos:
@@ -60,8 +60,9 @@ Un recuadro gris oscuro, de poco contraste y esquinas redondeadas, en el centro 
 Se entra con el atajo de volumen. Sirve para cambiar ajustes o salir de la app.
 
 - El trackpad se reduce y deja **un margen alrededor**, como una ventana, para que se vea a simple vista que no está bloqueado. Dentro del recuadro sigue funcionando como trackpad.
-- Se muestran las barras del sistema y, en el margen, los botones **Ajustes** y **Salir**.
-- Se vuelve al modo bloqueado con el mismo atajo de volumen, con un botón "Bloquear", o solo tras 30 s sin tocar el margen (configurable o desactivable).
+- Se muestran las barras del sistema y, arriba, los botones **Bloquear**, **Salir** y (más adelante) **Ajustes**.
+- Se vuelve al modo bloqueado con el mismo atajo de volumen, con un botón "Bloquear", o solo tras 30 s sin tocar la pantalla.
+- En modo bloqueado, Atrás no hace nada; en modo ventana, cierra la app.
 
 ### 2.2 Interpretación de gestos
 

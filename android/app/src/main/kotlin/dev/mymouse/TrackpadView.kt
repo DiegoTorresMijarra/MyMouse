@@ -35,6 +35,19 @@ class TrackpadView(
 
     val cheatSheet = CheatSheet(density)
 
+    /** Modo ventana: dibuja un borde alrededor del trackpad. */
+    var framed: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.rgb(90, 90, 90)
+        strokeWidth = 2 * resources.displayMetrics.density
+    }
+
     /** Mostrar la chuleta de gestos en el centro. */
     var showCheatSheet: Boolean = true
         set(value) {
@@ -102,6 +115,10 @@ class TrackpadView(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (showCheatSheet) cheatSheet.draw(canvas, width, height)
+        if (framed) {
+            val inset = framePaint.strokeWidth / 2
+            canvas.drawRoundRect(inset, inset, width - inset, height - inset, 12 * density, 12 * density, framePaint)
+        }
         // Indicador discreto de estado: verde = conectado, gris = desconectado.
         statusPaint.color = if (connected) Color.rgb(40, 160, 70) else Color.rgb(90, 90, 90)
         val r = 5 * density

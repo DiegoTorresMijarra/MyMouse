@@ -62,10 +62,10 @@ Especificado en [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md).
 - [~] Curva de aceleración propia (implementada y testeada). Falta la UI de ajustes y guardarlos.
 - [ ] Velocidad de scroll configurable.
 - [ ] Atenuar la pantalla tras X segundos sin uso (sin apagarla).
-- [ ] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen −.
+- [~] Modo bloqueado básico (`startLockTask`) y salida con doble pulsación de Volumen − (release v0.3).
 - [~] Chuleta de gestos básicos en el centro del trackpad (release v0.2).
-- [ ] Modo ventana: trackpad con margen, botones Ajustes y Salir.
-- [ ] (Opcional) Modo bloqueado completo como propietaria del dispositivo, arranque al encender.
+- [~] Modo ventana: trackpad con margen, botones Bloquear y Salir (release v0.3).
+- [~] Modo bloqueado completo como propietaria del dispositivo (release v0.3). Falta el arranque al encender.
 - [ ] Prueba de un día entero y lista de molestias, que alimentará la v1.
 
 ## Fuera de v0

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo se usa si el usuario registra la app como propietaria del dispositivo (modo bloqueado completo). -->
+<device-admin>
+    <uses-policies />
+</device-admin>
