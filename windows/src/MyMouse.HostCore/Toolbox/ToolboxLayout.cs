@@ -22,10 +22,12 @@ public sealed class ToolboxLayout
 {
     private readonly (ToolboxCard Card, bool Visible)[] _entries;
 
-    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture)
+    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false)
     {
         _entries = Normalize(entries);
         ShowLiveGesture = showLiveGesture;
+        GlassEffect = glass;
+        Maximized = maximized;
     }
 
     public static ToolboxLayout Default { get; } = new(
@@ -34,6 +36,12 @@ public sealed class ToolboxLayout
 
     /// <summary>"Mostrar el gesto en vivo" en los ajustes de la toolbox.</summary>
     public bool ShowLiveGesture { get; }
+
+    /// <summary>"Efecto cristal" (v4.5): fondo translúcido del sistema. Desactivado, las ventanas usan un fondo sólido.</summary>
+    public bool GlassEffect { get; }
+
+    /// <summary>La toolbox se quedó maximizada (ventana de dos columnas) y se abre así.</summary>
+    public bool Maximized { get; }
 
     /// <summary>Todas las tarjetas en su orden, con si están visibles (para la ventana de personalizar).</summary>
     public IReadOnlyList<(ToolboxCard Card, bool Visible)> Entries => _entries;
@@ -47,7 +55,7 @@ public sealed class ToolboxLayout
     public ToolboxLayout SetVisible(ToolboxCard card, bool visible) =>
         card == ToolboxCard.Options
             ? this
-            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture);
+            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized);
 
     /// <summary>Mueve una tarjeta <paramref name="delta"/> puestos (−1 = arriba). Nada pasa por encima de las Opciones.</summary>
     public ToolboxLayout Move(ToolboxCard card, int delta)
@@ -60,10 +68,14 @@ public sealed class ToolboxLayout
         var item = list[from];
         list.RemoveAt(from);
         list.Insert(to, item);
-        return new ToolboxLayout(list, ShowLiveGesture);
+        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized);
     }
 
-    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show);
+    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized);
+
+    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized);
+
+    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized);
 
     // ---- JSON ----
 
@@ -75,6 +87,8 @@ public sealed class ToolboxLayout
         {
             cards = _entries.Select(e => new { id = e.Card.ToString().ToLowerInvariant(), visible = e.Visible }).ToArray(),
             liveGesture = ShowLiveGesture,
+            glass = GlassEffect,
+            maximized = Maximized,
         };
         return JsonSerializer.Serialize(model, JsonOptions);
     }
@@ -101,7 +115,9 @@ public sealed class ToolboxLayout
                 }
             }
             var live = !doc.RootElement.TryGetProperty("liveGesture", out var lg) || lg.ValueKind != JsonValueKind.False;
-            return new ToolboxLayout(entries, live);
+            var glass = !doc.RootElement.TryGetProperty("glass", out var g) || g.ValueKind != JsonValueKind.False;
+            var maximized = doc.RootElement.TryGetProperty("maximized", out var m) && m.ValueKind == JsonValueKind.True;
+            return new ToolboxLayout(entries, live, glass, maximized);
         }
         catch (JsonException)
         {
