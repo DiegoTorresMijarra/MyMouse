@@ -17,8 +17,8 @@
 ### 2.1 Pantalla del trackpad
 - Una Activity a pantalla completa, fondo negro, `FLAG_KEEP_SCREEN_ON` mientras está en primer plano.
 - Un indicador de estado discreto en una esquina: gris = desconectado, verde = conectado.
-- Orientación **bloqueada** (configurable: vertical u horizontal).
-- La app tiene dos modos: **bloqueado** (el normal) y **ventana**.
+- Orientación **libre** por defecto (gira con el móvil). En ajustes se puede bloquear en vertical o en horizontal.
+- La app tiene dos modos: **bloqueado** y **ventana**. **Arranca en modo ventana**: el usuario configura y bloquea cuando empieza a usarla (botón Bloquear o Vol− ×2).
 
 ### 2.1.1 Modo bloqueado (kiosco)
 El móvil es un dispositivo dedicado: la app ocupa toda la pantalla, la pantalla no se apaga y no se puede salir de la app por accidente.
@@ -32,7 +32,8 @@ Dos niveles, porque Android solo permite el bloqueo completo a la app "propietar
 
 | Nivel | Cómo se activa | Qué se consigue | Cómo se sale |
 |---|---|---|---|
-| **Básico** (por defecto) | Nada: la app llama a `startLockTask` y Android pide confirmación una vez ("Fijar aplicación"). | Inicio, Recientes y notificaciones bloqueados. | La combinación del atajo de volumen. Android también deja salir manteniendo Atrás + Recientes; es poco probable hacerlo sin querer. |
+| **Básico** (por defecto) | Nada: la app llama a `startLockTask` y Android pide confirmación ("Fijar aplicación"). | Inicio, Recientes y notificaciones bloqueados. | La combinación del atajo de volumen. Android también deja salir manteniendo Atrás + Recientes; es poco probable hacerlo sin querer. **Ojo:** muchos móviles (p. ej. Xiaomi/Poco) piden el PIN o muestran la pantalla de bloqueo al dejar de fijar; se desactiva en los ajustes del sistema. |
+| **Sin fijar** (ajuste) | Desactivar "Fijar la app con Android". | Solo barras ocultas y Atrás anulado. Inicio sigue saliendo de la app. | El atajo de volumen. |
 | **Completo** | Una vez, desde el PC: `adb shell dpm set-device-owner dev.mymouse/.AdminReceiver`. Exige quitar antes las cuentas del móvil (Google, Huawei). | Sin confirmación ni combinación de escape del sistema. Sin pantalla de bloqueo, pantalla siempre encendida mientras carga. (Pendiente: arranque automático al encender el móvil.) | Solo con el atajo de volumen. En modo ventana hay un botón "Quitar propietario" para volver a un móvil normal. |
 
 Riesgo del nivel completo: mientras no haya arranque automático, un fallo de la app no deja el móvil atrapado (al reiniciar no se abre sola). Cuando se añada, si la app se cierra por un error 3 veces seguidas, arrancará sin bloqueo. **Hay que comprobar en el P10 que EMUI acepta `set-device-owner`** (añadido a M0).
@@ -61,7 +62,8 @@ Se entra con el atajo de volumen. Sirve para cambiar ajustes o salir de la app.
 
 - El trackpad se reduce y deja **un margen alrededor**, como una ventana, para que se vea a simple vista que no está bloqueado. Dentro del recuadro sigue funcionando como trackpad.
 - Se muestran las barras del sistema y, arriba, los botones **Bloquear**, **Salir** y (más adelante) **Ajustes**.
-- Se vuelve al modo bloqueado con el mismo atajo de volumen, con un botón "Bloquear", o solo tras 30 s sin tocar la pantalla.
+- Se vuelve al modo bloqueado con el mismo atajo de volumen o con el botón "Bloquear". Opcional (desactivado por defecto): volver solo tras 30 s sin tocar la pantalla.
+- Los botones y el trackpad respetan la barra de estado, la de navegación y el notch (Android 15 dibuja la app debajo de ellas).
 - En modo bloqueado, Atrás no hace nada; en modo ventana, cierra la app.
 
 ### 2.2 Interpretación de gestos
@@ -112,7 +114,7 @@ El scroll usa el mismo acumulador fraccionario.
 - Envío desde un único hilo con cola. Los `MOVE` pendientes se **fusionan**: si la cola se atasca, se suman los deltas en lugar de acumular mensajes.
 
 ### 2.5 Ajustes (v0)
-Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), orientación, segundos hasta atenuar la pantalla, mostrar la chuleta. Pendientes: elegir el atajo de volumen y el tiempo para volver solo al modo bloqueado (fijos en Vol− ×2 y 30 s).
+Sensibilidad, aceleración, velocidad de scroll, invertir scroll ("natural"), arrastrar con doble toque, orientación (libre / vertical / horizontal), segundos hasta atenuar la pantalla, mostrar la chuleta, fijar la app con Android en el modo bloqueado, volver solo al modo bloqueado tras 30 s. Pendiente: elegir el atajo de volumen (fijo en Vol− ×2).
 
 ## 3. Host de Windows
 

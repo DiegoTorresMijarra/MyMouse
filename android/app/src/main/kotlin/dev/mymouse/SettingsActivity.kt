@@ -4,13 +4,18 @@ import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import kotlin.math.roundToInt
 
 /** Pantalla de ajustes, sin dependencias extra: barras deslizantes e interruptores. Guarda al salir. */
@@ -59,8 +64,26 @@ class SettingsActivity : Activity() {
         list.addView(slider("Atenuar tras", 0f, 300f, 10f, settings.dimAfterSeconds.toFloat(), { if (it == 0f) "nunca" else "${it.roundToInt()} s" }) {
             settings = settings.copy(dimAfterSeconds = it.roundToInt())
         })
-        list.addView(switch("Horizontal (apaisado)", settings.landscape) {
-            settings = settings.copy(landscape = it)
+        list.addView(choice(
+            "Orientación",
+            listOf("Libre (gira con el móvil)", "Bloqueada en vertical", "Bloqueada en horizontal"),
+            settings.orientation.ordinal,
+        ) { settings = settings.copy(orientation = AppSettings.Orientation.entries[it]) })
+
+        list.addView(header("Modo bloqueado"))
+        list.addView(switch("Fijar la app con Android (Inicio y Recientes no salen de la app)", settings.pinApp) {
+            settings = settings.copy(pinApp = it)
+        })
+        list.addView(TextView(this).apply {
+            text = "Si al salir del bloqueo (Vol− ×2) el móvil pide el PIN o muestra la pantalla de bloqueo, " +
+                "desactiva en los ajustes del sistema la opción de pedir desbloqueo al dejar de fijar una app " +
+                "(suele estar en Seguridad → Fijar aplicaciones), o desactiva esta opción. " +
+                "Sin fijar, el modo bloqueado solo oculta las barras y anula el botón Atrás."
+            textSize = 13f
+            setTextColor(Color.rgb(150, 150, 150))
+        })
+        list.addView(switch("Volver solo al modo bloqueado tras 30 s sin tocar", settings.autoRelock) {
+            settings = settings.copy(autoRelock = it)
         })
 
         list.addView(Button(this).apply {
@@ -72,10 +95,17 @@ class SettingsActivity : Activity() {
             }
         })
 
-        setContentView(ScrollView(this).apply {
+        val scroll = ScrollView(this).apply {
             setBackgroundColor(Color.rgb(18, 18, 18))
             addView(list)
-        })
+        }
+        // Android 15 dibuja la app bajo las barras del sistema: dejar su hueco a mano.
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        setContentView(scroll)
     }
 
     override fun onPause() {
@@ -122,6 +152,25 @@ class SettingsActivity : Activity() {
             addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (40 * density).toInt()))
         }
     }
+
+    private fun choice(name: String, options: List<String>, selected: Int, onChange: (Int) -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, (8 * density).toInt(), 0, (8 * density).toInt())
+            addView(label().apply { text = name })
+            addView(RadioGroup(this@SettingsActivity).apply {
+                options.forEachIndexed { i, option ->
+                    addView(RadioButton(this@SettingsActivity).apply {
+                        id = View.generateViewId()
+                        text = option
+                        textSize = 16f
+                        setTextColor(Color.rgb(230, 230, 230))
+                        isChecked = i == selected
+                        setOnCheckedChangeListener { _, checked -> if (checked) onChange(i) }
+                    })
+                }
+            })
+        }
 
     @Suppress("UseSwitchCompatOrMaterialCode")
     private fun switch(name: String, value: Boolean, onChange: (Boolean) -> Unit) = Switch(this).apply {

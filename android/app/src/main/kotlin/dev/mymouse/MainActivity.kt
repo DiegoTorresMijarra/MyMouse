@@ -20,6 +20,8 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -30,6 +32,7 @@ import dev.mymouse.core.protocol.Protocol
  * Pantalla única de la app. Dos modos (docs/spec-v0.md §2.1):
  * - **Bloqueado:** trackpad a pantalla completa, sin barras y con la app fijada (lock task).
  * - **Ventana:** trackpad con margen, barras visibles y botones. Se alterna con Volumen − dos veces.
+ * La app arranca en modo ventana: el usuario configura y bloquea cuando quiere.
  */
 class MainActivity : Activity() {
 
@@ -40,7 +43,10 @@ class MainActivity : Activity() {
     private lateinit var root: FrameLayout
     private lateinit var controls: LinearLayout
 
-    private var mode = Mode.LOCKED
+    private var mode = Mode.WINDOW
+
+    /** Hueco de las barras del sistema y del notch, para no dibujar los botones debajo. */
+    private var systemInsets = Insets.NONE
     private var lastVolumeDownAt = 0L
     private val handler = Handler(Looper.getMainLooper())
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
@@ -63,12 +69,19 @@ class MainActivity : Activity() {
         root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
-            addView(controls, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
+            addView(controls, FrameLayout.LayoutParams(MATCH, (CONTROLS_HEIGHT_DP * density).toInt(), Gravity.TOP))
+        }
+        // Desde Android 15 la app siempre se dibuja bajo las barras: se aplican los márgenes a mano.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            applyLayout()
+            insets
         }
         setContentView(root)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        mode = if (savedInstanceState?.getBoolean(KEY_WINDOW) == true) Mode.WINDOW else Mode.LOCKED
+        mode = if (savedInstanceState?.getBoolean(KEY_WINDOW, true) == false) Mode.LOCKED else Mode.WINDOW
         applyLayout()
     }
 
@@ -108,10 +121,10 @@ class MainActivity : Activity() {
         }
         settings = loaded
         trackpad.showCheatSheet = settings.showCheatSheet
-        requestedOrientation = if (settings.landscape) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        requestedOrientation = when (settings.orientation) {
+            AppSettings.Orientation.FREE -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+            AppSettings.Orientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            AppSettings.Orientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
         scheduleDim()
     }
@@ -149,8 +162,16 @@ class MainActivity : Activity() {
         val window = mode == Mode.WINDOW
         controls.visibility = if (window) View.VISIBLE else View.GONE
         root.setBackgroundColor(if (window) Color.rgb(32, 32, 32) else Color.BLACK)
-        val m = if (window) (16 * density).toInt() else 0
-        (trackpad.layoutParams as FrameLayout.LayoutParams).setMargins(m, if (window) (56 * density).toInt() else 0, m, m)
+        val i = systemInsets
+        (controls.layoutParams as FrameLayout.LayoutParams).setMargins(i.left, i.top, i.right, 0)
+        controls.requestLayout()
+        val lp = trackpad.layoutParams as FrameLayout.LayoutParams
+        if (window) {
+            val m = (WINDOW_MARGIN_DP * density).toInt()
+            lp.setMargins(i.left + m, i.top + (CONTROLS_HEIGHT_DP * density).toInt(), i.right + m, i.bottom + m)
+        } else {
+            lp.setMargins(0, 0, 0, 0) // barras ocultas: toda la pantalla
+        }
         trackpad.requestLayout()
         trackpad.framed = window
         trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS +
@@ -161,7 +182,6 @@ class MainActivity : Activity() {
 
     private fun applySystemBars() {
         val window = mode == Mode.WINDOW
-        WindowCompat.setDecorFitsSystemWindows(this.window, window)
         WindowInsetsControllerCompat(this.window, this.window.decorView).apply {
             if (window) {
                 show(WindowInsetsCompat.Type.systemBars())
@@ -173,7 +193,7 @@ class MainActivity : Activity() {
     }
 
     private fun startLock() {
-        if (mode != Mode.LOCKED || isLockTaskActive()) return
+        if (mode != Mode.LOCKED || !settings.pinApp || isLockTaskActive()) return
         try {
             // Sin ser propietaria del dispositivo, Android pide confirmación ("Fijar aplicación").
             startLockTask()
@@ -196,7 +216,7 @@ class MainActivity : Activity() {
 
     private fun scheduleAutoRelock() {
         handler.removeCallbacks(autoRelock)
-        if (mode == Mode.WINDOW) handler.postDelayed(autoRelock, AUTO_RELOCK_MS)
+        if (mode == Mode.WINDOW && settings.autoRelock) handler.postDelayed(autoRelock, AUTO_RELOCK_MS)
     }
 
     // ---- Teclas y toques ----
@@ -281,6 +301,8 @@ class MainActivity : Activity() {
         const val KEY_WINDOW = "window_mode"
         const val DOUBLE_PRESS_MS = 500L
         const val AUTO_RELOCK_MS = 30_000L
+        const val CONTROLS_HEIGHT_DP = 64
+        const val WINDOW_MARGIN_DP = 24
         const val DIM_BRIGHTNESS = 0.02f
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT

@@ -13,8 +13,14 @@ data class AppSettings(
     val showCheatSheet: Boolean = true,
     /** Segundos sin tocar la pantalla hasta atenuarla; 0 = nunca. */
     val dimAfterSeconds: Int = 60,
-    val landscape: Boolean = false,
+    val orientation: Orientation = Orientation.FREE,
+    /** Usar el fijado de apps de Android en el modo bloqueado (bloquea Inicio y Recientes). */
+    val pinApp: Boolean = true,
+    /** En modo ventana, volver solo al modo bloqueado tras 30 s sin tocar la pantalla. */
+    val autoRelock: Boolean = false,
 ) {
+    enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
+
     fun trackpadConfig() = TrackpadConfig(
         sensitivity = sensitivity,
         acceleration = acceleration,
@@ -32,7 +38,9 @@ data class AppSettings(
             .putBoolean("tapToDrag", tapToDrag)
             .putBoolean("showCheatSheet", showCheatSheet)
             .putInt("dimAfterSeconds", dimAfterSeconds)
-            .putBoolean("landscape", landscape)
+            .putString("orientation", orientation.name)
+            .putBoolean("pinApp", pinApp)
+            .putBoolean("autoRelock", autoRelock)
             .apply()
     }
 
@@ -50,7 +58,12 @@ data class AppSettings(
                 tapToDrag = p.getBoolean("tapToDrag", d.tapToDrag),
                 showCheatSheet = p.getBoolean("showCheatSheet", d.showCheatSheet),
                 dimAfterSeconds = p.getInt("dimAfterSeconds", d.dimAfterSeconds),
-                landscape = p.getBoolean("landscape", d.landscape),
+                orientation = p.getString("orientation", null)
+                    ?.let { name -> Orientation.entries.firstOrNull { it.name == name } }
+                    // v0.4 guardaba solo "landscape" (true = horizontal, false = vertical fijo, que era el defecto).
+                    ?: if (p.getBoolean("landscape", false)) Orientation.LANDSCAPE else d.orientation,
+                pinApp = p.getBoolean("pinApp", d.pinApp),
+                autoRelock = p.getBoolean("autoRelock", d.autoRelock),
             )
         }
     }
