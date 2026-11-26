@@ -22,12 +22,13 @@ public sealed class ToolboxLayout
 {
     private readonly (ToolboxCard Card, bool Visible)[] _entries;
 
-    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false)
+    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false, bool alwaysShowIcon = true)
     {
         _entries = Normalize(entries);
         ShowLiveGesture = showLiveGesture;
         GlassEffect = glass;
         Maximized = maximized;
+        AlwaysShowIcon = alwaysShowIcon;
     }
 
     public static ToolboxLayout Default { get; } = new(
@@ -37,8 +38,17 @@ public sealed class ToolboxLayout
     /// <summary>"Mostrar el gesto en vivo" en los ajustes de la toolbox.</summary>
     public bool ShowLiveGesture { get; }
 
-    /// <summary>"Efecto cristal" (v4.5): fondo translúcido del sistema. Desactivado, las ventanas usan un fondo sólido.</summary>
+    /// <summary>
+    /// "Efecto cristal": tarjetas translúcidas sobre el universo (v4.7; antes, Acrylic del sistema). Desactivado, las tarjetas son
+    /// sólidas (<c>#1A1830</c>) sobre el mismo universo.
+    /// </summary>
     public bool GlassEffect { get; }
+
+    /// <summary>
+    /// "Mostrar siempre el icono en la barra de tareas" (v4.7 §3.4): saca el icono de la bandeja oculta en Windows 11. Activado por
+    /// defecto, así que la primera vez que arranca la v4.7 se activa solo; si el usuario lo quita, se guarda y no se vuelve a poner.
+    /// </summary>
+    public bool AlwaysShowIcon { get; }
 
     /// <summary>La toolbox se quedó maximizada (ventana de dos columnas) y se abre así.</summary>
     public bool Maximized { get; }
@@ -55,7 +65,7 @@ public sealed class ToolboxLayout
     public ToolboxLayout SetVisible(ToolboxCard card, bool visible) =>
         card == ToolboxCard.Options
             ? this
-            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized);
+            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon);
 
     /// <summary>Mueve una tarjeta <paramref name="delta"/> puestos (−1 = arriba). Nada pasa por encima de las Opciones.</summary>
     public ToolboxLayout Move(ToolboxCard card, int delta)
@@ -68,14 +78,16 @@ public sealed class ToolboxLayout
         var item = list[from];
         list.RemoveAt(from);
         list.Insert(to, item);
-        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized);
+        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon);
     }
 
-    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized);
+    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized, AlwaysShowIcon);
 
-    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized);
+    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized, AlwaysShowIcon);
 
-    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized);
+    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized, AlwaysShowIcon);
+
+    public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value);
 
     // ---- JSON ----
 
@@ -89,6 +101,7 @@ public sealed class ToolboxLayout
             liveGesture = ShowLiveGesture,
             glass = GlassEffect,
             maximized = Maximized,
+            alwaysShowIcon = AlwaysShowIcon,
         };
         return JsonSerializer.Serialize(model, JsonOptions);
     }
@@ -117,7 +130,8 @@ public sealed class ToolboxLayout
             var live = !doc.RootElement.TryGetProperty("liveGesture", out var lg) || lg.ValueKind != JsonValueKind.False;
             var glass = !doc.RootElement.TryGetProperty("glass", out var g) || g.ValueKind != JsonValueKind.False;
             var maximized = doc.RootElement.TryGetProperty("maximized", out var m) && m.ValueKind == JsonValueKind.True;
-            return new ToolboxLayout(entries, live, glass, maximized);
+            var always = !doc.RootElement.TryGetProperty("alwaysShowIcon", out var a) || a.ValueKind != JsonValueKind.False;
+            return new ToolboxLayout(entries, live, glass, maximized, always);
         }
         catch (JsonException)
         {
