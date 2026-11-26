@@ -49,7 +49,10 @@ object WidgetLayout {
     /** [text]: título y artista; los tres botones de debajo. */
     data class MediaParts(val text: Box, val previous: Box, val playPause: Box, val next: Box)
 
-    /** Zonas táctiles del volumen: silencio, barra (con toda la altura de la fila, para apuntar mejor) y número. */
+    /**
+     * Zonas táctiles del volumen: silencio, barra y número. La barra es exactamente el recorrido de la pista que se dibuja
+     * (nivel 0 en su borde izquierdo, 100 en el derecho) y ocupa toda la altura de la fila, para apuntar mejor.
+     */
     data class VolumeParts(val icon: Box, val bar: Box, val value: Box)
 
     data class Cell(
@@ -122,11 +125,15 @@ object WidgetLayout {
         )
     }
 
-    private fun volumeParts(box: Box, m: Metrics) = VolumeParts(
-        icon = Box(box.x, box.y, m.volumeIconWidth, box.height),
-        bar = Box(box.x + m.volumeIconWidth, box.y, max(0f, box.width - m.volumeIconWidth - m.volumeValueWidth), box.height),
-        value = Box(box.right - m.volumeValueWidth, box.y, m.volumeValueWidth, box.height),
-    )
+    private fun volumeParts(box: Box, m: Metrics): VolumeParts {
+        val pad = 2 * m.gap // sitio para el pulgar de la barra en los extremos
+        val barX = box.x + m.volumeIconWidth + pad
+        return VolumeParts(
+            icon = Box(box.x, box.y, m.volumeIconWidth, box.height),
+            bar = Box(barX, box.y, max(0f, box.right - m.volumeValueWidth - pad - barX), box.height),
+            value = Box(box.right - m.volumeValueWidth, box.y, m.volumeValueWidth, box.height),
+        )
+    }
 
     /** Cuánto se puede desplazar el contenido hacia arriba (0 si cabe entero). */
     fun maxScroll(contentHeight: Float, viewHeight: Float): Float = max(0f, contentHeight - viewHeight)

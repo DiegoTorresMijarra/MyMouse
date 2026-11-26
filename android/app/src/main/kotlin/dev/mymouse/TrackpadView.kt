@@ -126,6 +126,17 @@ class TrackpadView(
         }
     }
 
+    /** Aviso de 1,5 s sobre el trackpad (p. ej. el PC no ha ejecutado un widget). */
+    fun showNotice(text: String) = showResult(text, ok = false)
+
+    /** Anota en el modo depuración algo que no viene del trackpad (acciones del panel de widgets). */
+    fun noteDebug(text: String) {
+        debugOverlay?.let {
+            it.note(text, SystemClock.uptimeMillis())
+            invalidate()
+        }
+    }
+
     private fun vibrate() {
         val vibrator = context.getSystemService(Vibrator::class.java) ?: return
         try {

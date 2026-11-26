@@ -25,6 +25,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import dev.mymouse.core.debug.WidgetDescriber
 import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Protocol
 
@@ -40,6 +41,7 @@ class MainActivity : Activity() {
 
     private lateinit var connection: HostConnection
     private lateinit var trackpad: TrackpadView
+    private lateinit var panel: WidgetPanelView
     private lateinit var root: FrameLayout
     private lateinit var controls: LinearLayout
 
@@ -51,6 +53,9 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
     private var settings = AppSettings()
+
+    /** Tamaño del contenedor con el que se calcularon los márgenes; al girar la pantalla hay que recalcularlos. */
+    private var laidOutSize = 0 to 0
     private lateinit var shapes: ShapeStore
     private var dimmed = false
     private val dim = Runnable { setDimmed(true) }
@@ -65,10 +70,29 @@ class MainActivity : Activity() {
         connection = HostConnection(port = Protocol.DEFAULT_PORT)
         trackpad = TrackpadView(this, buildEngine(), connection::send)
         trackpad.shapeStore = shapes
+        panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
         connection.onConnectionChanged = { connected ->
             trackpad.post {
                 trackpad.connected = connected
-                if (!connected) trackpad.hostGestureList = null
+                if (!connected) {
+                    trackpad.hostGestureList = null
+                    panel.clear()
+                    applyMargins()
+                }
+            }
+        }
+        connection.onWidgetLayout = { layout ->
+            panel.post {
+                panel.setEntries(layout.entries)
+                applyMargins() // el panel aparece (o desaparece) y el trackpad cede o recupera su sitio
+            }
+        }
+        connection.onVolumeState = { state -> panel.post { panel.onVolumeState(state) } }
+        connection.onMediaState = { state -> panel.post { panel.onMediaState(state) } }
+        connection.onWidgetResult = { result ->
+            panel.post {
+                val entry = panel.entries.firstOrNull { it.id == result.id }
+                WidgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
             }
         }
         connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
@@ -78,6 +102,10 @@ class MainActivity : Activity() {
         root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
+            addView(panel, FrameLayout.LayoutParams(MATCH, MATCH)) // el tamaño y el sitio los fija applyMargins
+            // Un toque que empieza en el panel nunca llega al trackpad, ni al revés: todos los dedos van a la vista
+            // que recibió el primero (sin esto, un segundo dedo sobre la otra vista le llegaría a ella).
+            isMotionEventSplittingEnabled = false
             addView(controls, FrameLayout.LayoutParams(MATCH, (CONTROLS_HEIGHT_DP * density).toInt(), Gravity.TOP))
         }
         // Desde Android 15 la app siempre se dibuja bajo las barras: se aplican los márgenes a mano.
@@ -86,6 +114,14 @@ class MainActivity : Activity() {
             systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             applyMargins() // sin tocar las barras: mostrarlas u ocultarlas vuelve a disparar este listener
             insets
+        }
+        root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            // Al girar el móvil el panel cambia de lado y de tamaño.
+            val size = (right - left) to (bottom - top)
+            if (size != laidOutSize) {
+                laidOutSize = size
+                applyMargins()
+            }
         }
         setContentView(root)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -136,6 +172,7 @@ class MainActivity : Activity() {
         trackpad.shapeStore = shapes
         trackpad.interpreter = buildEngine()
         trackpad.showCheatSheet = settings.showCheatSheet
+        applyMargins() // "Mostrar panel de widgets" y "Tamaño del panel" pueden haber cambiado
         if (settings.debug != (trackpad.debugOverlay != null)) {
             trackpad.debugOverlay = if (settings.debug) DebugOverlay(density) else null
         }
@@ -200,13 +237,44 @@ class MainActivity : Activity() {
         val i = systemInsets
         (controls.layoutParams as FrameLayout.LayoutParams).setMargins(i.left, i.top, i.right, 0)
         controls.requestLayout()
-        val lp = trackpad.layoutParams as FrameLayout.LayoutParams
-        if (window) {
-            val m = (WINDOW_MARGIN_DP * density).toInt()
-            lp.setMargins(i.left + m, i.top + (CONTROLS_HEIGHT_DP * density).toInt(), i.right + m, i.bottom + m)
-        } else {
-            lp.setMargins(0, 0, 0, 0) // barras ocultas: toda la pantalla
+
+        // Área del trackpad (y del panel): sin las barras del sistema y, en modo ventana, con margen y sin los botones.
+        val m = if (window) (WINDOW_MARGIN_DP * density).toInt() else 0
+        val left = if (window) i.left + m else 0
+        val top = if (window) i.top + (CONTROLS_HEIGHT_DP * density).toInt() else 0
+        val right = if (window) i.right + m else 0
+        val bottom = if (window) i.bottom + m else 0 // barras ocultas en modo bloqueado: toda la pantalla
+
+        // El panel va abajo en vertical y a la derecha en horizontal. Solo se ve si el PC ha enviado widgets.
+        val landscape = root.width > root.height
+        panel.landscape = landscape
+        val showPanel = settings.showWidgets && panel.hasWidgets && root.width > 0 && root.height > 0
+        var panelExtent = 0
+        if (showPanel) {
+            val panelLp = panel.layoutParams as FrameLayout.LayoutParams
+            if (landscape) {
+                panelExtent = settings.widgetPanelSize.extent(root.width - left - right)
+                panelLp.width = panelExtent
+                panelLp.height = MATCH
+                panelLp.gravity = Gravity.END
+                panelLp.setMargins(0, top, right, bottom)
+            } else {
+                panelExtent = settings.widgetPanelSize.extent(root.height - top - bottom)
+                panelLp.width = MATCH
+                panelLp.height = panelExtent
+                panelLp.gravity = Gravity.BOTTOM
+                panelLp.setMargins(left, 0, right, bottom)
+            }
+            panel.requestLayout()
         }
+        panel.visibility = if (showPanel) View.VISIBLE else View.GONE
+
+        val lp = trackpad.layoutParams as FrameLayout.LayoutParams
+        lp.setMargins(
+            left, top,
+            right + if (landscape) panelExtent else 0,
+            bottom + if (landscape) 0 else panelExtent,
+        )
         trackpad.requestLayout()
     }
 

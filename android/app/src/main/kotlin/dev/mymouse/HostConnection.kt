@@ -35,6 +35,12 @@ class HostConnection(private val port: Int) {
     /** Respuesta del PC a una forma enviada. Se llama desde el hilo de lectura. */
     var onGestureResult: (GestureStatus) -> Unit = {}
 
+    /** Widgets del PC (protocolo v3). Se llaman desde el hilo de lectura. */
+    var onWidgetLayout: (Message.WidgetLayout) -> Unit = {}
+    var onVolumeState: (Message.VolumeState) -> Unit = {}
+    var onMediaState: (Message.MediaState) -> Unit = {}
+    var onWidgetResult: (Message.WidgetResult) -> Unit = {}
+
     /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
     @Volatile var protocolVersion = 0
         private set
@@ -69,6 +75,25 @@ class HostConnection(private val port: Int) {
         if (!connected) return
         lock.withLock {
             enqueue(action)
+            notEmpty.signal()
+        }
+    }
+
+    /**
+     * Envía una orden del panel de widgets. Solo con versión ≥ 3: un host anterior no la entiende y cerraría la conexión.
+     * Dos `VOLUME_SET` seguidos en cola se fusionan: solo importa el último nivel.
+     */
+    fun sendWidget(message: Message) {
+        require(message is Message.WidgetPress || message is Message.VolumeSet ||
+            message is Message.MediaControl || message is Message.VolumeMute) { "No es una orden de widget: $message" }
+        if (!connected || protocolVersion < Protocol.WIDGETS_VERSION) return
+        lock.withLock {
+            val last = queue.lastOrNull()
+            if (message is Message.VolumeSet && last is Message.VolumeSet) {
+                queue[queue.lastIndex] = message
+            } else {
+                queue.addLast(message)
+            }
             notEmpty.signal()
         }
     }
@@ -168,6 +193,10 @@ class HostConnection(private val port: Int) {
                 when (val m = reader.read() ?: break) {
                     is Message.GestureList -> onGestureList(m)
                     is Message.GestureResult -> onGestureResult(m.status)
+                    is Message.WidgetLayout -> onWidgetLayout(m)
+                    is Message.VolumeState -> onVolumeState(m)
+                    is Message.MediaState -> onMediaState(m)
+                    is Message.WidgetResult -> onWidgetResult(m)
                     else -> Unit // PONG
                 }
             }

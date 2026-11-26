@@ -99,8 +99,9 @@ class WidgetLayoutTest {
         val p = r.cells[0].volume!!
 
         assertEquals(box.x, p.icon.x)
-        assertEquals(p.icon.right, p.bar.x)
-        assertEquals(p.bar.right, p.value.x)
+        assertTrue(p.icon.right < p.bar.x && p.bar.right < p.value.x)
+        assertEquals(p.icon.right + 20f, p.bar.x) // 2 huecos de 10
+        assertEquals(p.value.x - 20f, p.bar.right)
         assertEquals(box.right, p.value.right)
         assertEquals(box.height, p.bar.height)
     }

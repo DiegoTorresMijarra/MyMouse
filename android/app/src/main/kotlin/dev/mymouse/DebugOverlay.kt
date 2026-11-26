@@ -72,6 +72,9 @@ class DebugOverlay(private val density: Float) {
         log(label.key, label.text, nowMs)
     }
 
+    /** Anota una acción que no viene del trackpad (p. ej. un widget). */
+    fun note(text: String, nowMs: Long) = log(-1, text, nowMs)
+
     private fun log(key: Long, text: String, now: Long) {
         val first = entries.firstOrNull()
         if (first != null && first.key == key && key >= 0) {

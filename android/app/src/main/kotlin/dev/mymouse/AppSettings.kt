@@ -2,6 +2,7 @@ package dev.mymouse
 
 import android.content.Context
 import dev.mymouse.core.gesture.TrackpadConfig
+import dev.mymouse.core.widgets.WidgetPanelSize
 
 /** Ajustes de la app (docs/spec-v0.md §2.5), guardados en SharedPreferences. */
 data class AppSettings(
@@ -22,6 +23,9 @@ data class AppSettings(
     val debug: Boolean = false,
     /** Dedos que activan el modo gestos: 3, 4 o 0 (desactivado). */
     val gestureFingers: Int = 3,
+    /** Panel de widgets junto al trackpad (solo aparece si el PC ha enviado widgets). */
+    val showWidgets: Boolean = true,
+    val widgetPanelSize: WidgetPanelSize = WidgetPanelSize.MEDIUM,
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -48,6 +52,8 @@ data class AppSettings(
             .putBoolean("autoRelock", autoRelock)
             .putBoolean("debug", debug)
             .putInt("gestureFingers", gestureFingers)
+            .putBoolean("showWidgets", showWidgets)
+            .putString("widgetPanelSize", widgetPanelSize.name)
             .apply()
     }
 
@@ -73,6 +79,9 @@ data class AppSettings(
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
                 debug = p.getBoolean("debug", d.debug),
                 gestureFingers = p.getInt("gestureFingers", d.gestureFingers).takeIf { it in setOf(0, 3, 4) } ?: d.gestureFingers,
+                showWidgets = p.getBoolean("showWidgets", d.showWidgets),
+                widgetPanelSize = p.getString("widgetPanelSize", null)
+                    ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,
             )
         }
     }

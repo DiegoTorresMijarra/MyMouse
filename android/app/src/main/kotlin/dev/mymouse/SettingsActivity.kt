@@ -16,6 +16,7 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import dev.mymouse.core.widgets.WidgetPanelSize
 import kotlin.math.roundToInt
 
 /** Pantalla de ajustes, sin dependencias extra: barras deslizantes e interruptores. Guarda al salir. */
@@ -69,7 +70,23 @@ class SettingsActivity : Activity() {
             setOnClickListener { startActivity(android.content.Intent(this@SettingsActivity, ShapesActivity::class.java)) }
         })
         list.addView(TextView(this).apply {
-            text = "Lo que hace cada forma se configura en el PC: icono de MyMouse en la bandeja → \"Editar gestos…\"."
+            text = "Lo que hace cada forma se configura en el PC: icono de MyMouse en la bandeja → \"Editar gestos y widgets…\"."
+            textSize = 13f
+            setTextColor(Color.rgb(150, 150, 150))
+        })
+
+        list.addView(header("Widgets"))
+        list.addView(switch("Mostrar panel de widgets", settings.showWidgets) {
+            settings = settings.copy(showWidgets = it)
+        })
+        list.addView(choice(
+            "Tamaño del panel",
+            listOf("Pequeño (22 %)", "Mediano (30 %)", "Grande (40 %)"),
+            settings.widgetPanelSize.ordinal,
+        ) { settings = settings.copy(widgetPanelSize = WidgetPanelSize.entries[it]) })
+        list.addView(TextView(this).apply {
+            text = "El panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
+                "bandeja → \"Editar gestos y widgets…\"."
             textSize = 13f
             setTextColor(Color.rgb(150, 150, 150))
         })
