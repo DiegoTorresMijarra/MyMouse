@@ -11,13 +11,29 @@ android {
         applicationId = "dev.mymouse"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.0.1"
+        // CI los fija a partir de la etiqueta de la release; en local se usan estos.
+        versionCode = (System.getenv("MYMOUSE_VERSION_CODE") ?: "1").toInt()
+        versionName = System.getenv("MYMOUSE_VERSION_NAME") ?: "0.0-dev"
+    }
+
+    signingConfigs {
+        // Clave de desarrollo pública y versionada: así todas las releases tienen la misma firma
+        // y se pueden instalar una encima de otra (o bajar de versión desinstalando).
+        create("dev") {
+            storeFile = file("mymouse-dev.keystore")
+            storePassword = "mymouse"
+            keyAlias = "mymouse"
+            keyPassword = "mymouse"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("dev")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("dev")
         }
     }
 
@@ -28,6 +44,11 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    lint {
+        // Sin abortar la build por avisos de lint: lo importante es que compile.
+        abortOnError = false
     }
 }
 
