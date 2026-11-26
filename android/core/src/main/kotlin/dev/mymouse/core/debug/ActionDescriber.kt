@@ -2,6 +2,7 @@ package dev.mymouse.core.debug
 
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.protocol.MouseButton
+import dev.mymouse.core.protocol.SystemGestureCommand
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -51,6 +52,18 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
             zoom += action.delta
             Label(key, "Zoom ${if (zoom >= 0) "+" else "−"} ${steps(zoom)}")
         }
+        is OutputAction.SystemGesture -> {
+            currentKind = null
+            newLabel(system(action.command))
+        }
+        is OutputAction.WidgetPanel -> {
+            currentKind = null
+            newLabel(if (action.show) "4 dedos juntar: mostrar widgets" else "4 dedos separar: ocultar widgets")
+        }
+        is OutputAction.FourFingerSwipe -> {
+            currentKind = null
+            newLabel(if (action.up) "4 dedos ↑ (reservado)" else "4 dedos ↓ (reservado)")
+        }
         is OutputAction.GestureMode -> {
             currentKind = null
             newLabel(if (action.active) "Modo gestos: dibuja una forma" else "Fin del modo gestos")
@@ -63,6 +76,15 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
             currentKind = null
             newLabel("Forma: ${action.reason}")
         }
+    }
+
+    private fun system(command: SystemGestureCommand) = when (command) {
+        SystemGestureCommand.TASK_VIEW -> "3 dedos ↑: Vista de tareas"
+        SystemGestureCommand.SHOW_DESKTOP -> "3 dedos ↓: Escritorio"
+        SystemGestureCommand.APP_SWITCH_START -> "3 dedos ← →: cambiar de app"
+        SystemGestureCommand.APP_SWITCH_NEXT -> "Siguiente app"
+        SystemGestureCommand.APP_SWITCH_PREVIOUS -> "App anterior"
+        SystemGestureCommand.APP_SWITCH_END -> "Fin del cambio de app"
     }
 
     private fun button(b: OutputAction.Button, nowMs: Long): Label? {

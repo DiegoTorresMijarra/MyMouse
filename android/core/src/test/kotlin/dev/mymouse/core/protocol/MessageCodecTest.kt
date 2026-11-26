@@ -26,6 +26,9 @@ class MessageCodecTest {
         Message.VolumeSet(55) to "09 37",
         Message.MediaControl(MediaCommand.NEXT) to "0A 01",
         Message.VolumeMute(true) to "0B 01",
+        Message.SystemGesture(SystemGestureCommand.TASK_VIEW) to "0C 00",
+        Message.SystemGesture(SystemGestureCommand.APP_SWITCH_START) to "0C 02",
+        Message.SystemGesture(SystemGestureCommand.APP_SWITCH_END) to "0C 05",
         Message.VolumeState(40, false) to "89 28 00",
         Message.WidgetResult(2, GestureStatus.EXECUTED) to "8B 02 00",
         Message.WidgetLayout(listOf(WidgetEntry(0, WidgetKind.VOLUME, "", ""))) to "88 05 00 01 00 02 00 00",
@@ -53,7 +56,7 @@ class MessageCodecTest {
     @Test
     fun invalidInputThrows() {
         for (hex in listOf("06 00 00", "06 02 00 7A", "06 01 00 FF", "86 03", "87 02 00 00 01", "87 03 00 00 00 99", "FF", "02 05 00", "03 03 01", "03 00 02", "07 78",
-            "0A 03", "0B 02", "89 65 00", "8B 02 03", "88 05 00 01 00 03 00 00", "88 06 00 01 00 02 00 00 99",
+            "0A 03", "0B 02", "0C 06", "0C", "89 65 00", "8B 02 03", "88 05 00 01 00 03 00 00", "88 06 00 01 00 02 00 00 99",
             "88 04 00 01 00 02 00", "8A 04 00 01 01 41 01", "8A 05 00 02 01 41 01 42", "08")) {
             assertFailsWith<ProtocolException>(hex) { MessageReader(ByteArrayInputStream(hex(hex))).read() }
         }

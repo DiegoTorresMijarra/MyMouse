@@ -20,17 +20,19 @@ class TrackpadEngineTest {
 
     private fun feed(vararg events: TouchInput) = events.flatMap { engine.onTouch(it) }
 
-    /** Tres dedos casi a la vez y quietos: activa en el tick de t+300. */
+    /** Cuatro dedos casi a la vez y quietos: activa en el tick de t+90+300. */
     private fun activate(t: Long = 0): List<OutputAction> {
-        val out = feed(Down(0, 100f, 100f, t), Down(1, 200f, 100f, t + 30), Down(2, 300f, 100f, t + 60)).toMutableList()
-        assertEquals(t + 60 + config.gestureHoldMs, engine.nextDeadlineMs)
-        out += engine.onTick(t + 60 + config.gestureHoldMs)
-        out += feed(Up(0, 100f, 100f, t + 500), Up(1, 200f, 100f, t + 500), Up(2, 300f, 100f, t + 510))
+        val out = feed(
+            Down(0, 100f, 100f, t), Down(1, 200f, 100f, t + 30), Down(2, 300f, 100f, t + 60), Down(3, 400f, 100f, t + 90),
+        ).toMutableList()
+        assertEquals(t + 90 + config.gestureHoldMs, engine.nextDeadlineMs)
+        out += engine.onTick(t + 90 + config.gestureHoldMs)
+        out += feed(Up(0, 100f, 100f, t + 500), Up(1, 200f, 100f, t + 500), Up(2, 300f, 100f, t + 510), Up(3, 400f, 100f, t + 510))
         return out
     }
 
     @Test
-    fun threeFingersHeldActivateGestureMode() {
+    fun fourFingersHeldActivateGestureMode() {
         assertEquals(listOf(GestureMode(true)), activate())
         assertTrue(engine.gestureModeActive)
     }
@@ -53,16 +55,23 @@ class TrackpadEngineTest {
     @Test
     fun movingFingersDoNotActivate() {
         val out = feed(
-            Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60),
-            Move(0, 100f, 160f, 100, false), Move(1, 200f, 160f, 100, false), Move(2, 300f, 160f, 100),
+            Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60), Down(3, 400f, 100f, 90),
+            Move(0, 100f, 160f, 100, false), Move(1, 200f, 160f, 100, false), Move(2, 300f, 160f, 100, false), Move(3, 400f, 160f, 100),
         ).toMutableList()
         out += engine.onTick(1000)
         assertTrue(out.none { it is GestureMode })
     }
 
     @Test
-    fun slowThirdFingerDoesNotActivate() {
-        feed(Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 400))
+    fun threeFingersHeldDoNotActivate() {
+        feed(Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60))
+        assertEquals(null, engine.nextDeadlineMs)
+        assertEquals(emptyList(), engine.onTick(2000))
+    }
+
+    @Test
+    fun slowFourthFingerDoesNotActivate() {
+        feed(Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60), Down(3, 400f, 100f, 400))
         assertEquals(emptyList(), engine.onTick(2000))
     }
 
@@ -91,9 +100,10 @@ class TrackpadEngineTest {
     }
 
     @Test
-    fun withoutRecognizerThreeFingersDoNothing() {
+    fun withoutRecognizerFourFingersDoNothing() {
         val e = TrackpadEngine(config, recognizer = null)
-        val out = listOf(Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60)).flatMap { e.onTouch(it) } + e.onTick(1000)
+        val out = listOf(Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 30), Down(2, 300f, 100f, 60), Down(3, 400f, 100f, 90))
+            .flatMap { e.onTouch(it) } + e.onTick(1000)
         assertEquals(emptyList(), out)
     }
 }

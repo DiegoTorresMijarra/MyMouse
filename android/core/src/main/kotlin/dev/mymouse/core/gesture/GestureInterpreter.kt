@@ -1,14 +1,20 @@
 package dev.mymouse.core.gesture
 
 import dev.mymouse.core.protocol.MouseButton
+import dev.mymouse.core.protocol.SystemGestureCommand
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.hypot
+import kotlin.math.ln
 
 /**
  * Máquina de estados que convierte toques en acciones de ratón. Ver docs/spec-v0.md §2.2.
  *
+ * Con 3 o 4 dedos clasifica el gesto (deslizar o pellizcar) según docs/spec-v3.1-ajustes.md §1; con 2, decide entre
+ * scroll y zoom (§2).
+ *
  * No depende de Android ni del tiempo real: el llamador pasa los eventos con su marca de tiempo
- * y llama a [onTick] cuando se alcanza [nextDeadlineMs] (para soltar el clic diferido).
+ * y llama a [onTick] cuando se alcanza [nextDeadlineMs] (clic diferido, activación del modo gestos e inercia).
  */
 class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) {
 
@@ -26,16 +32,32 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         /** Dos dedos tocando, sin superar el umbral. */
         data class TwoDown(val startTime: Long, val starts: Map<Int, Point>) : State
 
-        data class Scrolling(var lastCentroid: Point) : State
+        /**
+         * Scroll con 2 dedos. [startSpread] es la distancia entre ellos al empezar (para pasar a zoom si cambia mucho);
+         * [velocityV] y [velocityH] (unidades de rueda por ms) alimentan la inercia.
+         */
+        class Scrolling(
+            var lastCentroid: Point,
+            val startSpread: Float,
+            var sampleCentroid: Point,
+            var sampleTime: Long,
+        ) : State {
+            var velocityV = 0f
+            var velocityH = 0f
+        }
 
-        /** Pellizco: [accumulated] guarda el cambio de distancia aún no convertido en pasos de zoom. */
-        data class Zooming(var lastSpread: Float, var accumulated: Float = 0f) : State
+        /** Pellizco de 2 dedos: [anchor] es la distancia al inicio del tramo; el cambio se acumula hasta el siguiente envío. */
+        class Zooming(var anchor: Float, var lastEmitTime: Long) : State
 
-        /** N dedos apoyados casi a la vez: si se quedan quietos hasta [deadline], se activa el modo gestos. */
-        data class ActivationPending(val starts: Map<Int, Point>, val deadline: Long) : State
+        /**
+         * 3 o 4 dedos apoyados dentro de la ventana de [TrackpadConfig.gestureWindowMs] y sin clasificar.
+         * [base] son las posiciones al llegar el último dedo. Con 4 dedos quietos hasta [deadline] se activa el modo gestos
+         * ([deadline] es null si no está armado: 3 dedos, modo gestos desactivado o los dedos se han movido).
+         */
+        class Multi(val startTime: Long, var base: Map<Int, Point>, var count: Int, var deadline: Long?) : State
 
-        /** Activación con 4 dedos: ya hay 3, falta el cuarto. */
-        data class ThreeDownFor4(val startTime: Long) : State
+        /** Cambio de app con 3 dedos (Alt pulsado): [accumulated] es el recorrido horizontal aún sin convertir en pasos. */
+        class AppSwitching(var lastCentroid: Point, var accumulated: Float = 0f) : State
 
         /** Se ignora todo hasta que se levanten todos los dedos. */
         data object Ignoring : State
@@ -46,13 +68,21 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
     private val accelerator = Accelerator(config)
     private val scrollV = FractionalAccumulator()
     private val scrollH = FractionalAccumulator()
+    private val zoomAcc = FractionalAccumulator()
 
     /** Instante en que expira el clic diferido; el botón izquierdo está pulsado hasta entonces. */
     private var pendingReleaseAt: Long? = null
 
+    /** Scroll que continúa tras levantar los dedos (docs/spec-v3.1-ajustes.md §2). */
+    private class Inertia(var velocityV: Float, var velocityH: Float, var lastTime: Long) {
+        var nextAt = lastTime
+    }
+
+    private var inertia: Inertia? = null
+
     /** Próximo instante (misma base que [TouchInput.timeMs]) en que debe llamarse a [onTick]. */
     val nextDeadlineMs: Long?
-        get() = listOfNotNull(pendingReleaseAt, (state as? State.ActivationPending)?.deadline).minOrNull()
+        get() = listOfNotNull(pendingReleaseAt, (state as? State.Multi)?.deadline, inertia?.nextAt).minOrNull()
 
     fun onTick(nowMs: Long): List<OutputAction> {
         val out = mutableListOf<OutputAction>()
@@ -62,10 +92,12 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
             out += leftUp()
         }
         val s = state
-        if (s is State.ActivationPending && nowMs >= s.deadline) {
+        val activation = (s as? State.Multi)?.deadline
+        if (activation != null && nowMs >= activation) {
             state = State.Ignoring // los dedos siguen apoyados: se esperan a que se levanten
             out += OutputAction.GestureMode(true)
         }
+        inertia?.let { if (nowMs >= it.nextAt) stepInertia(it, nowMs, out) }
         return out
     }
 
@@ -82,6 +114,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
 
     private fun onDown(e: TouchInput.Down, out: MutableList<OutputAction>) {
         pointers[e.id] = Point(e.x, e.y)
+        inertia = null // cualquier toque nuevo corta la inercia
         when (val s = state) {
             State.Idle -> {
                 val pending = pendingReleaseAt
@@ -96,24 +129,22 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
             }
             is State.Moving -> {
                 accelerator.reset()
-                state = startScrolling()
+                state = startScrolling(e.timeMs, spread(pointers.values))
             }
             is State.Dragging -> Unit // dedos extra durante el arrastre: se ignoran
             is State.TwoDown -> state =
-                if (config.gestureFingers == 3 && e.timeMs - s.startTime <= config.gestureWindowMs) {
-                    State.ActivationPending(pointers.toMap(), e.timeMs + config.gestureHoldMs)
-                } else if (config.gestureFingers == 4 && e.timeMs - s.startTime <= config.gestureWindowMs) {
-                    State.ThreeDownFor4(s.startTime)
+                if (e.timeMs - s.startTime <= config.gestureWindowMs) State.Multi(s.startTime, pointers.toMap(), 3, null)
+                else State.Ignoring
+            is State.Multi -> state =
+                if (s.count == 3 && e.timeMs - s.startTime <= config.gestureWindowMs) {
+                    // Cuarto dedo a tiempo: ya no se puede decidir un gesto de 3 dedos.
+                    State.Multi(s.startTime, pointers.toMap(), 4, if (config.gestureFingers == 4) e.timeMs + config.gestureHoldMs else null)
                 } else {
                     State.Ignoring
                 }
-            is State.ThreeDownFor4 -> state =
-                if (e.timeMs - s.startTime <= config.gestureWindowMs) {
-                    State.ActivationPending(pointers.toMap(), e.timeMs + config.gestureHoldMs)
-                } else {
-                    State.Ignoring
-                }
-            is State.ActivationPending, is State.Scrolling, is State.Zooming -> state = State.Ignoring
+            // Un dedo más con el gesto ya decidido no lo cambia; solo se evita un salto del centro.
+            is State.AppSwitching -> s.lastCentroid = centroid()
+            is State.Scrolling, is State.Zooming -> state = State.Ignoring
             State.Ignoring -> Unit
         }
     }
@@ -140,25 +171,27 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 s.lastTime = e.timeMs
             }
             is State.TwoDown -> if (e.endOfSample) {
-                // Scroll: los dedos se desplazan juntos (se mueve el centro). Zoom: cambia la distancia entre ellos.
+                // Scroll: los dedos se desplazan juntos (se mueve el centro). Zoom: cambia el cociente de distancias.
                 // Un pellizco con un dedo quieto también mueve el centro, pero siempre menos que la distancia.
                 val startSpread = spread(s.starts.values)
                 val spreadChange = abs(spread(pointers.values) - startSpread)
+                val ratioChange = if (startSpread > 0f) spreadChange / startSpread else 0f
                 val centroidMove = distance(centroid(s.starts.values), centroid())
-                if (spreadChange >= config.pinchSlopPx && spreadChange > centroidMove) {
-                    state = State.Zooming(spread(pointers.values))
+                if (ratioChange >= config.pinchRatio && spreadChange >= config.touchSlopPx && spreadChange > centroidMove) {
+                    state = startZooming(e.timeMs)
                 } else if (centroidMove > config.touchSlopPx && centroidMove > spreadChange) {
-                    state = startScrolling()
+                    state = startScrolling(e.timeMs, startSpread)
                 }
             }
-            is State.Zooming -> {
+            is State.Zooming -> if (e.endOfSample) {
                 val now = spread(pointers.values)
-                s.accumulated += now - s.lastSpread
-                s.lastSpread = now
-                val steps = (s.accumulated / config.zoomStepPx).toInt() // trunca hacia 0
-                if (steps != 0) {
-                    s.accumulated -= steps * config.zoomStepPx
-                    out += OutputAction.Zoom((steps * WHEEL_STEP).clampI16())
+                if (now > 0f && s.anchor > 0f && e.timeMs - s.lastEmitTime >= config.zoomIntervalMs) {
+                    // Proporcional al logaritmo del cociente: igual en cualquier tamaño de pantalla y aditivo entre tramos.
+                    val units = ln(now / s.anchor) * TrackpadConfig.ZOOM_UNITS_PER_LN * config.zoomSpeed
+                    s.anchor = now
+                    s.lastEmitTime = e.timeMs
+                    val n = zoomAcc.add(units)
+                    if (n != 0) out += OutputAction.Zoom(n.clampI16())
                 }
             }
             is State.Scrolling -> {
@@ -168,14 +201,122 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 val h = scrollH.add(-(c.x - s.lastCentroid.x) * config.scrollSpeed * sign)
                 s.lastCentroid = c
                 if (v != 0 || h != 0) out += OutputAction.Scroll(v.clampI16(), h.clampI16())
+                if (e.endOfSample) {
+                    trackScrollVelocity(s, c, e.timeMs, sign)
+                    // Si los dedos se separan o se juntan mucho, en realidad era un pellizco.
+                    val now = spread(pointers.values)
+                    if (s.startSpread > 0f && abs(now / s.startSpread - 1f) > config.scrollToZoomRatio) {
+                        state = startZooming(e.timeMs)
+                    }
+                }
             }
-            is State.ActivationPending -> if (e.endOfSample) {
-                val moved = s.starts.any { (id, start) -> pointers[id]?.let { distance(start, it) > config.touchSlopPx } == true }
-                if (moved) state = State.Ignoring // p. ej. deslizar con 3 dedos: no activa
+            is State.Multi -> if (e.endOfSample) classifyMulti(s, e.timeMs, out)
+            is State.AppSwitching -> if (e.endOfSample) {
+                val c = centroid()
+                s.accumulated += c.x - s.lastCentroid.x
+                s.lastCentroid = c
+                while (s.accumulated >= config.appSwitchStepPx) {
+                    s.accumulated -= config.appSwitchStepPx
+                    out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_NEXT)
+                }
+                while (s.accumulated <= -config.appSwitchStepPx) {
+                    s.accumulated += config.appSwitchStepPx
+                    out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_PREVIOUS)
+                }
             }
-            State.Idle, State.Ignoring, is State.ThreeDownFor4 -> Unit
+            State.Idle, State.Ignoring -> Unit
         }
     }
+
+    // ---- 3 y 4 dedos ----
+
+    private fun classifyMulti(s: State.Multi, timeMs: Long, out: MutableList<OutputAction>) {
+        val ids = s.base.keys.filter { it in pointers }
+        if (ids.isEmpty()) return
+        val before = ids.map { s.base.getValue(it) }
+        val after = ids.map { pointers.getValue(it) }
+
+        // El modo gestos solo se activa con los dedos quietos: un movimiento mayor que el umbral lo desarma.
+        if (s.deadline != null && ids.indices.any { distance(before[it], after[it]) > config.touchSlopPx }) s.deadline = null
+
+        // Un gesto de 3 dedos no se decide mientras pueda llegar el cuarto (la ventana cuenta desde el primer dedo).
+        if (s.count < 4 && timeMs - s.startTime <= config.gestureWindowMs) return
+
+        val c0 = centroid(before)
+        val c1 = centroid(after)
+        val r0 = meanDistance(before, c0)
+        val r1 = meanDistance(after, c1)
+        val dx = c1.x - c0.x
+        val dy = c1.y - c0.y
+        val move = hypot(dx, dy)
+        val spreadChange = abs(r1 - r0)
+        val ratioChange = if (r0 > 0f) spreadChange / r0 else 0f
+
+        val pinch = ratioChange >= config.multiPinchRatio && spreadChange >= config.touchSlopPx && spreadChange > move
+        val swipe = !pinch && move >= config.multiSwipePx && move >= spreadChange
+        if (!pinch && !swipe) return
+
+        // Un gesto decidido no cambia de tipo hasta levantar todos los dedos.
+        state = State.Ignoring
+        val vertical = abs(dy) > abs(dx)
+        if (s.count == 4) {
+            if (pinch) out += OutputAction.WidgetPanel(show = r1 < r0)
+            else if (vertical) out += OutputAction.FourFingerSwipe(up = dy < 0)
+        } else if (swipe && config.windowsGestures) {
+            when {
+                vertical -> out += OutputAction.SystemGesture(
+                    if (dy < 0) SystemGestureCommand.TASK_VIEW else SystemGestureCommand.SHOW_DESKTOP,
+                )
+                else -> {
+                    state = State.AppSwitching(c1)
+                    out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_START)
+                    out += OutputAction.SystemGesture(
+                        if (dx > 0) SystemGestureCommand.APP_SWITCH_NEXT else SystemGestureCommand.APP_SWITCH_PREVIOUS,
+                    )
+                }
+            }
+        }
+    }
+
+    // ---- Scroll ----
+
+    private fun trackScrollVelocity(s: State.Scrolling, c: Point, timeMs: Long, sign: Float) {
+        val dt = timeMs - s.sampleTime
+        if (dt < MIN_VELOCITY_DT_MS) return
+        val v = (c.y - s.sampleCentroid.y) * config.scrollSpeed * sign / dt
+        val h = -(c.x - s.sampleCentroid.x) * config.scrollSpeed * sign / dt
+        s.velocityV = 0.5f * s.velocityV + 0.5f * v
+        s.velocityH = 0.5f * s.velocityH + 0.5f * h
+        s.sampleCentroid = c
+        s.sampleTime = timeMs
+    }
+
+    private fun stepInertia(i: Inertia, nowMs: Long, out: MutableList<OutputAction>) {
+        val dt = (nowMs - i.lastTime).coerceAtLeast(0)
+        // Fricción exponencial: v(t) = v0 · 2^(−t / vidaMedia). El recorrido del tramo es la integral exacta.
+        val tau = config.inertiaHalfLifeMs / LN2
+        val decay = exp(-dt / tau).toFloat()
+        val factor = (tau * (1 - decay)).toFloat()
+        val v = scrollV.add(i.velocityV * factor)
+        val h = scrollH.add(i.velocityH * factor)
+        i.velocityV *= decay
+        i.velocityH *= decay
+        i.lastTime = nowMs
+        i.nextAt = nowMs + config.inertiaTickMs
+        if (v != 0 || h != 0) out += OutputAction.Scroll(v.clampI16(), h.clampI16())
+        if (hypot(i.velocityV, i.velocityH) < config.inertiaMinVelocity / INERTIA_STOP_DIVISOR) inertia = null
+    }
+
+    private fun maybeStartInertia(s: State.Scrolling, timeMs: Long) {
+        if (!config.scrollInertia) return
+        // Con los dedos parados antes de levantarlos no hay inercia.
+        if (timeMs - s.sampleTime > INERTIA_STALE_MS) return
+        if (hypot(s.velocityV, s.velocityH) < config.inertiaMinVelocity) return
+        scrollV.reset()
+        scrollH.reset()
+        inertia = Inertia(s.velocityV, s.velocityH, timeMs).also { it.nextAt = timeMs + config.inertiaTickMs }
+    }
+
 
     private fun onUp(e: TouchInput.Up, out: MutableList<OutputAction>) {
         pointers.remove(e.id) ?: return
@@ -203,8 +344,16 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 }
                 state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             }
-            is State.Scrolling, is State.Zooming -> state = if (pointers.isEmpty()) State.Idle else State.Ignoring
-            State.Ignoring, is State.ActivationPending, is State.ThreeDownFor4 ->
+            is State.Scrolling -> {
+                maybeStartInertia(s, e.timeMs)
+                state = if (pointers.isEmpty()) State.Idle else State.Ignoring
+            }
+            is State.AppSwitching -> {
+                // Levantar los dedos termina el cambio de app: el host suelta Alt.
+                out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_END)
+                state = if (pointers.isEmpty()) State.Idle else State.Ignoring
+            }
+            is State.Zooming, is State.Multi, State.Ignoring ->
                 state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             State.Idle -> Unit
         }
@@ -215,7 +364,9 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         if (s is State.Dragging || (s is State.OneDown && s.dragCandidate) || pendingReleaseAt != null) {
             out += leftUp()
         }
+        if (s is State.AppSwitching) out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_END)
         pendingReleaseAt = null
+        inertia = null
         pointers.clear()
         state = State.Idle
     }
@@ -225,16 +376,26 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         if (dx != 0 || dy != 0) out += OutputAction.PointerMove(dx.clampI16(), dy.clampI16())
     }
 
-    private fun startScrolling(): State.Scrolling {
+    private fun startScrolling(timeMs: Long, startSpread: Float): State.Scrolling {
         scrollV.reset()
         scrollH.reset()
-        return State.Scrolling(centroid())
+        val c = centroid()
+        return State.Scrolling(c, startSpread, c, timeMs)
+    }
+
+    private fun startZooming(timeMs: Long): State.Zooming {
+        zoomAcc.reset()
+        return State.Zooming(spread(pointers.values), timeMs)
     }
 
     private fun centroid(points: Collection<Point> = pointers.values): Point = Point(
         points.map { it.x }.average().toFloat(),
         points.map { it.y }.average().toFloat(),
     )
+
+    /** Distancia media de los puntos a [center]. */
+    private fun meanDistance(points: Collection<Point>, center: Point): Float =
+        points.map { distance(it, center) }.average().toFloat()
 
     /** Distancia entre los dos primeros dedos (0 si hay menos de dos). */
     private fun spread(points: Collection<Point>): Float {
@@ -250,6 +411,13 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
     private fun Int.clampI16() = coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
 
     private companion object {
-        const val WHEEL_STEP = 120
+        val LN2 = ln(2.0)
+        const val MIN_VELOCITY_DT_MS = 4L
+
+        /** Si el último movimiento de los dedos fue hace más de esto, estaban parados: sin inercia. */
+        const val INERTIA_STALE_MS = 100L
+
+        /** La inercia termina cuando la velocidad cae por debajo de la mínima dividida entre esto. */
+        const val INERTIA_STOP_DIVISOR = 10f
     }
 }

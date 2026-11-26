@@ -1,11 +1,15 @@
 package dev.mymouse.core.debug
 
 import dev.mymouse.core.gesture.OutputAction.Button
+import dev.mymouse.core.gesture.OutputAction.FourFingerSwipe
+import dev.mymouse.core.gesture.OutputAction.SystemGesture
+import dev.mymouse.core.gesture.OutputAction.WidgetPanel
 import dev.mymouse.core.gesture.OutputAction.PointerMove
 import dev.mymouse.core.gesture.OutputAction.Scroll
 import dev.mymouse.core.gesture.OutputAction.Zoom
 import dev.mymouse.core.protocol.MouseButton.LEFT
 import dev.mymouse.core.protocol.MouseButton.RIGHT
+import dev.mymouse.core.protocol.SystemGestureCommand
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -54,5 +58,20 @@ class ActionDescriberTest {
         assertEquals("Scroll ↓ 1.5", d.describe(Scroll(-60, 0), 30)?.text?.replace(',', '.'))
         assertEquals("Zoom + 1", d.describe(Zoom(120), 40)?.text)
         assertEquals("Zoom − 1", d.describe(Zoom(-240), 50)?.text)
+    }
+
+    @Test
+    fun windowsAndPanelGestures() {
+        assertEquals("3 dedos ↑: Vista de tareas", d.describe(SystemGesture(SystemGestureCommand.TASK_VIEW), 0)?.text)
+        assertEquals("3 dedos ↓: Escritorio", d.describe(SystemGesture(SystemGestureCommand.SHOW_DESKTOP), 10)?.text)
+        assertEquals("Siguiente app", d.describe(SystemGesture(SystemGestureCommand.APP_SWITCH_NEXT), 20)?.text)
+        assertEquals("4 dedos juntar: mostrar widgets", d.describe(WidgetPanel(true), 30)?.text)
+        assertEquals("4 dedos separar: ocultar widgets", d.describe(WidgetPanel(false), 40)?.text)
+        assertEquals("4 dedos ↑ (reservado)", d.describe(FourFingerSwipe(true), 50)?.text)
+    }
+
+    @Test
+    fun fineZoomShowsFractionalSteps() {
+        assertEquals("Zoom + 0.5", d.describe(Zoom(60), 0)?.text?.replace(',', '.'))
     }
 }

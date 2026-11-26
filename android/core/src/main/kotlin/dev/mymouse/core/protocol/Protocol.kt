@@ -4,13 +4,16 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets. */
-    const val VERSION = 3
+    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows. */
+    const val VERSION = 4
     const val GESTURES_VERSION = 2
 
     /** Primera versión con los mensajes del panel de widgets. */
     const val WIDGETS_VERSION = 3
     const val MAX_WIDGETS = 32
+
+    /** Primera versión con `SYSTEM_GESTURE` (gestos de 3 dedos de Windows por USB). */
+    const val SYSTEM_GESTURE_VERSION = 4
     const val DEFAULT_PORT = 47800
     const val PING_INTERVAL_MS = 1_000L
     const val IDLE_TIMEOUT_MS = 3_000L
@@ -28,6 +31,14 @@ enum class WidgetKind(val code: Int) { BUTTON(0), MEDIA(1), VOLUME(2) }
 
 /** Orden multimedia de [Message.MediaControl]. */
 enum class MediaCommand(val code: Int) { PLAY_PAUSE(0), NEXT(1), PREVIOUS(2) }
+
+/**
+ * Gesto de sistema de Windows (protocolo v4, `SYSTEM_GESTURE`). El cambio de app mantiene `Alt` pulsado
+ * entre [APP_SWITCH_START] y [APP_SWITCH_END].
+ */
+enum class SystemGestureCommand(val code: Int) {
+    TASK_VIEW(0), SHOW_DESKTOP(1), APP_SWITCH_START(2), APP_SWITCH_NEXT(3), APP_SWITCH_PREVIOUS(4), APP_SWITCH_END(5),
+}
 
 /** Un widget del panel. [id] es su posición en el último [Message.WidgetLayout]. */
 data class WidgetEntry(val id: Int, val kind: WidgetKind, val label: String, val icon: String)
@@ -87,6 +98,9 @@ sealed interface Message {
 
     data class MediaControl(val command: MediaCommand) : Message
 
+    /** Gesto de 3 dedos de Windows (protocolo v4). */
+    data class SystemGesture(val command: SystemGestureCommand) : Message
+
     data class VolumeMute(val muted: Boolean) : Message
 
     /** Widgets configurados en el PC; un layout nuevo invalida los ids anteriores. */
@@ -119,6 +133,7 @@ object MessageCodec {
     private const val VOLUME_SET = 0x09
     private const val MEDIA_COMMAND = 0x0A
     private const val VOLUME_MUTE = 0x0B
+    private const val SYSTEM_GESTURE = 0x0C
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
     private const val GESTURE_RESULT = 0x86
@@ -130,7 +145,7 @@ object MessageCodec {
 
     /** Tamaño fijo del payload, o null si el tipo es variable. */
     fun payloadSize(type: Int): Int? = when (type) {
-        HELLO, HELLO_ACK, GESTURE_RESULT, WIDGET_PRESS, VOLUME_SET, MEDIA_COMMAND, VOLUME_MUTE -> 1
+        HELLO, HELLO_ACK, GESTURE_RESULT, WIDGET_PRESS, VOLUME_SET, MEDIA_COMMAND, VOLUME_MUTE, SYSTEM_GESTURE -> 1
         MOVE, SCROLL -> 4
         BUTTON, ZOOM, VOLUME_STATE, WIDGET_RESULT -> 2
         PING, PONG -> 0
@@ -153,6 +168,7 @@ object MessageCodec {
             is Message.VolumeSet -> VOLUME_SET to byteArrayOf(message.level.toByte())
             is Message.MediaControl -> MEDIA_COMMAND to byteArrayOf(message.command.code.toByte())
             is Message.VolumeMute -> VOLUME_MUTE to byteArrayOf((if (message.muted) 1 else 0).toByte())
+            is Message.SystemGesture -> SYSTEM_GESTURE to byteArrayOf(message.command.code.toByte())
             is Message.WidgetLayout -> WIDGET_LAYOUT to encodeLayout(message)
             is Message.VolumeState -> VOLUME_STATE to byteArrayOf(
                 message.level.coerceIn(0, 100).toByte(), (if (message.muted) 1 else 0).toByte(),
@@ -206,6 +222,10 @@ object MessageCodec {
                     ?: throw ProtocolException("Orden multimedia inválida: ${payload.u8(0)}"),
             )
             VOLUME_MUTE -> Message.VolumeMute(bool(payload.u8(0)))
+            SYSTEM_GESTURE -> Message.SystemGesture(
+                SystemGestureCommand.entries.firstOrNull { it.code == payload.u8(0) }
+                    ?: throw ProtocolException("Gesto de sistema inválido: ${payload.u8(0)}"),
+            )
             WIDGET_LAYOUT -> decodeLayout(payload)
             VOLUME_STATE -> Message.VolumeState(
                 payload.u8(0).also { if (it > 100) throw ProtocolException("Nivel de volumen inválido: $it") },

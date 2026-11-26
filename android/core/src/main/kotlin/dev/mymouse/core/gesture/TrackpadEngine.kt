@@ -5,10 +5,10 @@ import dev.mymouse.core.shapes.Recognizer
 
 /**
  * Une el trackpad ([GestureInterpreter]) y el modo gestos (docs/spec-v1-gestos.md §1):
- * 1. N dedos quietos → el intérprete emite [OutputAction.GestureMode] (true).
+ * 1. 4 dedos quietos (docs/spec-v3.1-ajustes.md §1) → el intérprete emite [OutputAction.GestureMode] (true).
  * 2. Se espera a que se levanten esos dedos y, durante [TrackpadConfig.gestureStrokeTimeoutMs], a que empiece un trazo.
  * 3. Un dedo dibuja; al levantarlo se reconoce la forma → [OutputAction.Gesture] o [OutputAction.GestureRejected].
- * 4. Dos o más dedos durante el modo gestos lo cancelan (incluido volver a apoyar N dedos).
+ * 4. Dos o más dedos durante el modo gestos lo cancelan (incluido volver a apoyar 4 dedos).
  */
 class TrackpadEngine(
     private val config: TrackpadConfig,

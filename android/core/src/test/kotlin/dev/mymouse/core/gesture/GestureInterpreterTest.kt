@@ -9,6 +9,7 @@ import dev.mymouse.core.gesture.TouchInput.Move
 import dev.mymouse.core.gesture.TouchInput.Up
 import dev.mymouse.core.protocol.MouseButton.LEFT
 import dev.mymouse.core.protocol.MouseButton.RIGHT
+import kotlin.math.ln
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -163,15 +164,16 @@ class GestureInterpreterTest {
     }
 
     @Test
-    fun pinchOutZoomsIn() {
+    fun pinchOutZoomsInWithFineDelta() {
         val out = feed(
             Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 10),
-            Move(0, 80f, 100f, 30, false), Move(1, 220f, 100f, 30),   // distancia 100 → 140: empieza el zoom
-            Move(0, 60f, 100f, 40, false), Move(1, 240f, 100f, 40),   // 140 → 180: 40 px = 1 paso
-            Move(0, 40f, 100f, 50, false), Move(1, 260f, 100f, 50),   // 180 → 220: otro paso
-            Up(0, 40f, 100f, 500), Up(1, 260f, 100f, 500),
+            Move(0, 80f, 100f, 30, false), Move(1, 220f, 100f, 30),   // distancia 100 → 140: empieza el zoom (sin salto)
+            Move(0, 60f, 100f, 50, false), Move(1, 240f, 100f, 50),   // 140 → 180
+            Up(0, 60f, 100f, 500), Up(1, 240f, 100f, 500),
         )
-        assertEquals(listOf(Zoom(120), Zoom(120)), out)
+        val expected = (ln(180.0 / 140.0) * TrackpadConfig.ZOOM_UNITS_PER_LN * config.zoomSpeed).toInt()
+        assertEquals(listOf(Zoom(expected)), out)
+        assertTrue(expected % 120 != 0, "el zoom ya no va a saltos de 120")
     }
 
     @Test
@@ -180,30 +182,21 @@ class GestureInterpreterTest {
         val out = feed(
             Down(0, 100f, 100f, 0), Down(1, 300f, 100f, 10),
             Move(1, 270f, 100f, 30),   // distancia 200 → 170: empieza el zoom
-            Move(1, 230f, 100f, 40),   // 170 → 130: un paso
-            Move(1, 190f, 100f, 50),   // 130 → 90: otro paso
+            Move(1, 230f, 100f, 50),   // 170 → 130
+            Move(1, 190f, 100f, 70),   // 130 → 90
         )
-        assertEquals(listOf(Zoom(-120), Zoom(-120)), out)
+        val zooms = out.filterIsInstance<Zoom>()
+        assertEquals(2, zooms.size)
+        assertTrue(zooms.all { it.delta < 0 })
         assertTrue(out.none { it is Scroll })
     }
 
     @Test
-    fun scrollNeverTurnsIntoZoom() {
-        val out = feed(
-            Down(0, 100f, 100f, 0), Down(1, 200f, 100f, 10),
-            Move(0, 100f, 120f, 30, false), Move(1, 200f, 120f, 30),  // empieza el scroll
-            Move(0, 50f, 140f, 40, false), Move(1, 250f, 140f, 40),   // ahora se separan: sigue siendo scroll
-        )
-        assertTrue(out.any { it is Scroll })
-        assertTrue(out.none { it is Zoom })
-    }
-
-    @Test
-    fun threeFingersMovingAreIgnored() {
+    fun threeFingersDoNotMovePointerNorClick() {
+        // Con 3 dedos solo hay gestos de Windows (ver MultiFingerGestureTest); un toque corto no hace nada.
         val out = feed(
             Down(0, 0f, 0f, 0), Down(1, 50f, 0f, 5), Down(2, 100f, 0f, 10),
-            Move(0, 0f, 50f, 20, false), Move(1, 50f, 50f, 20), Move(2, 100f, 50f, 20),
-            Up(0, 0f, 50f, 50), Up(1, 50f, 50f, 50), Up(2, 100f, 50f, 50),
+            Up(0, 0f, 0f, 50), Up(1, 50f, 0f, 50), Up(2, 100f, 0f, 50),
         )
         assertEquals(emptyList(), out)
     }

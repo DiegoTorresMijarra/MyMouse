@@ -3,6 +3,7 @@ package dev.mymouse.core.hid
 import dev.mymouse.core.gesture.FractionalAccumulator
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.protocol.MouseButton
+import dev.mymouse.core.protocol.SystemGestureCommand
 
 /** Un informe HID: [id] y los bytes que lo siguen (sin el id), como los espera `BluetoothHidDevice.sendReport`. */
 class HidReport(val id: Int, val data: ByteArray) {
@@ -18,12 +19,16 @@ enum class ConsumerKey(val usage: Int) {
 
 /**
  * Traduce las acciones del trackpad a informes HID (docs/spec-v3-bluetooth.md §2): ratón (id 1),
- * teclado (id 2) y consumo (id 3). Mantiene el estado de los botones y acumula el scroll fraccionario.
+ * teclado (id 2) y consumo (id 3). Mantiene el estado de los botones y acumula el scroll y el zoom fraccionarios
+ * (por Bluetooth no hay deltas finos: solo pasos enteros de rueda).
+ * Los gestos de 3 dedos de Windows (docs/spec-v3.1-ajustes.md §1) se envían como atajos de teclado.
  */
 class HidMapper {
     private var buttons = 0
     private val wheel = FractionalAccumulator()
     private val pan = FractionalAccumulator()
+    private val zoom = FractionalAccumulator()
+    private var altHeld = false
 
     fun map(action: OutputAction): List<HidReport> = when (action) {
         is OutputAction.PointerMove -> move(action.dx, action.dy)
@@ -43,11 +48,36 @@ class HidMapper {
             steps(v, h)
         }
         is OutputAction.Zoom -> {
-            val n = action.delta / WHEEL_STEP
+            // Zoom fino: se acumula hasta completar pasos enteros de rueda.
+            val n = zoom.add(action.delta / WHEEL_STEP.toFloat())
             if (n == 0) emptyList() else listOf(keyboard(MOD_LEFT_CTRL)) + steps(n, 0) + keyboard(0)
         }
-        is OutputAction.Gesture, is OutputAction.GestureMode, is OutputAction.GestureRejected -> emptyList()
+        is OutputAction.SystemGesture -> system(action.command)
+        is OutputAction.Gesture, is OutputAction.GestureMode, is OutputAction.GestureRejected,
+        is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> emptyList()
     }
+
+    private fun system(command: SystemGestureCommand): List<HidReport> = when (command) {
+        SystemGestureCommand.TASK_VIEW -> chord(MOD_LEFT_GUI, KEY_TAB)
+        SystemGestureCommand.SHOW_DESKTOP -> chord(MOD_LEFT_GUI, KEY_D)
+        // Alt se mantiene pulsado hasta APP_SWITCH_END: cada Tab (con Shift, hacia atrás) se envía con Alt puesto.
+        SystemGestureCommand.APP_SWITCH_START -> {
+            altHeld = true
+            listOf(keyboard(MOD_LEFT_ALT))
+        }
+        SystemGestureCommand.APP_SWITCH_NEXT ->
+            if (altHeld) listOf(keyboard(MOD_LEFT_ALT, KEY_TAB), keyboard(MOD_LEFT_ALT)) else emptyList()
+        SystemGestureCommand.APP_SWITCH_PREVIOUS ->
+            if (altHeld) listOf(keyboard(MOD_LEFT_ALT or MOD_LEFT_SHIFT, KEY_TAB), keyboard(MOD_LEFT_ALT)) else emptyList()
+        SystemGestureCommand.APP_SWITCH_END -> {
+            val wasHeld = altHeld
+            altHeld = false
+            if (wasHeld) listOf(keyboard(0)) else emptyList()
+        }
+    }
+
+    /** Pulsar y soltar una tecla con modificadores. */
+    private fun chord(modifiers: Int, key: Int) = listOf(keyboard(modifiers, key), keyboard(0))
 
     /** Pulsar y soltar una tecla multimedia. */
     fun consumer(key: ConsumerKey): List<HidReport> = listOf(consumerReport(key.usage), consumerReport(0))
@@ -55,8 +85,10 @@ class HidMapper {
     /** Suelta todo (al desconectar o cambiar de modo). */
     fun releaseAll(): List<HidReport> {
         buttons = 0
+        altHeld = false
         wheel.reset()
         pan.reset()
+        zoom.reset()
         return listOf(mouse(0, 0, 0, 0), keyboard(0), consumerReport(0))
     }
 
@@ -91,7 +123,11 @@ class HidMapper {
     private fun mouse(x: Int, y: Int, wheel: Int, pan: Int) =
         HidReport(MOUSE_ID, byteArrayOf(buttons.toByte(), x.toByte(), y.toByte(), wheel.toByte(), pan.toByte()))
 
-    private fun keyboard(modifiers: Int) = HidReport(KEYBOARD_ID, ByteArray(8).also { it[0] = modifiers.toByte() })
+    private fun keyboard(modifiers: Int, key: Int = 0) =
+        HidReport(KEYBOARD_ID, ByteArray(8).also {
+            it[0] = modifiers.toByte()
+            it[2] = key.toByte()
+        })
 
     private fun consumerReport(usage: Int) =
         HidReport(CONSUMER_ID, byteArrayOf((usage and 0xFF).toByte(), ((usage shr 8) and 0xFF).toByte()))
@@ -102,6 +138,13 @@ class HidMapper {
         const val CONSUMER_ID = 3
         private const val WHEEL_STEP = 120
         private const val MOD_LEFT_CTRL = 0x01
+        private const val MOD_LEFT_SHIFT = 0x02
+        private const val MOD_LEFT_ALT = 0x04
+        private const val MOD_LEFT_GUI = 0x08
+
+        /** Códigos de uso de la página de teclado. */
+        private const val KEY_D = 0x07
+        private const val KEY_TAB = 0x2B
 
         /** Descriptor HID compuesto: ratón (botones, X, Y, rueda, AC Pan), teclado y consumo. */
         val DESCRIPTOR: ByteArray = intArrayOf(

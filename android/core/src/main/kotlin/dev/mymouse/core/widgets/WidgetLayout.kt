@@ -63,6 +63,19 @@ object WidgetLayout {
     )
 
     data class Result(val cells: List<Cell>, val contentHeight: Float) {
+        /** Número de fila (0, 1, 2…) de cada celda, en el mismo orden que [cells]: las celdas con la misma `y` comparten fila. */
+        val rowOfCell: List<Int> = buildList {
+            var row = -1
+            var lastY = Float.NaN
+            for (cell in cells) {
+                if (cell.box.y != lastY) {
+                    row++
+                    lastY = cell.box.y
+                }
+                add(row)
+            }
+        }
+
         companion object {
             val EMPTY = Result(emptyList(), 0f)
         }

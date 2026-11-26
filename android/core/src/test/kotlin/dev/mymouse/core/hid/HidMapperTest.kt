@@ -2,6 +2,7 @@ package dev.mymouse.core.hid
 
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.protocol.MouseButton
+import dev.mymouse.core.protocol.SystemGestureCommand
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -44,6 +45,58 @@ class HidMapperTest {
         val ctrl = HidReport(2, byteArrayOf(1, 0, 0, 0, 0, 0, 0, 0))
         val none = HidReport(2, ByteArray(8))
         assertEquals(listOf(ctrl, mouse(0, 0, 0, -1), none), m.map(OutputAction.Zoom(-120)))
+    }
+
+    @Test
+    fun fineZoomAccumulatesUntilAWholeWheelStep() {
+        val ctrl = HidReport(2, byteArrayOf(1, 0, 0, 0, 0, 0, 0, 0))
+        val none = HidReport(2, ByteArray(8))
+        assertEquals(emptyList(), m.map(OutputAction.Zoom(50)))
+        assertEquals(emptyList(), m.map(OutputAction.Zoom(50)))
+        assertEquals(listOf(ctrl, mouse(0, 0, 0, 1), none), m.map(OutputAction.Zoom(40)))
+        // Quedan 20 de 120 acumulados: −250 suman −230 → un solo paso atrás (y −110 de resto).
+        assertEquals(listOf(ctrl, mouse(0, 0, 0, -1), none), m.map(OutputAction.Zoom(-250)))
+    }
+
+    private fun key(modifiers: Int, code: Int = 0) =
+        HidReport(2, byteArrayOf(modifiers.toByte(), 0, code.toByte(), 0, 0, 0, 0, 0))
+
+    @Test
+    fun taskViewIsWinTab() {
+        assertEquals(
+            listOf(key(0x08, 0x2B), key(0)),
+            m.map(OutputAction.SystemGesture(SystemGestureCommand.TASK_VIEW)),
+        )
+    }
+
+    @Test
+    fun showDesktopIsWinD() {
+        assertEquals(
+            listOf(key(0x08, 0x07), key(0)),
+            m.map(OutputAction.SystemGesture(SystemGestureCommand.SHOW_DESKTOP)),
+        )
+    }
+
+    @Test
+    fun appSwitchHoldsAltBetweenStartAndEnd() {
+        fun send(c: SystemGestureCommand) = m.map(OutputAction.SystemGesture(c))
+        assertEquals(listOf(key(0x04)), send(SystemGestureCommand.APP_SWITCH_START))
+        assertEquals(listOf(key(0x04, 0x2B), key(0x04)), send(SystemGestureCommand.APP_SWITCH_NEXT))
+        // Hacia atrás: Alt + Shift + Tab; Alt sigue pulsado.
+        assertEquals(listOf(key(0x06, 0x2B), key(0x04)), send(SystemGestureCommand.APP_SWITCH_PREVIOUS))
+        assertEquals(listOf(key(0)), send(SystemGestureCommand.APP_SWITCH_END))
+        // Terminado: ya no hay nada que soltar ni pasos sueltos.
+        assertEquals(emptyList(), send(SystemGestureCommand.APP_SWITCH_END))
+        assertEquals(emptyList(), send(SystemGestureCommand.APP_SWITCH_NEXT))
+    }
+
+    @Test
+    fun releaseAllDropsAltAndLocalActionsProduceNothing() {
+        m.map(OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_START))
+        m.releaseAll()
+        assertEquals(emptyList(), m.map(OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_NEXT)))
+        assertEquals(emptyList(), m.map(OutputAction.WidgetPanel(true)))
+        assertEquals(emptyList(), m.map(OutputAction.FourFingerSwipe(true)))
     }
 
     @Test
