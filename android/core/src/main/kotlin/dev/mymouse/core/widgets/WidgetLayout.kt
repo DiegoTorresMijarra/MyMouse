@@ -44,16 +44,27 @@ object WidgetLayout {
         val volumeIconWidth: Float,
         val volumeValueWidth: Float,
         val gap: Float,
-    )
+        /** Pista de 4 dp, pulgar de 18 dp (radio 9) y pista mínima de 96 dp (v4.7); en píxeles. */
+        val volumeTrackHeight: Float = 4f,
+        val volumeThumbRadius: Float = 9f,
+        val volumeMinTrack: Float = 96f,
+        val volumeValueLineHeight: Float = 16f,
+    ) {
+        internal fun volumeParams() = VolumeGeometry.Params(
+            iconWidth = volumeIconWidth, valueWidth = volumeValueWidth, trackHeight = volumeTrackHeight,
+            thumbRadius = volumeThumbRadius, minTrack = volumeMinTrack, valueLineHeight = volumeValueLineHeight, gap = gap,
+        )
+    }
 
     /** [text]: título y artista; los tres botones de debajo. */
     data class MediaParts(val text: Box, val previous: Box, val playPause: Box, val next: Box)
 
     /**
-     * Zonas táctiles del volumen: silencio, barra y número. La barra es exactamente el recorrido de la pista que se dibuja
-     * (nivel 0 en su borde izquierdo, 100 en el derecho) y ocupa toda la altura de la fila, para apuntar mejor.
+     * Zonas del volumen: silencio, barra y número. La barra es exactamente el recorrido de la pista que se dibuja
+     * (nivel 0 en su borde izquierdo, 100 en el derecho) y ocupa toda la altura de su zona, para apuntar mejor.
+     * El detalle (pista, pulgar, dónde va el número) lo calcula [VolumeGeometry].
      */
-    data class VolumeParts(val icon: Box, val bar: Box, val value: Box)
+    data class VolumeParts(val icon: Box, val bar: Box, val value: Box, val geometry: VolumeGeometry.Parts)
 
     data class Cell(
         val entry: WidgetEntry,
@@ -139,13 +150,8 @@ object WidgetLayout {
     }
 
     private fun volumeParts(box: Box, m: Metrics): VolumeParts {
-        val pad = 2 * m.gap // sitio para el pulgar de la barra en los extremos
-        val barX = box.x + m.volumeIconWidth + pad
-        return VolumeParts(
-            icon = Box(box.x, box.y, m.volumeIconWidth, box.height),
-            bar = Box(barX, box.y, max(0f, box.right - m.volumeValueWidth - pad - barX), box.height),
-            value = Box(box.right - m.volumeValueWidth, box.y, m.volumeValueWidth, box.height),
-        )
+        val g = VolumeGeometry.compute(box, m.volumeParams())
+        return VolumeParts(icon = g.icon, bar = g.bar, value = g.value, geometry = g)
     }
 
     /** Cuánto se puede desplazar el contenido hacia arriba (0 si cabe entero). */

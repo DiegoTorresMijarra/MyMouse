@@ -100,10 +100,11 @@ class WidgetLayoutTest {
 
         assertEquals(box.x, p.icon.x)
         assertTrue(p.icon.right < p.bar.x && p.bar.right < p.value.x)
-        assertEquals(p.icon.right + 20f, p.bar.x) // 2 huecos de 10
-        assertEquals(p.value.x - 20f, p.bar.right)
+        assertEquals(p.icon.right + 14f, p.bar.x) // radio del pulgar (9) + medio hueco (5)
+        assertEquals(p.value.x - 14f, p.bar.right)
         assertEquals(box.right, p.value.right)
         assertEquals(box.height, p.bar.height)
+        assertEquals(VolumeGeometry.ValuePlacement.RIGHT, p.geometry.valuePlacement)
     }
 
     @Test
