@@ -32,10 +32,11 @@ class ShapeStore(context: Context) {
     val enabled: Set<String>
         get() = enabledCatalog + recorded.map { it.name }.filter { it.startsWith(CUSTOM_PREFIX) }
 
-    fun recognizer(minSizePx: Float): Recognizer {
+    /** [exclude]: forma que se deja fuera (al grabarla, para ver con qué otras se confunde). */
+    fun recognizer(minSizePx: Float, exclude: String? = null): Recognizer {
         val templates = Recognizer.catalogTemplates() +
-            recorded.flatMap { r -> r.samples.map { Recognizer.NamedTemplate(r.name, it) } }
-        return Recognizer(templates, enabled, Recognizer.Config(minSizePx = minSizePx))
+            recorded.filter { it.name != exclude }.flatMap { r -> r.samples.map { Recognizer.NamedTemplate(r.name, it) } }
+        return Recognizer(templates, enabled - setOfNotNull(exclude), Recognizer.Config(minSizePx = minSizePx))
     }
 
     /** Puntos para dibujar la miniatura de una forma (la del catálogo o la primera muestra grabada). */

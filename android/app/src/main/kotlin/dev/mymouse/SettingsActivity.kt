@@ -57,6 +57,23 @@ class SettingsActivity : Activity() {
             settings = settings.copy(tapToDrag = it)
         })
 
+        list.addView(header("Modo gestos"))
+        list.addView(choice(
+            "Activar con",
+            listOf("3 dedos quietos", "4 dedos quietos", "Desactivado"),
+            when (settings.gestureFingers) { 4 -> 1; 0 -> 2; else -> 0 },
+        ) { settings = settings.copy(gestureFingers = listOf(3, 4, 0)[it]) })
+        list.addView(Button(this).apply {
+            text = "Formas…"
+            isAllCaps = false
+            setOnClickListener { startActivity(android.content.Intent(this@SettingsActivity, ShapesActivity::class.java)) }
+        })
+        list.addView(TextView(this).apply {
+            text = "Lo que hace cada forma se configura en el PC: icono de MyMouse en la bandeja → \"Editar gestos…\"."
+            textSize = 13f
+            setTextColor(Color.rgb(150, 150, 150))
+        })
+
         list.addView(header("Pantalla"))
         list.addView(switch("Mostrar la chuleta de gestos", settings.showCheatSheet) {
             settings = settings.copy(showCheatSheet = it)
