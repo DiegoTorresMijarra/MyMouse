@@ -148,5 +148,30 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 ---
 
+## v4.6: chuleta en dos columnas y botones con texto
+
+- La chuleta de gestos básicos del móvil se reparte en **dos columnas en horizontal** (y se encoge entera si no cabe) y los botones del modo ventana son píldoras de cristal con icono y texto. Sin spec propia: [commit](https://github.com/DiegoTorresMijarra/MyMouse/commit/a1887c6).
+
+---
+
+## v4.7: Fondo "universo", icono de la app y retoques
+
+**Objetivo:** lo que se vio probando la v4.5 y la v4.6 en el PC real: la toolbox salía demasiado gris y difuminada (el Acrylic más las tarjetas blancas daban un gris plano y la píldora de estado salía como una elipse borrosa), la app no tenía icono propio y algunos detalles del móvil (volumen, solape de la chuleta con la depuración, hoja de gestos) no estaban pulidos.
+
+**Alcance:**
+- **Fondo "universo"** (degradado, tres nebulosas y estrellas con semilla fija, algunas parpadean) detrás de la toolbox, el gesto en vivo y el editor del PC, y de todas las pantallas del móvil (estático en el trackpad). Se deja de usar Acrylic/Mica; se mantienen las esquinas y la sombra del sistema. Tokens de cristal más claros y acento lavanda.
+- **Píldora de estado** nítida (radio = mitad del alto) con la explicación debajo como texto secundario.
+- **Icono propio** generado con `tools/icon/make_icons.py` (`MyMouse.ico` multi-tamaño para el exe, las ventanas y la bandeja —con punto de estado—, e icono adaptativo en Android).
+- **Icono siempre visible** en la barra de tareas de Windows 11 (`NotifyIconSettings`), activado solo la primera vez.
+- **Editor:** botón "← Volver" (y `Esc`) con aviso de cambios sin guardar.
+- **Móvil:** hoja de gestos en dos columnas, widget de volumen rediseñado (pista a todo el ancho, pulgar de 18 dp) y chuleta que no tapa la minipantalla de depuración.
+- Detalle: [spec-v4.7-universo.md](spec-v4.7-universo.md).
+
+> Estado: implementada en la rama de desarrollo (release `v4.7` pendiente). La lógica nueva tiene tests (estrellas y parpadeo en los dos lados, `NotifyIconSettings`, geometría del volumen, disposición de las hojas); las ventanas de Windows y el módulo `app` no se han ejecutado ni compilado aquí: ver las [notas de la spec](spec-v4.7-universo.md#6-notas-de-implementación).
+
+**Criterios de "hecho":** los de la [§5 de la spec](spec-v4.7-universo.md#5-criterios-de-hecho).
+
+---
+
 ## Ideas sin versión
 Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio) · instalador y arranque con Windows.

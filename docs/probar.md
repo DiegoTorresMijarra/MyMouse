@@ -95,7 +95,7 @@ Actualiza el APK y el host: el host de la v4 es una app WPF (el mismo `MyMouse.e
 ## Estilo y toolbox de la v4.5
 
 Misma actualización de APK y host que la v4.0. Ninguna ventana de Windows se ha ejecutado antes de esta versión: es la primera prueba del estilo.
-1. **Cristal:** en Windows 11 22H2 o posterior la toolbox debe verse translúcida (Acrylic) con esquinas redondeadas del sistema; en Windows 10 o con *Ajustes (⚙) → Efecto cristal* desmarcado, un fondo sólido oscuro con sombra. Cambiar el ajuste con la toolbox abierta la recrea.
+1. **Cristal:** (sustituido en la v4.7: ya no hay Acrylic; ver más abajo "Universo, icono y retoques".) En la v4.5, en Windows 11 22H2 o posterior la toolbox se veía translúcida con esquinas redondeadas del sistema.
 2. **Barra superior:** logo y "MyMouse" a la izquierda; ⚙ (ajustes), ⤢ (maximizar) y ✕ (cerrar) a la derecha. Anclada, arrastrar la barra no la mueve.
 3. **Márgenes:** 8 px entre la toolbox y la barra de tareas, y el mismo aire arriba y abajo dentro del panel. Si el contenido es corto, el panel no se estira.
 4. **Maximizar (⤢):** ventana centrada de 960 × 720 (o el 85 % del escritorio), redimensionable y movible desde la barra, con Opciones y Música a la izquierda y Gestos a la derecha. ⤢ otra vez (o 4 dedos ↓ / `Esc` para cerrarla) y vuelve al panel anclado. Al reabrir, recuerda si estaba maximizada.
@@ -103,6 +103,19 @@ Misma actualización de APK y host que la v4.0. Ninguna ventana de Windows se ha
 6. **Gesto en vivo y editor:** el mismo cristal (el editor con Mica); el resultado del gesto sale en un chip de color. La lista del editor usa la misma fila.
 7. **Móvil:** fondo degradado, trackpad como panel de cristal, botones redondos con iconos (ajustes, bloquear, salir), chuleta y panel de widgets de cristal, y Ajustes, Formas, Grabar forma y Bluetooth con tarjetas y barra superior propia (flecha de volver). Debe comportarse igual que antes.
 8. **"Sin dispositivo" en el PC:** con el cable desconectado, Opciones muestra debajo "¿Usas el modo Bluetooth? …" (es normal estar así en ese modo).
+
+## Universo, icono y retoques de la v4.7
+
+Misma actualización de APK y host. Es la primera vez que se ven en un PC y un móvil reales: apunta lo que no case.
+1. **Universo (PC):** la toolbox, el gesto en vivo y el editor tienen detrás un fondo violeta oscuro con nebulosas y estrellas (unas pocas parpadean despacio), y las tarjetas son de cristal claro encima: se debe distinguir bien una tarjeta de otra y no debe haber gris plano. *Ajustes (⚙) → Efecto cristal* desmarcado pone las tarjetas sólidas (`#1A1830`) sobre el mismo universo. Ya no hay Acrylic ni Mica. En Windows 11 las esquinas y la sombra son las del sistema; en Windows 10, esquinas de radio 16 y sombra propia.
+2. **Texto nítido:** la línea "Conecta el cable y activa la depuración USB. ¿Usas el modo Bluetooth? …" debe leerse bien, y la píldora de estado ("Sin dispositivo", "Conectado · modelo", "Esperando al móvil", "En pausa") debe ser un óvalo limpio con punto de color, no una elipse borrosa.
+3. **Icono:** el exe, la toolbox maximizada y el editor muestran el icono nuevo (trackpad de cristal sobre violeta y azul con un trazo luminoso) en la barra de tareas y el selector de ventanas; en la bandeja, el mismo icono con un punto de estado abajo a la derecha (verde conectado, ámbar esperando, rojo sin dispositivo, gris en pausa). A 16 px no lleva estrellas. En el móvil, el icono del lanzador es el mismo (adaptativo: prueba con distintas formas de icono) y aparece en la barra superior de Ajustes.
+4. **Icono siempre visible (Windows 11):** *Ajustes (⚙) → Mostrar siempre el icono en la barra de tareas* viene activado: tras arrancar la v4.7 (puede tardar 10 s), el icono debe estar junto al reloj y no en la flecha ˄. Desmárcalo y debe volver a la zona oculta. En Windows 10 la opción no puede actuar: explica que hay que arrastrar el icono desde la flecha ˄. Si no funciona en Windows 11, mira el log: "Icono visible en la barra de tareas: NoKey" significa que Windows aún no había registrado el icono.
+5. **Editor, "← Volver":** abre el editor, cambia algo sin guardar y pulsa *← Volver* (o `Esc` fuera de un campo de texto): pregunta "¿Guardar los cambios?" con Guardar / Descartar / Cancelar. Con Guardar o Descartar cierra el editor y vuelve a abrir la toolbox; con Cancelar se queda.
+6. **Móvil, universo:** todas las pantallas (Ajustes, Formas, Bluetooth…) tienen el universo detrás, con las estrellas parpadeando; el trackpad lo tiene estático.
+7. **Hoja de gestos (modo gestos):** en horizontal siempre en dos columnas; en vertical, en dos solo si cada columna tiene 150 dp o más (si no, una). Si no cabe a lo alto, se encoge entera en vez de recortarse.
+8. **Widget de volumen:** una fila con el altavoz a la izquierda (tocarlo silencia), la pista fina ocupando todo el ancho, un pulgar blanco de 18 dp y el número legible a la derecha. En un panel estrecho (horizontal, 2 columnas) el número pasa debajo de la pista antes de que ésta se haga corta. Silenciado: altavoz con una × gris y la pista llena en gris.
+9. **Chuleta y depuración:** con *Modo depuración* activado, la chuleta no tapa la minipantalla: va a su derecha en horizontal y debajo en vertical (más pequeña si hace falta).
 
 ## Bluetooth: diagnóstico y volver a emparejar (v4.5)
 

@@ -28,6 +28,7 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/spec-v3.1-ajustes.md](docs/spec-v3.1-ajustes.md) | Gestos de Windows con 3 dedos, widgets con 4 dedos, zoom e inercia |
 | [docs/spec-v4-toolbox.md](docs/spec-v4-toolbox.md) | La toolbox del PC (WPF): panel, gesto en vivo, editor y formas sincronizadas |
 | [docs/spec-v4.5-estilo.md](docs/spec-v4.5-estilo.md) | Estilo glass en el PC y el móvil, tarjeta Gestos rediseñada y diagnóstico de Bluetooth |
+| [docs/spec-v4.7-universo.md](docs/spec-v4.7-universo.md) | Fondo "universo", icono propio de la app (`tools/icon/make_icons.py`), icono siempre visible y retoques del móvil |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha
