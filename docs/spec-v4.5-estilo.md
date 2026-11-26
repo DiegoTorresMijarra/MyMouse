@@ -124,3 +124,27 @@ Segunda prueba: "Agregar un dispositivo" de Windows muestra el Poco como teléfo
 4. El móvil con la misma capa de estilo en todas sus pantallas.
 5. Diagnóstico de Bluetooth con registro de eventos y "Copiar diagnóstico".
 6. Tests de la lógica nueva (diagnóstico de Bluetooth, agrupación de la tarjeta Gestos en secciones, formato de los chips de acción).
+
+## 6. Notas de implementación
+
+Implementado: la lógica nueva con tests (diagnóstico de Bluetooth y registro de eventos en `core`; chips de acción, secciones de la tarjeta Gestos, reparto en dos columnas, tamaño de la ventana maximizada y ajustes `glass`/`maximized` de `toolbox.json` en `MyMouse.HostCore`), el estilo glass en Windows y en el móvil y la ampliación §4.1. Desviaciones y lo que **no se ha podido verificar**:
+
+### Desviaciones
+- **Esquinas del Acrylic:** con el cristal del sistema las esquinas las redondea Windows (`DWMWCP_ROUND`, ~8 px), no los 16 px del token de panel. Con la alternativa sólida (Windows 10 o "Efecto cristal" desactivado) sí se dibuja el radio 16 y la sombra anterior (blur 18, con 16 px de margen transparente). La sombra "0 12 40" de la tabla solo se aproxima ahí.
+- **Animación de entrada con Acrylic:** solo fundido. Deslizar el contenido dentro de una ventana con fondo del sistema se vería desplazado respecto al cristal; el deslizamiento de 24 px se mantiene en la alternativa sólida.
+- **Cambiar "Efecto cristal"** destruye y vuelve a crear la toolbox y la ventana del gesto en vivo (la transparencia por capas se decide al crear la ventana). Si la toolbox estaba abierta, se vuelve a abrir.
+- **Maximizar** en la alternativa sólida deja el borde de redimensionado dentro del margen transparente de la sombra; el cambio de tamaño con el ratón no se ha probado ahí.
+- **Letra:** WPF no tiene espaciado de letras, así que los títulos de tarjeta van en mayúsculas pequeñas sin el +0,06 em (en Android sí: `letterSpacing = 0.06`). Los iconos de la barra y de las filas son glifos de Segoe Fluent Icons / Segoe MDL2 Assets, no dibujos propios.
+- **Tarjeta Gestos:** la sección "Sin acción" incluye también las formas del catálogo (antes, una sola fila resumen "N formas más…"), plegada por defecto con el contador. La búsqueda (icono de lupa) filtra por título, nombre de la forma o acción y abre la sección al escribir. Las filas sin acción de formas propias muestran "Asignar" en acento, pero el botón es solo visual: toda la fila abre el editor con el campo de acción enfocado.
+- **Editor:** la lista de la izquierda usa la misma fila (baldosa, título y chip), sin secciones; Mica con `DWMSBT_MAINWINDOW` si el "Efecto cristal" está activado y es Windows 11 22H2 o posterior.
+- **Android, desenfoque:** `BackdropBlur` (en `GlassTheme.kt`) redibuja el fondo (degradado y trazo del modo gestos) en un `RenderNode` con `RenderEffect.createBlurEffect` y lo pinta recortado con la tarjeta; vale para la chuleta y el panel de widgets. Como detrás solo hay un degradado suave, la diferencia con el color translúcido apenas se nota hasta que haya algo más (trazo, depuración). Por debajo de Android 12, color `#1E2128` al 92 %.
+- **Android, brillo superior:** el degradado de brillo de la tarjeta ocupa el 50 % de arriba en las vistas (`GradientDrawable` sin posiciones; el 40 % solo es posible con la API 29) y el 40 % en la chuleta, que se dibuja a mano.
+- **Android, iconos:** los botones de control (ajustes, bloquear, salir) dibujan su icono con trazos (`GlassTheme.IconButton`); "Salir" usa el icono de apagado.
+- **Android, botón "Hacer visible":** 3 minutos (antes 2) y mantiene el registro HID 180 s (§4.1).
+- **Ayuda de Bluetooth:** además del texto de la spec se muestra el aviso de la §4.1 sobre el icono de teléfono y el estado "Emparejado".
+
+### Sin verificar
+- **Todo lo que dibuja en Windows:** ninguna ventana se ha ejecutado. En concreto: que `WindowChrome` con `GlassFrameThickness = -1` + `DWMWA_SYSTEMBACKDROP_TYPE` dé Acrylic en una ventana sin `AllowsTransparency`; el aspecto de las esquinas y el borde; la plantilla de la barra de desplazamiento (se carga de una cadena XAML; si falla, se apunta en el log y se usa la de Windows); `DragMove` en la barra de la toolbox maximizada; el reparto en dos columnas medido antes de mostrar la ventana; el hover del "›" y de las filas; Mica en el editor con marco normal.
+- **El módulo `app` de Android no se ha compilado** (sin Android SDK local): solo se ha pasado el compilador de Kotlin sobre las fuentes para descartar errores de sintaxis (los únicos errores son de las clases de Android que faltan). Riesgos: `RenderNode`/`drawRenderNode`, `ViewCompat` con `setDecorFitsSystemWindows(false)` en versiones < 15, los atributos de `themes.xml`, y el aspecto de los diálogos con `Theme.DeviceDefault.Dialog.Alert`.
+- **Bluetooth:** que mantener el registro HID 60 s/180 s resuelva el "Esperando al PC"; es una hipótesis (§4.1). El diagnóstico existe para comprobarlo: pide a quien lo pruebe que pegue el resultado de "Copiar diagnóstico".
+

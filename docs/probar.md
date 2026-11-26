@@ -92,6 +92,30 @@ Actualiza el APK y el host: el host de la v4 es una app WPF (el mismo `MyMouse.e
 7. **`MyMouse.TestClient.exe`** (con el host abierto) abre y cierra la toolbox, simula un trazo y envía una forma de prueba; con `--formas` se queda 60 s contestando a lo que el editor mande al móvil (probar *+ Nueva forma* sin móvil).
 8. **Qué comprobar con más cuidado** (no se ha probado en Windows real): colocación sobre la bandeja con varios monitores o escalas distintas, que abrir desde el móvil no robe el foco, el campo de atajos con la tecla Win, el selector de emojis y la carátula de la música. Si algo falla, apunta qué hiciste y el log del día.
 
+## Estilo y toolbox de la v4.5
+
+Misma actualización de APK y host que la v4.0. Ninguna ventana de Windows se ha ejecutado antes de esta versión: es la primera prueba del estilo.
+1. **Cristal:** en Windows 11 22H2 o posterior la toolbox debe verse translúcida (Acrylic) con esquinas redondeadas del sistema; en Windows 10 o con *Ajustes (⚙) → Efecto cristal* desmarcado, un fondo sólido oscuro con sombra. Cambiar el ajuste con la toolbox abierta la recrea.
+2. **Barra superior:** logo y "MyMouse" a la izquierda; ⚙ (ajustes), ⤢ (maximizar) y ✕ (cerrar) a la derecha. Anclada, arrastrar la barra no la mueve.
+3. **Márgenes:** 8 px entre la toolbox y la barra de tareas, y el mismo aire arriba y abajo dentro del panel. Si el contenido es corto, el panel no se estira.
+4. **Maximizar (⤢):** ventana centrada de 960 × 720 (o el 85 % del escritorio), redimensionable y movible desde la barra, con Opciones y Música a la izquierda y Gestos a la derecha. ⤢ otra vez (o 4 dedos ↓ / `Esc` para cerrarla) y vuelve al panel anclado. Al reabrir, recuerda si estaba maximizada.
+5. **Tarjeta Gestos:** filas alineadas a la izquierda con baldosa (forma con el inicio en azul), título y chip con la acción; para "abrir app" el chip solo lleva el nombre del fichero y la ruta sale al dejar el ratón encima. Secciones *Fijadas*, *Asignadas* y *Sin acción · N* (plegada; ábrela con clic). La lupa filtra. *+ Nueva forma* es un botón de cristal. La barra de scroll es fina y solo aparece al pasar el ratón.
+6. **Gesto en vivo y editor:** el mismo cristal (el editor con Mica); el resultado del gesto sale en un chip de color. La lista del editor usa la misma fila.
+7. **Móvil:** fondo degradado, trackpad como panel de cristal, botones redondos con iconos (ajustes, bloquear, salir), chuleta y panel de widgets de cristal, y Ajustes, Formas, Grabar forma y Bluetooth con tarjetas y barra superior propia (flecha de volver). Debe comportarse igual que antes.
+8. **"Sin dispositivo" en el PC:** con el cable desconectado, Opciones muestra debajo "¿Usas el modo Bluetooth? …" (es normal estar así en ese modo).
+
+## Bluetooth: diagnóstico y volver a emparejar (v4.5)
+
+Si el móvil dice **"Esperando al PC"** y el PC no lo usa como ratón:
+1. En el móvil, abre la pantalla Bluetooth (Ajustes → Emparejar por Bluetooth…, o, ya en modo Bluetooth, un **toque en el punto de estado** del trackpad). Mira la sección **Diagnóstico**: las comprobaciones deben salir con ✓ (Bluetooth, permisos, perfil HID, app registrada, PC elegido y emparejado, conexión HID).
+2. Pulsa **Reintentar conexión** y mira los últimos eventos (`connect(...) devolvió true/false`, `onConnectionStateChanged`).
+3. Si todo está bien en el móvil pero Windows no conecta, lo más probable es que se emparejara **antes** de elegir Bluetooth en MyMouse, y Windows guardó el móvil como un teléfono. Para volver a emparejar:
+   - En Windows: Configuración → Bluetooth y dispositivos → el móvil → **Quitar dispositivo**.
+   - En el móvil, **con MyMouse abierto en la pantalla Bluetooth** (déjala abierta durante todo el emparejado), pulsa **Hacer visible** (mantiene el registro HID 3 minutos).
+   - En Windows: Agregar dispositivo → Bluetooth → el móvil; acepta el PIN en los dos lados.
+4. Que Windows muestre el móvil con **icono de teléfono** mientras empareja es normal. Al terminar, debe aparecer **como conectado**; si solo pone "Emparejado", quítalo y repite el paso 3.
+5. Pulsa **Copiar diagnóstico** y pégalo al contarlo: incluye las comprobaciones y los últimos 30 eventos, con los cambios de emparejado y si la app HID estaba registrada en ese momento.
+
 ## Bluetooth (desde la v3.0)
 
 No hace falta MyMouse ni adb en el PC.

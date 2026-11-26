@@ -27,6 +27,7 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/spec-v3-bluetooth.md](docs/spec-v3-bluetooth.md) | Modo Bluetooth (sin cable ni programa en el PC) e inicio con Windows |
 | [docs/spec-v3.1-ajustes.md](docs/spec-v3.1-ajustes.md) | Gestos de Windows con 3 dedos, widgets con 4 dedos, zoom e inercia |
 | [docs/spec-v4-toolbox.md](docs/spec-v4-toolbox.md) | La toolbox del PC (WPF): panel, gesto en vivo, editor y formas sincronizadas |
+| [docs/spec-v4.5-estilo.md](docs/spec-v4.5-estilo.md) | Estilo glass en el PC y el móvil, tarjeta Gestos rediseñada y diagnóstico de Bluetooth |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha
