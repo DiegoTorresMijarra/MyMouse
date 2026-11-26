@@ -75,7 +75,7 @@ class MainActivity : Activity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            applyLayout()
+            applyMargins() // sin tocar las barras: mostrarlas u ocultarlas vuelve a disparar este listener
             insets
         }
         setContentView(root)
@@ -162,6 +162,16 @@ class MainActivity : Activity() {
         val window = mode == Mode.WINDOW
         controls.visibility = if (window) View.VISIBLE else View.GONE
         root.setBackgroundColor(if (window) Color.rgb(32, 32, 32) else Color.BLACK)
+        applyMargins()
+        trackpad.framed = window
+        trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS +
+            CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo")
+        trackpad.invalidate()
+        applySystemBars()
+    }
+
+    private fun applyMargins() {
+        val window = mode == Mode.WINDOW
         val i = systemInsets
         (controls.layoutParams as FrameLayout.LayoutParams).setMargins(i.left, i.top, i.right, 0)
         controls.requestLayout()
@@ -173,11 +183,6 @@ class MainActivity : Activity() {
             lp.setMargins(0, 0, 0, 0) // barras ocultas: toda la pantalla
         }
         trackpad.requestLayout()
-        trackpad.framed = window
-        trackpad.cheatSheet.rows = CheatSheet.DEFAULT_ROWS +
-            CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Volver a bloquear" else "Salir del bloqueo")
-        trackpad.invalidate()
-        applySystemBars()
     }
 
     private fun applySystemBars() {
