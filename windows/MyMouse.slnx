@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MyMouse.Host/MyMouse.Host.csproj" />
+    <Project Path="src/MyMouse.HostCore/MyMouse.HostCore.csproj" />
+    <Project Path="src/MyMouse.Protocol/MyMouse.Protocol.csproj" />
+    <Project Path="src/MyMouse.TestClient/MyMouse.TestClient.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MyMouse.HostCore.Tests/MyMouse.HostCore.Tests.csproj" />
+    <Project Path="tests/MyMouse.Protocol.Tests/MyMouse.Protocol.Tests.csproj" />
+  </Folder>
+</Solution>
