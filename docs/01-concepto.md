@@ -1,6 +1,6 @@
 # MyMouse — Concepto (ronda 1)
 
-> Estado: borrador cerrado tras la primera ronda. Siguiente paso: [ronda técnica](#siguiente-ronda-limitaciones-técnicas).
+> Estado: cerrado. Análisis técnico en [02-tecnico.md](02-tecnico.md).
 
 ## Una frase
 
@@ -9,18 +9,18 @@ Reutilizar un móvil Android viejo como **trackpad permanente de escritorio**, c
 ## Contexto
 
 - Proyecto **personal y open source**. Prioridad: que funcione bien para el autor y que el código sea limpio. Facilidad de instalación para terceros: deseable, no bloqueante.
-- Uso principal: **móvil fijo junto al teclado**, siempre conectado. No es un mando para el sofá ni un control de presentaciones (al menos de momento).
+- Uso principal: **móvil fijo junto al teclado**, siempre conectado. Otros usos (sofá, presentaciones…) quedan para el futuro.
 
 ## Plataformas
 
 | Lado | Decisión |
 |---|---|
 | Móvil | Android (versión mínima por definir en la ronda técnica) |
-| Ordenador | **Pendiente** (Windows / macOS / Linux) |
+| Ordenador | **Windows** (con un programa pequeño o un driver; se acepta instalar algo) |
 | Conexión v0 | **Cable USB** |
 | Conexión futura | A estudiar (WiFi / Bluetooth) |
 
-Que el ordenador necesite o no un programa propio **no está decidido**. Depende de lo que permita el USB en Android; lo vemos en la ronda técnica.
+Se acepta instalar un programa pequeño en Windows. Ver [02-tecnico.md](02-tecnico.md).
 
 ## Alcance por versiones
 
@@ -36,7 +36,7 @@ Que el ordenador necesite o no un programa propio **no está decidido**. Depende
 ### v1: modo gestos
 - Se activa al apoyar **N dedos** (N configurable; por ejemplo, 3).
 - Mientras está activo, el usuario **traza una forma** (letra, círculo, flecha, zigzag…).
-- Al levantar el dedo, se reconoce la forma y se ejecuta su acción asociada: atajo de teclado, abrir una app, un comando…
+- Al levantar el dedo, se reconoce la forma y se ejecuta su acción asociada. En v1 la acción es **un atajo de teclado**. Lanzar apps o scripts queda para más adelante.
 - Configuración: tabla `forma → acción`, idealmente con formas propias grabadas por el usuario.
 - Feedback visual: el trazo se dibuja en la pantalla del móvil.
 
@@ -55,10 +55,9 @@ Que el ordenador necesite o no un programa propio **no está decidido**. Depende
 - Modo "ratón de aire" con el giroscopio.
 - Publicarla en tiendas o monetizarla.
 
-## Preguntas abiertas
-1. **SO del ordenador.** Condiciona el lado PC.
-2. **¿Programa en el PC: sí o no?** Se decide en la ronda técnica.
-3. **Modo gestos:** ¿qué tipo de acciones? ¿Solo atajos de teclado o también comandos o scripts? (Si son scripts, hace falta un programa en el PC sí o sí.)
+## Decisiones de la ronda 1
+1. Ordenador: **Windows**, con un programa ligero.
+2. Acciones del modo gestos: **atajos de teclado**.
 
 ## Siguiente ronda: limitaciones técnicas
 
