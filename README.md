@@ -49,4 +49,4 @@ cd android
 ```
 
 ## Licencia
-Por decidir.
+[MIT](LICENSE)
