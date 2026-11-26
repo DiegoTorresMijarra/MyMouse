@@ -169,3 +169,19 @@ public class StartMenuTests : IDisposable
         Assert.Equal(["Chrome", "Google Chrome Canary"], AppSearch.Filter(Apps, "chrome").Select(a => a.Name));
     }
 }
+
+public class AdbModelTests
+{
+    [Fact]
+    public void ParseModel_ReadsTheFirstDevice()
+    {
+        const string output = "List of devices attached\r\nABC123\tdevice usb:1-2 product:marble model:Poco_X8_Pro_Max device:marble transport_id:1\r\n\r\n";
+        Assert.Equal("Poco X8 Pro Max", AdbReverseKeeper.ParseModel(output));
+    }
+
+    [Theory]
+    [InlineData("List of devices attached\r\n\r\n")]
+    [InlineData("List of devices attached\r\nABC123\tunauthorized usb:1-2\r\n")]
+    [InlineData("")]
+    public void ParseModel_WithoutADevice_IsNull(string output) => Assert.Null(AdbReverseKeeper.ParseModel(output));
+}

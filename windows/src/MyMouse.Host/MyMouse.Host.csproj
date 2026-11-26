@@ -3,10 +3,26 @@
     <OutputType>WinExe</OutputType>
     <!-- 10.0.19041: proyección de las API WinRT (sesiones multimedia) para el widget de música. -->
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <!-- WPF para las ventanas (toolbox, gesto en vivo, editor); WinForms solo para NotifyIcon (icono de la bandeja). -->
+    <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>MyMouse</AssemblyName>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- La escala por monitor (PerMonitorV2) se declara en app.manifest, que es lo que usa WPF; el analizador de WinForms
+         prefiere su propia propiedad, que aquí no se usa (no hay Application.Run de WinForms). -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- WPF + WinForms autocontenidos pesan ~200 MB en un solo fichero: se comprime (solo afecta a "dotnet publish" de un solo fichero). -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Con las dos plataformas, los usings implícitos de WinForms chocan con los de WPF (Application, Button, Color…). -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <!-- UseWPF quita System.IO de los usings implícitos (choca con System.Windows.Shapes.Path). -->
+    <Using Include="System.IO" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MyMouse.HostCore\MyMouse.HostCore.csproj" />
   </ItemGroup>

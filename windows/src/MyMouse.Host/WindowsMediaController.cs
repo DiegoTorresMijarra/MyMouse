@@ -19,6 +19,7 @@ internal sealed class WindowsMediaController : IMediaController, IDisposable
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
     private GlobalSystemMediaTransportControlsSession? _session;
     private MediaInfo _current = MediaInfo.Nothing;
+    private byte[]? _thumbnail;
     private bool _failureLogged;
     private bool _disposed;
 
@@ -34,6 +35,15 @@ internal sealed class WindowsMediaController : IMediaController, IDisposable
     public MediaInfo Current()
     {
         lock (_lock) return _current;
+    }
+
+    /// <summary>Carátula de lo que suena (imagen codificada: JPEG o PNG), o null si no hay. La misma instancia mientras no cambie.</summary>
+    public byte[]? CurrentThumbnail
+    {
+        get
+        {
+            lock (_lock) return _thumbnail;
+        }
     }
 
     /// <summary>Lanza si Windows rechaza las teclas (el servicio lo informa como error al móvil).</summary>
@@ -114,6 +124,7 @@ internal sealed class WindowsMediaController : IMediaController, IDisposable
             lock (_lock) session = _session;
 
             var info = MediaInfo.Nothing;
+            byte[]? thumbnail = null;
             if (session is not null)
             {
                 var properties = await session.TryGetMediaPropertiesAsync();
@@ -122,14 +133,21 @@ internal sealed class WindowsMediaController : IMediaController, IDisposable
                     status == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
                     properties?.Title ?? "",
                     properties?.Artist ?? "");
+                // La carátula solo se vuelve a leer si cambia la canción.
+                bool sameSong;
+                lock (_lock) sameSong = info.Title == _current.Title && info.Artist == _current.Artist;
+                thumbnail = sameSong ? CurrentThumbnail : await ReadThumbnailAsync(properties);
             }
 
+            bool changed;
             lock (_lock)
             {
-                if (_disposed || info == _current) return;
+                if (_disposed) return;
+                changed = info != _current || !ReferenceEquals(thumbnail, _thumbnail);
                 _current = info;
+                _thumbnail = thumbnail;
             }
-            Changed?.Invoke();
+            if (changed) Changed?.Invoke();
         }
         catch (Exception ex)
         {
@@ -138,6 +156,24 @@ internal sealed class WindowsMediaController : IMediaController, IDisposable
         finally
         {
             _refreshGate.Release();
+        }
+    }
+
+    private async Task<byte[]?> ReadThumbnailAsync(GlobalSystemMediaTransportControlsSessionMediaProperties? properties)
+    {
+        try
+        {
+            if (properties?.Thumbnail is not { } reference) return null;
+            using var stream = (await reference.OpenReadAsync()).AsStreamForRead();
+            using var copy = new MemoryStream();
+            await stream.CopyToAsync(copy);
+            return copy.Length is > 0 and < 8_000_000 ? copy.ToArray() : null;
+        }
+        catch (Exception ex)
+        {
+            // La carátula es un adorno: si no se puede leer, se muestra sin ella.
+            LogOnce(ex);
+            return null;
         }
     }
 
