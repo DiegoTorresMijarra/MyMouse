@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MyMouse.HostCore;
+using MyMouse.HostCore.Gestures;
 
 namespace MyMouse.Host;
 
@@ -11,6 +12,10 @@ internal sealed class TrayContext : ApplicationContext
     private readonly CancellationTokenSource _cts = new();
     private readonly SynchronizationContext _ui;
     private readonly AdbReverseKeeper _adb;
+    private readonly GestureService _gestures;
+    private readonly GestureConfigFile _gestureFile;
+    private readonly System.Windows.Forms.Timer _foregroundTimer;
+    private readonly Dictionary<string, DateTime> _lastUnassignedNotice = [];
 
     private volatile bool _paused;
     private bool _connected;
@@ -20,6 +25,7 @@ internal sealed class TrayContext : ApplicationContext
         _pauseItem = new ToolStripMenuItem("Pausar", null, (_, _) => TogglePause());
         var menu = new ContextMenuStrip();
         menu.Items.Add(_pauseItem);
+        menu.Items.Add("Editar gestos…", null, (_, _) => EditGestures());
         menu.Items.Add("Abrir carpeta de logs", null, (_, _) => OpenLogs());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Salir", null, (_, _) => ExitThread());
@@ -34,7 +40,25 @@ internal sealed class TrayContext : ApplicationContext
             Visible = true,
         };
 
-        var server = new HostServer(new SendInputInjector(), () => _paused, config.Port);
+        _gestures = new GestureService(new WindowsActionExecutor(() => _ui.Post(_ => TogglePause(), null)));
+        _gestures.Unassigned += name => _ui.Post(_ => NotifyUnassigned(name), null);
+        _gestures.Failed += (name, ex) =>
+        {
+            FileLog.Write($"Error al ejecutar la forma '{name}': {ex.Message}");
+            _ui.Post(_ => Notify($"No se pudo ejecutar '{name}': {ex.Message}", ToolTipIcon.Warning), null);
+        };
+
+        _gestureFile = new GestureConfigFile();
+        _gestureFile.Loaded += _gestures.SetConfig;
+        _gestureFile.Problem += message => _ui.Post(_ => Notify(message, ToolTipIcon.Warning), null);
+        _gestureFile.Start();
+
+        // La chuleta del móvil cambia con la app activa si hay reglas por aplicación.
+        _foregroundTimer = new System.Windows.Forms.Timer { Interval = 500 };
+        _foregroundTimer.Tick += (_, _) => _gestures.SetForegroundApp(WindowsActionExecutor.ForegroundProcessName());
+        _foregroundTimer.Start();
+
+        var server = new HostServer(new SendInputInjector(), () => _paused, config.Port, _gestures);
         server.Log += FileLog.Write;
         server.ConnectionChanged += connected => _ui.Post(_ => { _connected = connected; UpdateStatus(); }, null);
 
@@ -69,6 +93,26 @@ internal sealed class TrayContext : ApplicationContext
         _icon.Text = $"MyMouse: {status}";
     }
 
+    private void NotifyUnassigned(string name)
+    {
+        FileLog.Write($"Forma sin asignar: {name}");
+        // Un aviso por forma cada 30 s como mucho.
+        if (_lastUnassignedNotice.TryGetValue(name, out var last) && DateTime.UtcNow - last < TimeSpan.FromSeconds(30)) return;
+        _lastUnassignedNotice[name] = DateTime.UtcNow;
+        Notify($"Forma '{name}' sin asignar. Añádela en \"Editar gestos…\".", ToolTipIcon.Info);
+    }
+
+    private void Notify(string text, ToolTipIcon icon)
+    {
+        // El texto del globo admite como máximo 255 caracteres.
+        _icon.ShowBalloonTip(4000, "MyMouse", text.Length > 250 ? text[..250] + "…" : text, icon);
+    }
+
+    private static void EditGestures()
+    {
+        Process.Start(new ProcessStartInfo("notepad.exe", $"\"{GestureConfigFile.FilePath}\"") { UseShellExecute = true });
+    }
+
     private static void OpenLogs()
     {
         Directory.CreateDirectory(FileLog.Directory);
@@ -93,6 +137,8 @@ internal sealed class TrayContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         _cts.Cancel();
+        _foregroundTimer.Dispose();
+        _gestureFile.Dispose();
         _icon.Visible = false;
         _icon.Dispose();
         base.ExitThreadCore();
