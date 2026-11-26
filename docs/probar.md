@@ -33,6 +33,13 @@ Si algo no conecta:
 - Prueba solo el PC con `MyMouse.TestClient.exe` (con el host abierto): el cursor debe dibujar un círculo.
 - Logs del móvil: `adb logcat -s MyMouse`.
 
+## Modo gestos (desde la v1.0)
+
+1. En el móvil: modo ventana → **Ajustes → Formas…** para ver y activar las formas. Lo que hace cada una se configura en el PC.
+2. En el PC: icono de MyMouse en la bandeja → **Editar gestos…**. Se abre `gestures.json` con ejemplos (círculo = abrir Chrome, Z = deshacer, V = reproducir/pausar…). Al guardar, MyMouse lo recarga solo.
+3. En el trackpad: apoya **3 dedos a la vez y déjalos quietos** hasta que vibre. Levántalos y dibuja la forma con un dedo.
+4. Activa el **modo depuración** (Ajustes) para ver qué forma se ha reconocido y con qué puntuación.
+
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
 - Qué hiciste y qué pasó (y qué esperabas).

@@ -2,17 +2,17 @@
 
 > Objetivos: [00-roadmap.md](00-roadmap.md#v1-modo-gestos) · Protocolo: [../protocol/PROTOCOL.md](../protocol/PROTOCOL.md)
 >
-> Estado: **propuesta**, pendiente de validar con la prueba de uso de la v0.
+> Estado: **implementada** (release `v1.0`). Pendiente de validar en uso real; los umbrales pueden cambiar tras la prueba.
 
 ## 1. Flujo de uso
 
-1. **Activar:** apoyar **3 dedos** a la vez (con menos de 120 ms de diferencia) y mantenerlos quietos **300 ms**. El móvil vibra y la pantalla muestra un borde de color: el modo gestos está activo, y la chuleta del centro se amplía con todas las formas disponibles (ver §6).
+1. **Activar:** apoyar **3 dedos** a la vez (con menos de 150 ms entre el primero y el último) y mantenerlos quietos **300 ms**. El móvil vibra y la pantalla muestra un borde de color: el modo gestos está activo, y la chuleta del centro se amplía con todas las formas disponibles (ver §6).
 2. **Levantar** los 3 dedos.
-3. **Dibujar** la forma con **un dedo**, de un solo trazo, en menos de 2 s desde la activación. El trazo se dibuja en pantalla mientras se hace.
-4. **Levantar** el dedo. El móvil reconoce la forma y muestra durante 1 s su nombre y la acción asignada, o "No reconocido".
+3. **Dibujar** la forma con **un dedo**, de un solo trazo, empezando en menos de 3 s desde que se levantan los dedos. El trazo se dibuja en pantalla mientras se hace.
+4. **Levantar** el dedo. El móvil reconoce la forma y muestra durante 1,5 s su nombre y la acción asignada, o "No reconocido".
 5. El modo gestos termina solo; se vuelve al trackpad.
 
-**Cancelar:** no dibujar nada en 2 s, volver a mantener 3 dedos (los 3 dedos activan y desactivan), o tocar con 2 dedos.
+**Cancelar:** no empezar a dibujar en 3 s, o apoyar un segundo dedo en cualquier momento del modo gestos (incluido volver a apoyar los 3).
 
 Por qué así:
 - **3 dedos mantenidos** no choca con nada de la v0 (1 dedo = mover, 2 = scroll/clic derecho; 3 ya está reservado). Mantenerlos quietos evita activaciones accidentales al apoyar la mano. N es configurable (3 o 4).
@@ -21,7 +21,7 @@ Por qué así:
 
 ## 2. Catálogo de formas incluidas
 
-Todas son de **un solo trazo**. El catálogo trae 16; se recomienda **activar 8–10 a la vez**, porque cuantas menos haya, menos se confunden.
+Todas son de **un solo trazo**. El catálogo trae 15; se recomienda **activar 8–10 a la vez**, porque cuantas menos haya, menos se confunden.
 
 | Grupo | Formas | Id | Notas |
 |---|---|---|---|
@@ -31,7 +31,7 @@ Todas son de **un solo trazo**. El catálogo trae 16; se recomienda **activar 8�
 | Símbolos | ✓ (check), Z, S, L | `check`, `z`, `s`, `l` | |
 | Propias | Las que grabes | `custom:<nombre>` | Ver §5. |
 
-**Pares que se confunden** (el editor avisa si activas los dos):
+**Pares que se confunden** (al grabar una forma, el móvil avisa si se confunde con otra activa):
 - `<` con `C` (propia) y con `circle` si se dibuja abierto.
 - `check` con `v` y con `l`.
 - `z` con `s` si se dibujan redondeados.
@@ -100,18 +100,21 @@ Si llega una forma sin acción asignada, el host lo apunta en el log y muestra u
 ## 4. Reconocimiento (en el móvil)
 
 1. **Filtro previo:** si el trazo mide menos de 40 px de ancho y de alto, se trata como un toque y se descarta.
-2. **Líneas:** si el trazo es casi recto (longitud del recorrido < 1,15 × distancia entre extremos), se clasifica por el ángulo en ↑ ↓ ← →. Es más fiable que una plantilla y distingue el sentido.
+2. **Líneas:** si el trazo es casi recto (recorrido suavizado < 1,15 × distancia entre extremos, o muy estrecho: lado corto < 20 % del largo), se clasifica por la dirección en ↑ ↓ ← →. Es más fiable que una plantilla y distingue el sentido. Si esa línea está desactivada, se prueba con las plantillas.
 3. **Resto:** algoritmo **$1 / Protractor** contra las plantillas activas.
    - Normaliza tamaño, posición y número de puntos.
    - **Sensible a la rotación** (si no, `<` y `>`, o `v` y `caret`, serían la misma forma).
-   - Las formas cerradas llevan plantillas en ambos sentidos de giro.
-4. **Rechazo:** la forma solo se acepta si su puntuación supera un umbral **y** saca suficiente ventaja a la segunda. Si no, "No reconocido". Es preferible no hacer nada a hacer algo equivocado.
+   - Tolera ±30° de giro, no más.
+   - Todas las formas llevan plantilla en los dos sentidos; las cerradas, además, con 8 puntos de inicio distintos.
+   - **Círculo, triángulo y cuadrado** se parecen mucho para Protractor: si la mejor es una de las tres y el trazo es cerrado, se decide por el número de esquinas (0–1 círculo, 3 triángulo, 4–5 cuadrado).
+4. **Rechazo:** la forma solo se acepta si su puntuación (coseno) llega a 0,85 **y** saca al menos 0,02 a la segunda. Si no, "No reconocido". Es preferible no hacer nada a hacer algo equivocado.
 
 Todo esto es lógica pura en `android/core`, testeable en la JVM con trazos grabados.
 
 ## 5. Formas propias
 
-- En los ajustes del móvil: "Nueva forma" → nombre → dibujarla **3 veces**.
+- En el móvil: modo ventana → Ajustes → **Formas…** → "Nueva forma" → nombre → dibujarla **3 veces**.
+- En la misma pantalla se activan y desactivan las formas incluidas.
 - Al guardar, se compara con las formas activas. Si se parece demasiado a alguna, avisa ("Se confunde con `check`") y deja guardarla igualmente o repetirla.
 - También se pueden **regrabar** las formas incluidas con tu propia letra, lo que suele mejorar mucho la tasa de aciertos.
 - Se guardan en el móvil. El PC solo conoce su nombre (`custom:<nombre>`).
@@ -154,24 +157,18 @@ Además, **no se ejecutan comandos arbitrarios** (PowerShell, scripts) en v1. Se
 
 ## 8. Protocolo
 
-Mensaje nuevo, cliente → host:
+Protocolo **versión 2**: `GESTURE` (móvil → PC), `GESTURE_RESULT` y `GESTURE_LIST` (PC → móvil). Son los primeros mensajes de tamaño variable y llevan delante la longitud en un `u16`. Formato exacto y vectores de prueba en [PROTOCOL.md](../protocol/PROTOCOL.md).
 
-| Tipo | Nombre | Payload |
-|---|---|---|
-| `0x06` | `GESTURE` | `u8 longitud` + nombre en UTF-8 (1–64 bytes) |
+- `GESTURE` sustituye al `KEYCOMBO` que estaba reservado: el móvil ya no decide la acción.
+- El host negocia la versión: un móvil v2 con un host v1 funciona como trackpad, sin modo gestos (la chuleta lo avisa).
 
-Es el primer mensaje de tamaño variable. Sustituye al `KEYCOMBO` que estaba reservado: el móvil ya no decide la acción.
+## 8.1 Host de Windows
 
-Mensajes nuevos, host → cliente:
-
-| Tipo | Nombre | Payload |
-|---|---|---|
-| `0x86` | `GESTURE_RESULT` | `u8 estado`: 0 = ejecutado, 1 = sin asignar, 2 = error |
-| `0x87` | `GESTURE_LIST` | `u8 longitud` + contexto UTF-8 (nombre de la app activa, puede ir vacío), `u8 n`, y `n` entradas: `u8 flags` (bit 0 = fijada), `u8 longitud` + nombre, `u8 longitud` + texto de ayuda |
-
-Como máximo 64 entradas y 255 bytes por cadena, así que un `GESTURE_LIST` cabe siempre en menos de 25 KB. El host envía una lista nueva entera cada vez, no cambios parciales.
-
-Sube la versión del protocolo a 2. Un móvil con v2 puede conectarse a un host v1, pero no tendrá el modo gestos.
+- `%APPDATA%\MyMouse\gestures.json`. Se crea con un ejemplo la primera vez; acepta comentarios `//` y comas finales.
+- Se recarga solo al guardarlo. Si tiene un error de JSON se mantiene la versión anterior; las reglas sueltas mal escritas se ignoran. En ambos casos, aviso en la bandeja y detalle en el log.
+- Menú de la bandeja → **Editar gestos…** abre el fichero en el Bloc de notas.
+- La ventana activa se mira cada 0,5 s; si cambia entre apps con reglas propias, se envía un `GESTURE_LIST` nuevo.
+- Forma sin regla: aviso en la bandeja (como mucho uno cada 30 s por forma).
 
 ## 9. Testing
 

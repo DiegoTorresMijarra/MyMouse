@@ -48,9 +48,11 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 - Mapa configurable `forma → acción` (atajo, abrir app/URL, texto, multimedia), que se guarda **en el PC**. El móvil solo envía el nombre de la forma reconocida.
 - Grabación de formas propias (de 1 a 3 ejemplos por forma).
 - Al activar el modo gestos, la chuleta muestra todas las formas con su texto de ayuda.
-- Un catálogo de 16 formas incluidas (líneas, ángulos, círculo, triángulo, cuadrado, check, Z, S, L).
+- Un catálogo de 15 formas incluidas (líneas, ángulos, círculo, triángulo, cuadrado, check, Z, S, L).
 - Mensaje de protocolo `GESTURE`.
 - Detalle: [spec-v1-gestos.md](spec-v1-gestos.md).
+
+> Estado: implementada en la release `v1.0`. Los criterios de "hecho" están pendientes de comprobar en uso real.
 
 **Criterios de "hecho":**
 1. Al menos un 90 % de aciertos con las formas propias, en una prueba de 50 trazos.
