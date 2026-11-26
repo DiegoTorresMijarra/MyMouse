@@ -1,9 +1,13 @@
 package dev.mymouse
 
 import android.content.Context
+import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.shapes.P
+import dev.mymouse.core.shapes.RecordedShape
 import dev.mymouse.core.shapes.Recognizer
 import dev.mymouse.core.shapes.ShapeCatalog
+import dev.mymouse.core.shapes.ShapeLibrary
+import dev.mymouse.core.shapes.ShapeSync
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -11,32 +15,49 @@ import java.io.File
 /**
  * Formas del modo gestos guardadas en el móvil (docs/spec-v1-gestos.md §5):
  * qué formas del catálogo están activas y las muestras grabadas por el usuario
- * (formas propias "custom:<nombre>" o versiones propias de las del catálogo).
+ * (formas propias "custom:<nombre>" o versiones propias de las del catálogo). La lógica (confusiones, sincronización
+ * con el PC) está en `core` ([ShapeLibrary], [ShapeSync]); esta clase solo la guarda en `shapes.json`.
  */
 class ShapeStore(context: Context) {
-
-    data class Recorded(val name: String, val samples: List<List<P>>)
 
     private val file = File(context.filesDir, "shapes.json")
 
     var enabledCatalog: Set<String> = ShapeCatalog.IDS.toSet()
         private set
-    var recorded: List<Recorded> = emptyList()
+    var recorded: List<RecordedShape> = emptyList()
         private set
 
     init {
         load()
     }
 
+    /** Estado actual como biblioteca de `core`. */
+    val library: ShapeLibrary get() = ShapeLibrary(enabledCatalog, recorded)
+
     /** Todas las formas activas: las del catálogo marcadas y todas las propias. */
-    val enabled: Set<String>
-        get() = enabledCatalog + recorded.map { it.name }.filter { it.startsWith(CUSTOM_PREFIX) }
+    val enabled: Set<String> get() = library.enabled
 
     /** [exclude]: forma que se deja fuera (al grabarla, para ver con qué otras se confunde). */
-    fun recognizer(minSizePx: Float, exclude: String? = null): Recognizer {
-        val templates = Recognizer.catalogTemplates() +
-            recorded.filter { it.name != exclude }.flatMap { r -> r.samples.map { Recognizer.NamedTemplate(r.name, it) } }
-        return Recognizer(templates, enabled - setOfNotNull(exclude), Recognizer.Config(minSizePx = minSizePx))
+    fun recognizer(minSizePx: Float, exclude: String? = null): Recognizer = library.recognizer(minSizePx, exclude)
+
+    /** ¿Con qué otras formas activas se confunde [name]? (Misma lógica al grabar en el móvil y al recibirla del PC.) */
+    fun clashes(name: String, samples: List<List<P>>, minSizePx: Float): List<String> = library.clashes(name, samples, minSizePx)
+
+    /** Mensajes de la lista de formas propias para el PC: `SHAPE_INFO` por forma y `SHAPE_LIST_END`. */
+    fun syncMessages(): List<Message> = ShapeSync.listMessages(library)
+
+    /** Aplica una petición del PC y guarda si cambió algo. Devuelve la respuesta para el PC. */
+    fun applyRequest(request: Message): Message.ShapeResult {
+        val outcome = when (request) {
+            is Message.ShapeAdd -> ShapeSync.applyAdd(library, request)
+            is Message.ShapeDelete -> ShapeSync.applyDelete(library, request)
+            else -> throw IllegalArgumentException("No es una petición de formas: $request")
+        }
+        if (outcome.changed) {
+            recorded = outcome.library.recorded
+            save()
+        }
+        return outcome.result
     }
 
     /** Puntos para dibujar la miniatura de una forma (la del catálogo o la primera muestra grabada). */
@@ -49,12 +70,12 @@ class ShapeStore(context: Context) {
     }
 
     fun put(name: String, samples: List<List<P>>) {
-        recorded = recorded.filter { it.name != name } + Recorded(name, samples)
+        recorded = library.withRecorded(name, samples).recorded
         save()
     }
 
     fun remove(name: String) {
-        recorded = recorded.filter { it.name != name }
+        recorded = library.without(name).recorded
         save()
     }
 
@@ -69,7 +90,7 @@ class ShapeStore(context: Context) {
             recorded = (0 until custom.length()).map { i ->
                 val o = custom.getJSONObject(i)
                 val samples = o.getJSONArray("samples")
-                Recorded(o.getString("name"), (0 until samples.length()).map { s ->
+                RecordedShape(o.getString("name"), (0 until samples.length()).map { s ->
                     val flat = samples.getJSONArray(s)
                     (0 until flat.length() / 2).map { k -> P(flat.getDouble(2 * k).toFloat(), flat.getDouble(2 * k + 1).toFloat()) }
                 })
@@ -98,7 +119,10 @@ class ShapeStore(context: Context) {
     }
 
     companion object {
-        const val CUSTOM_PREFIX = "custom:"
+        /** Lo pone [ShapesActivity] mientras está abierta: se llama cuando el PC cambia las formas. */
+        @Volatile var onExternalChange: (() -> Unit)? = null
+
+        const val CUSTOM_PREFIX = ShapeLibrary.CUSTOM_PREFIX
 
         /** Nombre para mostrar: etiqueta del catálogo o el nombre propio sin prefijo. */
         fun label(name: String): String =

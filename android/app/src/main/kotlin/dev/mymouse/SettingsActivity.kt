@@ -117,7 +117,7 @@ class SettingsActivity : Activity() {
             setOnClickListener { startActivity(android.content.Intent(this@SettingsActivity, ShapesActivity::class.java)) }
         })
         list.addView(TextView(this).apply {
-            text = "Lo que hace cada forma se configura en el PC: icono de MyMouse en la bandeja → \"Editar gestos y widgets…\"."
+            text = "Lo que hace cada forma se configura en la toolbox del PC (clic en el icono de la bandeja o 4 dedos ↑) → \"Gestos y widgets\"."
             textSize = 13f
             setTextColor(Color.rgb(150, 150, 150))
         })
@@ -133,7 +133,7 @@ class SettingsActivity : Activity() {
         ) { settings = settings.copy(widgetPanelSize = WidgetPanelSize.entries[it]) })
         list.addView(TextView(this).apply {
             text = "El panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
-                "bandeja → \"Editar gestos y widgets…\"."
+                "toolbox del PC → \"Gestos y widgets\"."
             textSize = 13f
             setTextColor(Color.rgb(150, 150, 150))
         })

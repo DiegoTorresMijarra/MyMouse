@@ -19,7 +19,6 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import dev.mymouse.core.shapes.P
-import dev.mymouse.core.shapes.Recognizer
 
 /**
  * Grabar una forma: se dibuja [SAMPLES] veces y se comprueba que no se confunda con las activas
@@ -121,12 +120,9 @@ class RecordShapeActivity : Activity() {
         saveButton.isEnabled = true
     }
 
-    /** ¿Se confunde con alguna forma activa? Se reconocen las muestras con las demás formas (sin esta). */
+    /** ¿Se confunde con alguna forma activa? (La lógica está en `core`, compartida con las formas que llegan del PC.) */
     private fun check(): String {
-        val recognizer: Recognizer = store.recognizer(minSizePx = 40 * density, exclude = name)
-        val clashes = samples.mapNotNull { (recognizer.recognize(it) as? Recognizer.Result.Match)?.name }
-            .filter { it != name }
-            .distinct()
+        val clashes = store.clashes(name, samples, minSizePx = 40 * density)
         return if (clashes.isEmpty()) {
             "Lista. No se parece a ninguna otra forma activa."
         } else {

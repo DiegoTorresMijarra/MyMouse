@@ -34,7 +34,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.mymouse.core.debug.WidgetDescriber
 import dev.mymouse.core.gesture.TrackpadEngine
+import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.protocol.Protocol
+import dev.mymouse.core.protocol.ShapeStatus
 import dev.mymouse.core.widgets.PanelReveal
 
 /**
@@ -73,6 +75,9 @@ class MainActivity : Activity() {
     /** Tamaño del contenedor con el que se calcularon los márgenes; al girar la pantalla hay que recalcularlos. */
     private var laidOutSize = 0 to 0
     private lateinit var shapes: ShapeStore
+
+    /** Última lista de formas enviada al PC, para reenviarla solo si cambia (al volver de grabar o borrar formas). */
+    private var lastSyncedShapes: List<Message>? = null
     private var dimmed = false
     private val dim = Runnable { setDimmed(true) }
     private val density get() = resources.displayMetrics.density
@@ -96,14 +101,19 @@ class MainActivity : Activity() {
         trackpad.shapeStore = shapes
         trackpad.onPanelGesture = ::onPanelGesture
         trackpad.systemGesturesAvailable = { connection.supportsSystemGestures }
+        trackpad.toolboxAvailable = { connection.supportsToolbox }
+        trackpad.toolboxUnavailableText = { connection.toolboxUnavailableText }
         panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
         connection.onConnectionChanged = { connected ->
             trackpad.post {
                 trackpad.connected = connected
                 if (!connected) {
                     trackpad.hostGestureList = null
+                    lastSyncedShapes = null
                     panel.clear()
                     applyMargins()
+                } else {
+                    syncShapes() // el PC (v5) recibe la lista de formas propias nada más conectar
                 }
             }
         }
@@ -121,6 +131,8 @@ class MainActivity : Activity() {
                 WidgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
             }
         }
+        connection.onShapeAdd = { add -> handler.post { applyShapeRequest(add) } }
+        connection.onShapeDelete = { delete -> handler.post { applyShapeRequest(delete) } }
         connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
         connection.onGestureResult = { status -> trackpad.post { trackpad.showGestureStatus(status) } }
 
@@ -218,6 +230,35 @@ class MainActivity : Activity() {
             AppSettings.Orientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
         scheduleDim()
+        syncShapes() // las formas pueden haber cambiado en ShapesActivity o RecordShapeActivity
+    }
+
+    // ---- Formas sincronizadas con el PC (docs/spec-v4-toolbox.md §5 y §7) ----
+
+    /** Envía la lista de formas propias al PC si hay toolbox y es distinta de la última enviada. */
+    private fun syncShapes() {
+        if (!connection.supportsToolbox) return
+        val messages = shapes.syncMessages()
+        if (messages == lastSyncedShapes) return
+        lastSyncedShapes = messages
+        connection.sendShapes(messages)
+    }
+
+    /** `SHAPE_ADD` o `SHAPE_DELETE` del PC: se aplican sobre lo guardado, se contesta y, si cambió algo, se reenvía la lista. */
+    private fun applyShapeRequest(request: Message) {
+        val store = ShapeStore(this)
+        val result = store.applyRequest(request)
+        val replies = mutableListOf<Message>(result)
+        if (result.status == ShapeStatus.SAVED || result.status == ShapeStatus.DELETED) {
+            shapes = store
+            trackpad.shapeStore = store
+            trackpad.interpreter = buildEngine() // el reconocedor debe conocer la forma nueva (o dejar de conocer la borrada)
+            val list = store.syncMessages()
+            lastSyncedShapes = list
+            replies += list
+            ShapeStore.onExternalChange?.invoke()
+        }
+        connection.sendShapes(replies)
     }
 
     private fun scheduleDim() {

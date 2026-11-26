@@ -31,6 +31,10 @@ class HostConnection(private val port: Int) : Transport {
 
     override val supportsSystemGestures get() = protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION
 
+    override val supportsToolbox get() = protocolVersion >= Protocol.TOOLBOX_VERSION
+
+    override val toolboxUnavailableText get() = if (protocolVersion == 0) "Sin conexión con el PC" else "Actualiza MyMouse en el PC"
+
     override var onConnectionChanged: (Boolean) -> Unit = {}
 
     /** Lista de formas del PC (para la chuleta). Se llama desde el hilo de lectura. */
@@ -44,6 +48,10 @@ class HostConnection(private val port: Int) : Transport {
     override var onVolumeState: (Message.VolumeState) -> Unit = {}
     override var onMediaState: (Message.MediaState) -> Unit = {}
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
+
+    /** Peticiones del PC para añadir o borrar formas (protocolo v5). Se llaman desde el hilo de lectura. */
+    override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
+    override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
 
     /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
     @Volatile var protocolVersion = 0
@@ -102,6 +110,15 @@ class HostConnection(private val port: Int) : Transport {
         }
     }
 
+    /** Lista de formas o respuestas de formas para el PC. Solo con versión ≥ 5: un host anterior cerraría la conexión. */
+    override fun sendShapes(messages: List<Message>) {
+        if (!connected || protocolVersion < Protocol.TOOLBOX_VERSION) return
+        lock.withLock {
+            queue.addAll(messages)
+            notEmpty.signal()
+        }
+    }
+
     private fun enqueue(action: OutputAction) {
         val last = queue.lastOrNull()
         when (action) {
@@ -123,9 +140,19 @@ class HostConnection(private val port: Int) : Transport {
             // Un host anterior a la v4 no entiende SYSTEM_GESTURE y cerraría la conexión: sin él, los gestos no hacen nada.
             is OutputAction.SystemGesture ->
                 if (protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION) queue.addLast(Message.SystemGesture(action.command))
-            // Solo feedback local o reservado.
-            is OutputAction.GestureMode, is OutputAction.GestureRejected,
-            is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> Unit
+            // Toolbox del PC y gesto en vivo (v5): un host anterior no los entiende y cerraría la conexión.
+            is OutputAction.FourFingerSwipe ->
+                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.Toolbox(action.up))
+            is OutputAction.GestureMode ->
+                if (protocolVersion >= Protocol.TOOLBOX_VERSION) {
+                    queue.addLast(Message.GestureMode(action.active, action.startTimeoutMs))
+                }
+            is OutputAction.StrokePoints ->
+                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.StrokePoints(action.points))
+            is OutputAction.StrokeEnd ->
+                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.StrokeEnd(action.result))
+            // Solo feedback local.
+            is OutputAction.GestureRejected, is OutputAction.WidgetPanel -> Unit
             is OutputAction.Zoom ->
                 if (last is Message.Zoom && fitsI16(last.delta + action.delta)) {
                     queue[queue.lastIndex] = Message.Zoom(last.delta + action.delta)
@@ -206,6 +233,8 @@ class HostConnection(private val port: Int) : Transport {
                     is Message.VolumeState -> onVolumeState(m)
                     is Message.MediaState -> onMediaState(m)
                     is Message.WidgetResult -> onWidgetResult(m)
+                    is Message.ShapeAdd -> onShapeAdd(m)
+                    is Message.ShapeDelete -> onShapeDelete(m)
                     else -> Unit // PONG
                 }
             }

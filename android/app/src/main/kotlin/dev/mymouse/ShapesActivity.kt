@@ -51,6 +51,13 @@ class ShapesActivity : Activity() {
         super.onResume()
         store = ShapeStore(this) // puede haber cambiado al grabar
         build()
+        // Si el PC añade o borra una forma con esta pantalla abierta, se refresca (docs/spec-v4-toolbox.md §7).
+        ShapeStore.onExternalChange = { runOnUiThread { store = ShapeStore(this); build() } }
+    }
+
+    override fun onPause() {
+        ShapeStore.onExternalChange = null
+        super.onPause()
     }
 
     private fun build() {
@@ -62,7 +69,7 @@ class ShapesActivity : Activity() {
         })
         list.addView(note(
             "Activa solo las que uses: cuantas menos, menos se confunden (recomendado: hasta 10). " +
-                "Qué hace cada forma se decide en el PC: icono de la bandeja → \"Editar gestos…\". " +
+                "Qué hace cada forma se decide en el PC: toolbox → tarjeta Gestos (4 dedos ↑ en el trackpad). " +
                 "El punto verde de cada dibujo marca dónde empieza el trazo.",
         ))
 

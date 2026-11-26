@@ -17,6 +17,10 @@ interface Transport {
     var onMediaState: (Message.MediaState) -> Unit
     var onWidgetResult: (Message.WidgetResult) -> Unit
 
+    /** El PC pide añadir o borrar una forma (protocolo v5). Se llaman desde el hilo de lectura. */
+    var onShapeAdd: (Message.ShapeAdd) -> Unit
+    var onShapeDelete: (Message.ShapeDelete) -> Unit
+
     /** ¿Admite el modo gestos? (Las acciones de las formas viven en el PC.) */
     val supportsGestures: Boolean
 
@@ -26,10 +30,22 @@ interface Transport {
      */
     val supportsSystemGestures: Boolean
 
+    /**
+     * ¿Hay toolbox en el PC? Por USB, solo con un host de protocolo ≥ 5 (se sabe al conectar); por Bluetooth no.
+     * De ello dependen `TOOLBOX`, el gesto en vivo y la sincronización de formas.
+     */
+    val supportsToolbox: Boolean
+
+    /** Qué decirle al usuario cuando 4 dedos ↑ / ↓ no pueden abrir la toolbox ([supportsToolbox] = false). */
+    val toolboxUnavailableText: String
+
     fun start()
     fun stop()
     fun send(action: OutputAction)
 
     /** Orden del panel de widgets (`WIDGET_PRESS`, `VOLUME_SET`, `MEDIA_COMMAND`, `VOLUME_MUTE`). */
     fun sendWidget(message: Message)
+
+    /** Lista de formas propias (`SHAPE_INFO`… `SHAPE_LIST_END`) o respuestas `SHAPE_RESULT`. Se descartan si [supportsToolbox] es false. */
+    fun sendShapes(messages: List<Message>)
 }

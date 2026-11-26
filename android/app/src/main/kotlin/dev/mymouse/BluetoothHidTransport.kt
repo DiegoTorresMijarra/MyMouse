@@ -51,8 +51,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onVolumeState: (Message.VolumeState) -> Unit = {}
     override var onMediaState: (Message.MediaState) -> Unit = {}
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
+    override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
+    override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
     override val supportsGestures = false
     override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
+    override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
+    override val toolboxUnavailableText = "La toolbox del PC solo funciona por USB"
 
     /** Estado legible para la pantalla de emparejar. */
     var status: String = "Sin iniciar"
@@ -239,6 +243,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         } ?: return
         mapper.consumer(key).forEach { sendReport(device, it) }
     }
+
+    override fun sendShapes(messages: List<Message>) = Unit // sin PC no hay con quién sincronizar las formas
 
     private fun sendReport(device: BluetoothDevice, report: HidReport) {
         try {

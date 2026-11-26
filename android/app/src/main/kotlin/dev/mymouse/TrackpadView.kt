@@ -35,6 +35,7 @@ class TrackpadView(
             field.onTouch(TouchInput.Cancel(SystemClock.uptimeMillis())).forEach(send)
             removeCallbacks(tick)
             field = value
+            value.setArea(width.toFloat(), height.toFloat())
         }
 
     var connected: Boolean = false
@@ -71,6 +72,10 @@ class TrackpadView(
     /** Juntar (true) o separar (false) 4 dedos: mostrar u ocultar el panel de widgets. Lo anima [MainActivity]. */
     var onPanelGesture: (Boolean) -> Unit = {}
 
+    /** ¿Hay toolbox en el PC? Si no (host anterior a la v5 o Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableText]. */
+    var toolboxAvailable: () -> Boolean = { true }
+    var toolboxUnavailableText: () -> String = { "Actualiza MyMouse en el PC" }
+
     /** ¿Entiende el destino los gestos de 3 dedos de Windows? Si no (host anterior a la v4), solo se anotan en depuración. */
     var systemGesturesAvailable: () -> Boolean = { true }
 
@@ -83,6 +88,7 @@ class TrackpadView(
             is OutputAction.SystemGesture -> if (!systemGesturesAvailable() && action.command.isStart()) {
                 noteDebug("Gestos de 3 dedos: el PC necesita MyMouse 3.1 o posterior")
             }
+            is OutputAction.FourFingerSwipe -> if (!toolboxAvailable()) showNotice(toolboxUnavailableText())
             is OutputAction.GestureMode -> {
                 if (action.active) vibrate()
                 invalidate()
@@ -242,6 +248,11 @@ class TrackpadView(
         removeCallbacks(tick)
         val deadline = interpreter.nextDeadlineMs ?: return
         postDelayed(tick, (deadline - SystemClock.uptimeMillis()).coerceAtLeast(0))
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        interpreter.setArea(w.toFloat(), h.toFloat()) // para normalizar el trazo que se envía al PC
     }
 
     override fun onDraw(canvas: Canvas) {
