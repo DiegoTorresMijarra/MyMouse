@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MyMouse.HostCore.Theming;
 
 namespace MyMouse.HostCore.Toolbox;
 
@@ -22,13 +23,14 @@ public sealed class ToolboxLayout
 {
     private readonly (ToolboxCard Card, bool Visible)[] _entries;
 
-    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false, bool alwaysShowIcon = true)
+    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false, bool alwaysShowIcon = true, ThemeChoice? theme = null)
     {
         _entries = Normalize(entries);
         ShowLiveGesture = showLiveGesture;
         GlassEffect = glass;
         Maximized = maximized;
         AlwaysShowIcon = alwaysShowIcon;
+        Theme = (theme ?? new ThemeChoice()).Normalized();
     }
 
     public static ToolboxLayout Default { get; } = new(
@@ -50,6 +52,12 @@ public sealed class ToolboxLayout
     /// </summary>
     public bool AlwaysShowIcon { get; }
 
+    /// <summary>
+    /// Tema, acento y estrellas de este PC (docs/spec-v4.8-temas.md). Se guarda en <c>toolbox.json</c> y no se sincroniza con el móvil.
+    /// Un <c>toolbox.json</c> sin tema (anterior a la v4.8) da Universo, con la paleta sobria.
+    /// </summary>
+    public ThemeChoice Theme { get; }
+
     /// <summary>La toolbox se quedó maximizada (ventana de dos columnas) y se abre así.</summary>
     public bool Maximized { get; }
 
@@ -65,7 +73,7 @@ public sealed class ToolboxLayout
     public ToolboxLayout SetVisible(ToolboxCard card, bool visible) =>
         card == ToolboxCard.Options
             ? this
-            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon);
+            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme);
 
     /// <summary>Mueve una tarjeta <paramref name="delta"/> puestos (−1 = arriba). Nada pasa por encima de las Opciones.</summary>
     public ToolboxLayout Move(ToolboxCard card, int delta)
@@ -78,16 +86,18 @@ public sealed class ToolboxLayout
         var item = list[from];
         list.RemoveAt(from);
         list.Insert(to, item);
-        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon);
+        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme);
     }
 
-    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized, AlwaysShowIcon);
+    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized, AlwaysShowIcon, Theme);
 
-    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized, AlwaysShowIcon);
+    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized, AlwaysShowIcon, Theme);
 
-    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized, AlwaysShowIcon);
+    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized, AlwaysShowIcon, Theme);
 
-    public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value);
+    public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value, Theme);
+
+    public ToolboxLayout WithTheme(ThemeChoice theme) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, theme);
 
     // ---- JSON ----
 
@@ -102,6 +112,7 @@ public sealed class ToolboxLayout
             glass = GlassEffect,
             maximized = Maximized,
             alwaysShowIcon = AlwaysShowIcon,
+            theme = new { id = Theme.ThemeId, accent = Theme.AccentId, stars = Theme.Stars, twinkle = Theme.Twinkle },
         };
         return JsonSerializer.Serialize(model, JsonOptions);
     }
@@ -131,7 +142,16 @@ public sealed class ToolboxLayout
             var glass = !doc.RootElement.TryGetProperty("glass", out var g) || g.ValueKind != JsonValueKind.False;
             var maximized = doc.RootElement.TryGetProperty("maximized", out var m) && m.ValueKind == JsonValueKind.True;
             var always = !doc.RootElement.TryGetProperty("alwaysShowIcon", out var a) || a.ValueKind != JsonValueKind.False;
-            return new ToolboxLayout(entries, live, glass, maximized, always);
+            var theme = new ThemeChoice();
+            if (doc.RootElement.TryGetProperty("theme", out var th) && th.ValueKind == JsonValueKind.Object)
+            {
+                theme = new ThemeChoice(
+                    th.TryGetProperty("id", out var tid) && tid.ValueKind == JsonValueKind.String ? tid.GetString()! : ThemeCatalog.DefaultId,
+                    th.TryGetProperty("accent", out var tac) && tac.ValueKind == JsonValueKind.String ? tac.GetString()! : ThemeCatalog.AccentAuto,
+                    !th.TryGetProperty("stars", out var tst) || tst.ValueKind != JsonValueKind.False,
+                    !th.TryGetProperty("twinkle", out var ttw) || ttw.ValueKind != JsonValueKind.False);
+            }
+            return new ToolboxLayout(entries, live, glass, maximized, always, theme);
         }
         catch (JsonException)
         {

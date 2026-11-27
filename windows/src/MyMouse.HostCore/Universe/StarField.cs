@@ -45,6 +45,15 @@ public static class StarField
         return Math.Clamp(count, MinCount, MaxCount);
     }
 
+    /// <summary>Como <see cref="CountFor(double, double)"/> con el multiplicador de densidad del tema (×0,5, ×0,8…). El mínimo y el máximo se respetan; densidad 0, ninguna.</summary>
+    public static int CountFor(double width, double height, double density)
+    {
+        if (density <= 0) return 0;
+        if (width <= 0 || height <= 0) return MinCount;
+        var count = (int)Math.Round(ReferenceCount * density * (width * height) / ReferenceArea, MidpointRounding.AwayFromZero);
+        return Math.Clamp(count, MinCount, MaxCount);
+    }
+
     /// <summary>
     /// Las primeras <paramref name="count"/> estrellas de la secuencia de <paramref name="seed"/>. Determinista: con la misma semilla,
     /// <c>Generate(n)</c> es un prefijo de <c>Generate(m)</c> para n ≤ m.
@@ -77,6 +86,15 @@ public static class StarField
         if (!star.Twinkle) return star.Opacity;
         var wave = 0.5 + 0.5 * Math.Sin(2 * Math.PI * seconds / star.PeriodSeconds + star.Phase);
         return (float)(star.Opacity * (TwinkleFloor + (1 - TwinkleFloor) * wave));
+    }
+
+    /// <summary>
+    /// Como <see cref="OpacityAt(Star, double)"/> con la profundidad del parpadeo del tema: 1 = la de siempre; 0,6 = más suave; 0 = sin parpadeo.
+    /// </summary>
+    public static float OpacityAt(Star star, double seconds, float depth)
+    {
+        var full = OpacityAt(star, seconds);
+        return star.Opacity + (full - star.Opacity) * Math.Clamp(depth, 0f, 1f);
     }
 
     /// <summary>mulberry32: generador de 32 bits pequeño y con buena distribución; devuelve números en [0, 1).</summary>

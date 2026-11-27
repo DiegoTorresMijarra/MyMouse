@@ -3,6 +3,10 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <!-- La fuente compartida de los temas (docs/spec-v4.8-temas.md §4): el móvil la replica en Themes.kt y compara con un test. -->
+    <EmbeddedResource Include="..\..\..\shared\themes.json" LogicalName="MyMouse.HostCore.themes.json" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\MyMouse.Protocol\MyMouse.Protocol.csproj" />
   </ItemGroup>
 </Project>
