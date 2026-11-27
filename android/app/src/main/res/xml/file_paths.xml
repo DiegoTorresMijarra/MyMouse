@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider de las actualizaciones (docs/spec-v5.1-actualizaciones.md §5): solo la carpeta de descargas privada de la app
+     (getExternalFilesDir(DIRECTORY_DOWNLOADS) = Android/data/<paquete>/files/Download), donde DownloadManager deja el APK. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="updates" path="Download/" />
+</paths>

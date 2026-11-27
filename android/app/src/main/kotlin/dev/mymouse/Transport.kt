@@ -21,6 +21,9 @@ interface Transport {
     var onShapeAdd: (Message.ShapeAdd) -> Unit
     var onShapeDelete: (Message.ShapeDelete) -> Unit
 
+    /** Versión de MyMouse del PC (`APP_VERSION`, protocolo v6), o null al perder la conexión. Solo por USB. Se llama desde el hilo de lectura. */
+    var onHostAppVersion: (String?) -> Unit
+
     /** ¿Admite el modo gestos? (Las acciones de las formas viven en el PC.) */
     val supportsGestures: Boolean
 

@@ -415,8 +415,10 @@ object GlassTheme {
         private val kind: Kind,
         private val circle: Boolean = true,
         private val label: String? = null,
+        /** Borde con el acento del tema (el aviso de actualización). */
+        private val highlight: Boolean = false,
     ) : View(context) {
-        enum class Kind { BACK, SLIDERS, LOCK, POWER, CLOSE }
+        enum class Kind { BACK, SLIDERS, LOCK, POWER, CLOSE, UPDATE }
 
         private val d = resources.displayMetrics.density
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ELEVATED }
@@ -461,6 +463,7 @@ object GlassTheme {
             val h = height.toFloat()
             val s: Float
             val x0: Float
+            ring.color = if (highlight) accent else BORDER
             if (label != null) {
                 fill.color = if (isPressed) Color.parseColor("#33FFFFFF") else ELEVATED
                 rect.set(d, d, w - d, h - d)
@@ -510,6 +513,12 @@ object GlassTheme {
                 Kind.CLOSE -> {
                     canvas.drawLine(x(0.1f), y(0.1f), x(0.9f), y(0.9f), line)
                     canvas.drawLine(x(0.9f), y(0.1f), x(0.1f), y(0.9f), line)
+                }
+                Kind.UPDATE -> { // flecha hacia abajo sobre una base
+                    canvas.drawLine(x(0.5f), y(0f), x(0.5f), y(0.75f), line)
+                    canvas.drawLine(x(0.15f), y(0.4f), x(0.5f), y(0.75f), line)
+                    canvas.drawLine(x(0.85f), y(0.4f), x(0.5f), y(0.75f), line)
+                    canvas.drawLine(x(0.05f), y(1f), x(0.95f), y(1f), line)
                 }
             }
         }

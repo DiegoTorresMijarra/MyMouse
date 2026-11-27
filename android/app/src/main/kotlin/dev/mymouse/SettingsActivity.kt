@@ -189,6 +189,8 @@ class SettingsActivity : Activity() {
             settings = settings.copy(autoRelock = it)
         })
 
+        updatesSection()
+
         section("Depuración")
         list.addView(switch("Modo depuración: ver los dedos y las acciones en pantalla", settings.debug) {
             settings = settings.copy(debug = it)
@@ -344,9 +346,64 @@ class SettingsActivity : Activity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Updater.addListener(updatesListener)
+        Updater.onForeground(this) // si había un APK esperando, se abre el instalador desde aquí
+        refreshUpdates()
+    }
+
     override fun onPause() {
         settings.save(this)
+        Updater.removeListener(updatesListener)
+        Updater.onBackground(this)
         super.onPause()
+    }
+
+    // ---- Actualizaciones (docs/spec-v5.1-actualizaciones.md §5) ----
+
+    private var updatesStatus: TextView? = null
+    private var updatesInstall: View? = null
+    private val updatesListener: () -> Unit = { refreshUpdates() }
+
+    /** La tarjeta "Actualizaciones": versión instalada, estado, "Buscar ahora", "Descargar e instalar" y el ajuste automático. */
+    private fun updatesSection() {
+        section("Actualizaciones")
+        list.addView(label().apply { text = "MyMouse ${Updater.localVersionText(this@SettingsActivity)}" })
+        updatesStatus = GlassTheme.note(this, "").apply { setPadding(0, (4 * density).toInt(), 0, (8 * density).toInt()) }
+        list.addView(updatesStatus)
+        list.addView(GlassTheme.button(this, "Buscar ahora") {
+            updatesStatus?.text = "Buscando…"
+            Updater.checkNow(this@SettingsActivity, manual = true) { refreshUpdates() }
+        })
+        updatesInstall = GlassTheme.button(this, "Descargar e instalar", accent = true) {
+            Updater.banners(this@SettingsActivity).firstOrNull { it.canInstall }?.release?.let { Updater.downloadAndInstall(this@SettingsActivity, it) }
+        }
+        list.addView(updatesInstall)
+        list.addView(switch("Buscar actualizaciones automáticamente", Updater.autoCheck(this)) { Updater.setAutoCheck(this, it) })
+        list.addView(GlassTheme.note(
+            this,
+            "Mira las releases de GitHub al abrir la app y cada 12 horas. Las versiones de desarrollo no avisan. " +
+                "Para instalar, Android pedirá permitir a MyMouse \"Instalar apps desconocidas\" la primera vez.",
+        ))
+        refreshUpdates()
+    }
+
+    private fun refreshUpdates() {
+        val status = updatesStatus ?: return
+        val banners = Updater.banners(this)
+        val download = Updater.download
+        val installable = banners.firstOrNull { it.canInstall }
+        status.text = when {
+            download != null && download.failed -> download.message ?: "No se pudo actualizar."
+            download != null -> "Descargando… ${(download.progress * 100).toInt()} %"
+            Updater.isDev(this) -> "Esta es una versión de desarrollo: no avisa de versiones nuevas."
+            banners.isNotEmpty() -> banners.joinToString("\n") { it.text }
+            Updater.lastOutcome == Updater.Outcome.UP_TO_DATE -> "Tienes la última versión."
+            Updater.lastOutcome == Updater.Outcome.SKIPPED -> "Hay una versión nueva que omitiste. Pulsa \"Buscar ahora\" para verla."
+            else -> "Aún no se ha comprobado."
+        }
+        updatesInstall?.visibility = if (installable != null && download == null) View.VISIBLE else View.GONE
     }
 
     /** Empieza una sección: una tarjeta de cristal nueva con su título. */

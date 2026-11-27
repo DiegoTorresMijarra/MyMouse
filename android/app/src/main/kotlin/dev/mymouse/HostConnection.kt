@@ -25,7 +25,7 @@ import kotlin.concurrent.withLock
  * - Los movimientos consecutivos en cola se fusionan, para no acumular retraso si la red se atasca.
  * - Sin conexión, las acciones se descartan (no tiene sentido reproducir entrada antigua).
  */
-class HostConnection(private val port: Int) : Transport {
+class HostConnection(private val port: Int, private val appVersion: String = "") : Transport {
 
     override val supportsGestures = true
 
@@ -52,6 +52,9 @@ class HostConnection(private val port: Int) : Transport {
     /** Peticiones del PC para añadir o borrar formas (protocolo v5). Se llaman desde el hilo de lectura. */
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
+
+    /** Versión de MyMouse del PC (protocolo v6). `null` al desconectar. */
+    override var onHostAppVersion: (String?) -> Unit = {}
 
     /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
     @Volatile var protocolVersion = 0
@@ -201,6 +204,11 @@ class HostConnection(private val port: Int) : Transport {
         protocolVersion = ack.version
 
         s.soTimeout = Protocol.IDLE_TIMEOUT_MS.toInt()
+        // Versión de la app (v6), una sola vez justo tras el handshake, para los avisos cruzados. Un host anterior la cerraría como error.
+        if (protocolVersion >= Protocol.APP_VERSION_VERSION && appVersion.isNotEmpty()) {
+            out.write(MessageCodec.encode(Message.AppVersion(appVersion.take(Protocol.MAX_APP_VERSION_BYTES))))
+            out.flush()
+        }
         val readerThread = thread(name = "MyMouse-reader", isDaemon = true) { readLoop(s, reader) }
         setConnected(true)
         Log.i(TAG, "Conectado al host")
@@ -235,6 +243,7 @@ class HostConnection(private val port: Int) : Transport {
                     is Message.WidgetResult -> onWidgetResult(m)
                     is Message.ShapeAdd -> onShapeAdd(m)
                     is Message.ShapeDelete -> onShapeDelete(m)
+                    is Message.HostAppVersion -> onHostAppVersion(m.version)
                     else -> Unit // PONG
                 }
             }
@@ -260,6 +269,7 @@ class HostConnection(private val port: Int) : Transport {
         if (connected == value) return
         connected = value
         onConnectionChanged(value)
+        if (!value) onHostAppVersion(null) // el PC ya no está: sin aviso cruzado
     }
 
     private fun closeSocket(s: Socket?) {

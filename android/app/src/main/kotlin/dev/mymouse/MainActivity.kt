@@ -38,6 +38,8 @@ import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.protocol.Protocol
 import dev.mymouse.core.protocol.ShapeStatus
+import dev.mymouse.core.update.BannerKind
+import dev.mymouse.core.update.UpdatePolicy
 import dev.mymouse.core.widgets.PanelReveal
 
 /**
@@ -95,10 +97,10 @@ class MainActivity : Activity() {
         panelProgress = if (panelShown) 1f else 0f
         connectionType = settings.connection
         connection = when (connectionType) {
-            AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT)
+            AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Updater.localVersionText(this))
             AppSettings.Connection.BLUETOOTH ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) BluetoothHidTransport.shared(this)
-                else HostConnection(port = Protocol.DEFAULT_PORT) // Android 8: sin Bluetooth HID
+                else HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Updater.localVersionText(this)) // Android 8: sin Bluetooth HID
         }
         trackpad = TrackpadView(this, buildEngine(), connection::send)
         trackpad.shapeStore = shapes
@@ -145,6 +147,7 @@ class MainActivity : Activity() {
                 WidgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
             }
         }
+        connection.onHostAppVersion = { version -> Updater.setPcVersion(version) } // avisos cruzados (v5.1)
         connection.onShapeAdd = { add -> handler.post { applyShapeRequest(add) } }
         connection.onShapeDelete = { delete -> handler.post { applyShapeRequest(delete) } }
         connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
@@ -196,6 +199,9 @@ class MainActivity : Activity() {
         connection.start()
         applySettings()
         applyLayout()
+        Updater.addListener(updateListener)
+        Updater.start(this)
+        Updater.onForeground(this) // si había un APK esperando (permiso o app en segundo plano), se abre el instalador
         // Fijar la app cuando ya está en primer plano (llamarlo antes puede fallar).
         if (mode == Mode.LOCKED) root.post { startLock() } else scheduleAutoRelock()
     }
@@ -206,6 +212,8 @@ class MainActivity : Activity() {
         handler.removeCallbacks(dim)
         setDimmed(false)
         connection.stop()
+        Updater.removeListener(updateListener)
+        Updater.onBackground(this)
         super.onPause()
     }
 
@@ -550,21 +558,91 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER_VERTICAL or Gravity.END
         val p = (8 * density).toInt()
         setPadding(p, p / 2, p, p / 2)
-        addView(iconButton(GlassTheme.IconButton.Kind.SLIDERS, "Ajustes") { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
-        addView(iconButton(GlassTheme.IconButton.Kind.LOCK, "Bloquear") { setMode(Mode.LOCKED) })
-        addView(iconButton(GlassTheme.IconButton.Kind.POWER, "Salir") {
+        fillControls(this)
+    }
+
+    /** Cambió el estado de las actualizaciones (aviso nuevo, descarga, PC conectado con otra versión): se rehacen los botones. */
+    private val updateListener: () -> Unit = { if (::controls.isInitialized) refreshControls() }
+
+    private fun refreshControls() {
+        controls.removeAllViews()
+        fillControls(controls)
+    }
+
+    private fun fillControls(layout: LinearLayout) {
+        val pill = updatePill()
+        // Con el aviso de actualización (que lleva texto) los otros botones se quedan en solo icono para que todo quepa en una fila.
+        val labelled = pill == null
+        if (pill != null) layout.addView(pill)
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.SLIDERS, "Ajustes", labelled) { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.LOCK, "Bloquear", labelled) { setMode(Mode.LOCKED) })
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.POWER, "Salir", labelled) {
             stopLock()
             finishAndRemoveTask()
         })
         if (AdminReceiver.isDeviceOwner(this@MainActivity)) {
-            addView(GlassTheme.button(this@MainActivity, "Quitar propietario") { confirmReleaseOwner() }.apply {
+            layout.addView(GlassTheme.button(this@MainActivity, "Quitar propietario") { confirmReleaseOwner() }.apply {
                 (layoutParams as LinearLayout.LayoutParams).apply { topMargin = 0; marginStart = (8 * density).toInt(); marginEnd = 0 }
             })
         }
     }
 
-    private fun iconButton(kind: GlassTheme.IconButton.Kind, description: String, onClick: () -> Unit) =
-        GlassTheme.IconButton(this, kind, label = description).apply {
+    // ---- Avisos de versión nueva (docs/spec-v5.1-actualizaciones.md §5 y §6): una píldora en la barra y una hoja con las novedades ----
+
+    /** La píldora de actualización, o null si no hay nada que avisar. Solo existe en modo ventana (en modo bloqueado la barra no se ve). */
+    private fun updatePill(): View? {
+        val download = Updater.download
+        val (label, onClick) = when {
+            download != null && download.failed -> "Error al actualizar" to { showUpdateError(download.message) }
+            download != null -> "Descargando ${(download.progress * 100).toInt()} %" to { trackpad.showNotice("Descargando la actualización…") }
+            else -> {
+                val banner = Updater.banners(this).firstOrNull() ?: return null
+                val text = when (banner.kind) {
+                    BannerKind.NEW_VERSION -> "Actualizar a ${banner.release!!.version.display}"
+                    BannerKind.PC_NEWER -> banner.release?.let { "Actualizar a ${it.version.display}" } ?: "PC con versión nueva"
+                    BannerKind.PC_OLDER -> "PC desactualizado"
+                }
+                text to { showUpdateSheet() }
+            }
+        }
+        return GlassTheme.IconButton(this, GlassTheme.IconButton.Kind.UPDATE, label = label, highlight = true).apply {
+            contentDescription = label
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
+        }
+    }
+
+    /** La hoja de novedades: el texto de la release (recortado) y "Descargar e instalar" / "Omitir"; sin botones si solo informa. */
+    private fun showUpdateSheet() {
+        val banners = Updater.banners(this)
+        val primary = banners.firstOrNull() ?: return
+        val message = StringBuilder()
+        message.append("Tienes la ${Updater.localVersionText(this)}.")
+        primary.release?.notes?.let { UpdatePolicy.trimNotes(it).takeIf { notes -> notes.isNotEmpty() }?.let { notes -> message.append("\n\n").append(notes) } }
+        banners.drop(1).forEach { message.append("\n\n").append(it.text) }
+        val builder = AlertDialog.Builder(this).setTitle(primary.text).setMessage(message.toString())
+        val release = primary.release
+        if (primary.canInstall && release != null) {
+            builder.setPositiveButton("Descargar e instalar") { _, _ -> Updater.downloadAndInstall(this, release) }
+            if (primary.canSkip) builder.setNegativeButton("Omitir") { _, _ -> Updater.skipOffered(this) }
+            builder.setNeutralButton("Más tarde", null)
+        } else {
+            builder.setPositiveButton("Entendido", null)
+        }
+        builder.show()
+    }
+
+    private fun showUpdateError(message: String?) {
+        AlertDialog.Builder(this)
+            .setTitle("No se pudo actualizar")
+            .setMessage(message ?: "Inténtalo de nuevo más tarde.")
+            .setPositiveButton("Aceptar") { _, _ -> Updater.clearFailure() }
+            .setOnCancelListener { Updater.clearFailure() }
+            .show()
+    }
+
+    private fun iconButton(kind: GlassTheme.IconButton.Kind, description: String, labelled: Boolean = true, onClick: () -> Unit) =
+        GlassTheme.IconButton(this, kind, label = if (labelled) description else null).apply {
             contentDescription = description
             setOnClickListener { onClick() }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }

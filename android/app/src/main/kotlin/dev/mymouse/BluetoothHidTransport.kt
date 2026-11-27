@@ -99,6 +99,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
+    override var onHostAppVersion: (String?) -> Unit = {}
     override val supportsGestures = true // las acciones de las formas viven en el móvil (bt-gestures.json)
     override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
