@@ -15,6 +15,14 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+sourceSets {
+    // `shared/themes.json` (raíz del repositorio) es la fuente compartida de los temas: el test la lee como recurso y la compara
+    // con `Themes` (docs/spec-v4.8-temas.md §4). Solo se añade a los recursos de test: ni `core` ni la app la empaquetan.
+    test {
+        resources.srcDir(rootProject.file("../shared"))
+    }
+}
+
 dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)

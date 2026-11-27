@@ -1,0 +1,101 @@
+{
+  "_": "Temas de MyMouse (docs/spec-v4.8-temas.md). Fuente compartida: el PC la incrusta como recurso (MyMouse.HostCore) y el móvil la replica en dev.mymouse.core.theme.Themes; un test en cada lado compara sus definiciones con este fichero. Colores #RRGGBB; nebulosas con centro (x, y) relativo al ancho y alto y radio r relativo al ancho; opacity de 0 a 1.",
+  "version": 1,
+  "defaultTheme": "universe",
+  "accents": [
+    { "id": "steel", "name": "Azul acero", "color": "#7AA2F7" },
+    { "id": "lavender", "name": "Lavanda", "color": "#7C8CFF" },
+    { "id": "turquoise", "name": "Turquesa", "color": "#4FD1C5" },
+    { "id": "green", "name": "Verde", "color": "#6EE7A8" },
+    { "id": "amber", "name": "Ámbar", "color": "#F5B94A" },
+    { "id": "pink", "name": "Rosa", "color": "#F472B6" },
+    { "id": "white", "name": "Blanco", "color": "#E5E7EB" }
+  ],
+  "themes": [
+    {
+      "id": "universe",
+      "name": "Universo",
+      "base": ["#05070D", "#0A0F1C", "#0E1424"],
+      "nebulas": [
+        { "color": "#2B3A67", "opacity": 0.22, "x": 0.10, "y": 0.06, "r": 0.70 },
+        { "color": "#1E3A5F", "opacity": 0.20, "x": 0.90, "y": 0.95, "r": 0.60 }
+      ],
+      "stars": true,
+      "starDensity": 0.8,
+      "twinkleDepth": 0.6,
+      "accent": "#7AA2F7"
+    },
+    {
+      "id": "midnight",
+      "name": "Medianoche",
+      "base": ["#0B0D12", "#121620"],
+      "nebulas": [
+        { "color": "#1C2533", "opacity": 0.25, "x": 0.50, "y": 0.50, "r": 0.80 }
+      ],
+      "stars": false,
+      "starDensity": 0,
+      "twinkleDepth": 0,
+      "accent": "#5B8DEF"
+    },
+    {
+      "id": "graphite",
+      "name": "Grafito",
+      "base": ["#111214", "#1B1C1F"],
+      "nebulas": [],
+      "stars": false,
+      "starDensity": 0,
+      "twinkleDepth": 0,
+      "accent": "#9AA4B2"
+    },
+    {
+      "id": "ocean",
+      "name": "Océano",
+      "base": ["#03090D", "#071820"],
+      "nebulas": [
+        { "color": "#0F4C5C", "opacity": 0.25, "x": 0.12, "y": 0.08, "r": 0.70 },
+        { "color": "#123A5A", "opacity": 0.20, "x": 0.90, "y": 0.95, "r": 0.60 }
+      ],
+      "stars": true,
+      "starDensity": 0.5,
+      "twinkleDepth": 0.8,
+      "accent": "#4FD1C5"
+    },
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "base": ["#05080A", "#0B1412"],
+      "nebulas": [
+        { "color": "#14532D", "opacity": 0.20, "x": 0.50, "y": 0.00, "r": 0.95 },
+        { "color": "#134E4A", "opacity": 0.18, "x": 0.85, "y": 0.90, "r": 0.55 }
+      ],
+      "stars": true,
+      "starDensity": 0.6,
+      "twinkleDepth": 0.8,
+      "accent": "#6EE7A8"
+    },
+    {
+      "id": "oled",
+      "name": "Negro (OLED)",
+      "base": ["#000000"],
+      "nebulas": [],
+      "stars": false,
+      "starDensity": 0,
+      "twinkleDepth": 0,
+      "accent": "#E5E7EB"
+    },
+    {
+      "id": "nebula",
+      "name": "Nebulosa",
+      "base": ["#070616", "#120D2E", "#1B0F36"],
+      "nebulas": [
+        { "color": "#7C3AED", "opacity": 0.35, "x": 0.10, "y": 0.06, "r": 0.70 },
+        { "color": "#2563EB", "opacity": 0.28, "x": 0.90, "y": 0.95, "r": 0.60 },
+        { "color": "#DB2777", "opacity": 0.18, "x": 0.85, "y": 0.50, "r": 0.40 }
+      ],
+      "stars": true,
+      "starDensity": 1.0,
+      "twinkleDepth": 1.0,
+      "accent": "#7C8CFF"
+    }
+  ]
+}

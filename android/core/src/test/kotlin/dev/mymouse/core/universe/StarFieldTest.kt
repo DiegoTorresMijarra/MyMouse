@@ -93,3 +93,27 @@ class StarFieldTest {
         assertFalse(twinkling.map { StarField.opacityAt(it, 0.0) }.toSet().size == 1)
     }
 }
+
+class StarFieldThemeTest {
+    @Test
+    fun densityMultipliesTheCountAndKeepsTheLimits() {
+        assertEquals(StarField.countFor(400f, 600f), StarField.countFor(400f, 600f, 1f))
+        assertEquals(45, StarField.countFor(400f, 600f, 0.5f))
+        assertEquals(72, StarField.countFor(400f, 600f, 0.8f))
+        assertEquals(StarField.MIN_COUNT, StarField.countFor(72f, 96f, 0.5f))
+        assertEquals(StarField.MAX_COUNT, StarField.countFor(4000f, 4000f, 1f))
+        assertEquals(0, StarField.countFor(400f, 600f, 0f))
+    }
+
+    @Test
+    fun twinkleDepthBlendsBetweenStaticAndFullTwinkle() {
+        val star = StarField.generate(40).first { it.twinkle }
+        val seconds = 1.3
+        val full = StarField.opacityAt(star, seconds)
+        assertEquals(full, StarField.opacityAt(star, seconds, 1f), 1e-6f)
+        assertEquals(star.opacity, StarField.opacityAt(star, seconds, 0f), 1e-6f)
+        assertEquals(star.opacity + (full - star.opacity) * 0.6f, StarField.opacityAt(star, seconds, 0.6f), 1e-6f)
+        val still = StarField.generate(40).first { !it.twinkle }
+        assertEquals(still.opacity, StarField.opacityAt(still, seconds, 0.6f), 1e-6f)
+    }
+}

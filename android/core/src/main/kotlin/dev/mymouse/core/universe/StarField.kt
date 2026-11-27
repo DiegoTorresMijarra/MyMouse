@@ -53,6 +53,13 @@ object StarField {
         return (REFERENCE_COUNT * (widthDp * heightDp) / REFERENCE_AREA).roundToInt().coerceIn(MIN_COUNT, MAX_COUNT)
     }
 
+    /** Como [countFor] pero con el multiplicador de densidad del tema (docs/spec-v4.8-temas.md §2): ×0,5, ×0,8… El mínimo y el máximo se respetan. */
+    fun countFor(widthDp: Float, heightDp: Float, density: Float): Int {
+        if (density <= 0f) return 0
+        if (widthDp <= 0f || heightDp <= 0f) return MIN_COUNT
+        return (REFERENCE_COUNT * density * (widthDp * heightDp) / REFERENCE_AREA).roundToInt().coerceIn(MIN_COUNT, MAX_COUNT)
+    }
+
     /**
      * Las primeras [count] estrellas de la secuencia de [seed]. Determinista: con la misma semilla, `generate(n)` es un prefijo de
      * `generate(m)` para n ≤ m.
@@ -83,6 +90,15 @@ object StarField {
         if (!star.twinkle) return star.opacity
         val wave = 0.5 + 0.5 * sin(2 * PI * seconds / star.periodSeconds + star.phase)
         return (star.opacity * (TWINKLE_FLOOR + (1 - TWINKLE_FLOOR) * wave)).toFloat()
+    }
+
+    /**
+     * Como [opacityAt] pero con la profundidad del parpadeo del tema: 1 = la de siempre; 0,6 = parpadeo más suave (la opacidad se
+     * queda al 60 % del camino entre la suya y la de [opacityAt]); 0 = sin parpadeo.
+     */
+    fun opacityAt(star: Star, seconds: Double, depth: Float): Float {
+        val full = opacityAt(star, seconds)
+        return star.opacity + (full - star.opacity) * depth.coerceIn(0f, 1f)
     }
 
     /** mulberry32: generador de 32 bits pequeño y con buena distribución; devuelve números en [0, 1). */
