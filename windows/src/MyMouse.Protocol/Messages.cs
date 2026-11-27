@@ -3,11 +3,17 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC, 6 = versión de la app (APP_VERSION).</summary>
-    public const byte CurrentVersion = 6;
+    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC, 6 = versión de la app (APP_VERSION), 7 = modo teclado (KEY, KEYBOARD_*).</summary>
+    public const byte CurrentVersion = 7;
 
     /// <summary>Primera versión con APP_VERSION (avisos de versión cruzados entre móvil y PC).</summary>
     public const byte AppVersionVersion = 6;
+
+    /// <summary>Primera versión con el modo teclado: KEY, KEYBOARD_MODE, KEYBOARD_OPEN, KEYBOARD_LEDS y KEYBOARD_LAYOUT.</summary>
+    public const byte KeyboardVersion = 7;
+
+    /// <summary>Longitud máxima del id de distribución de KEYBOARD_LAYOUT, en bytes UTF-8.</summary>
+    public const int MaxLayoutIdBytes = 16;
 
     /// <summary>Longitud máxima del texto de versión de APP_VERSION, en bytes UTF-8.</summary>
     public const int MaxAppVersionBytes = 64;
@@ -67,6 +73,8 @@ public enum MessageType : byte
     ShapeListEnd = 0x12,
     ShapeResult = 0x13,
     AppVersion = 0x14,
+    Key = 0x15,
+    KeyboardMode = 0x16,
     HelloAck = 0x81,
     Pong = 0x85,
     GestureResult = 0x86,
@@ -78,6 +86,9 @@ public enum MessageType : byte
     ShapeAdd = 0x8C,
     ShapeDelete = 0x8D,
     AppVersionHost = 0x8E,
+    KeyboardOpen = 0x8F,
+    KeyboardLeds = 0x90,
+    KeyboardLayout = 0x91,
 }
 
 public enum MouseButton : byte
@@ -344,6 +355,41 @@ public sealed record AppVersionMessage(string Version) : Message
 public sealed record HostAppVersionMessage(string Version) : Message
 {
     public override MessageType Type => MessageType.AppVersionHost;
+}
+
+/// <summary>Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil a PC (0x15; protocolo v7).</summary>
+public sealed record KeyMessage(byte Usage, bool Down) : Message
+{
+    public override MessageType Type => MessageType.Key;
+}
+
+/// <summary>El móvil entra (true) o sale (false) del modo teclado, móvil a PC (0x16; protocolo v7).</summary>
+public sealed record KeyboardModeMessage(bool On) : Message
+{
+    public override MessageType Type => MessageType.KeyboardMode;
+}
+
+/// <summary>El widget Teclado pide abrir el teclado del móvil, PC a móvil (0x8F; protocolo v7).</summary>
+public sealed record KeyboardOpenMessage : Message
+{
+    public static readonly KeyboardOpenMessage Instance = new();
+    public override MessageType Type => MessageType.KeyboardOpen;
+}
+
+/// <summary>Luces del teclado del PC, PC a móvil (0x90; protocolo v7). Bits: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl.</summary>
+public sealed record KeyboardLedsMessage(byte Bits) : Message
+{
+    public const byte Caps = 1;
+    public const byte Num = 2;
+    public const byte Scroll = 4;
+
+    public override MessageType Type => MessageType.KeyboardLeds;
+}
+
+/// <summary>Distribución activa del PC, PC a móvil (0x91; protocolo v7): "es" o "us".</summary>
+public sealed record KeyboardLayoutMessage(string Id) : Message
+{
+    public override MessageType Type => MessageType.KeyboardLayout;
 }
 
 public sealed record PingMessage : Message

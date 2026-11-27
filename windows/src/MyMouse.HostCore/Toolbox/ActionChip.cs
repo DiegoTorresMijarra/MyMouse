@@ -21,6 +21,7 @@ public static class ActionChip
         MediaAction m => Plain(m.Key),
         MyMouseAction { Command: MyMouseCommand.Pause } => Plain("Pause"),
         MyMouseAction { Command: MyMouseCommand.Lock } => Plain("Lock"),
+        MyMouseAction { Command: MyMouseCommand.Keyboard } => Plain("Keyboard"),
         _ => Plain("Sin acción"),
     };
 

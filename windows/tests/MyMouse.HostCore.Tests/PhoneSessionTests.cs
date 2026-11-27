@@ -15,6 +15,7 @@ public class PhoneSessionTests
         public void Scroll(int vertical, int horizontal) { }
         public void Zoom(int delta) { }
         public void SystemGesture(SystemGestureCommand command) { }
+        public void SetKey(byte usage, bool down) { }
     }
 
     private static byte[] Bytes(params Message[] messages) => messages.SelectMany(MessageCodec.Encode).ToArray();
@@ -48,10 +49,11 @@ public class PhoneSessionTests
     }
 
     [Fact]
-    public async Task Handshake_NegotiatesVersion6()
+    public async Task Handshake_NegotiatesTheHighestVersionThatBothKnow()
     {
         var (_, output) = await Run(new PhoneHub(), Bytes(new HelloMessage(9)));
-        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(6)), output.Take(2).ToArray());
+        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(ProtocolInfo.CurrentVersion)), output.Take(2).ToArray());
+        Assert.Equal(7, ProtocolInfo.CurrentVersion);
     }
 
     [Fact]

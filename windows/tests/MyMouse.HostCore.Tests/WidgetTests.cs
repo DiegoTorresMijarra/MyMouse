@@ -49,10 +49,11 @@ public class WidgetConfigTests
         Assert.Empty(c.Warnings);
         Assert.True(c.HasWidgetsSection);
         Assert.Equal(
-            [WidgetKind.Media, WidgetKind.Volume, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button],
+            [WidgetKind.Media, WidgetKind.Volume, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button, WidgetKind.Button],
             c.Widgets.Select(w => w.Kind));
         Assert.Equal(new ButtonWidget("Chrome", "🌐", new LaunchAction("chrome.exe", null, true)), c.Widgets[2]);
         Assert.Equal(new ButtonWidget("Bloquear", "🔒", new MyMouseAction(MyMouseCommand.Lock)), c.Widgets[6]);
+        Assert.Equal(new ButtonWidget("Teclado", "⌨️", new MyMouseAction(MyMouseCommand.Keyboard)), c.Widgets[7]);
         Assert.Equal("✂️", ((ButtonWidget)c.Widgets[5]).Icon);
     }
 

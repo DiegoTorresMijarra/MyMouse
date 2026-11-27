@@ -45,6 +45,15 @@ public class MessageCodecTests
         { new AppVersionMessage("5.0"), "14 04 00 03 35 2E 30" },
         { new HostAppVersionMessage("5.0"), "8E 04 00 03 35 2E 30" },
         { new AppVersionMessage("0.0-dev.42"), "14 0B 00 0A 30 2E 30 2D 64 65 76 2E 34 32" },
+        { new KeyMessage(0x04, true), "15 04 01" },
+        { new KeyMessage(0xE1, false), "15 E1 00" },
+        { new KeyboardModeMessage(true), "16 01" },
+        { new KeyboardModeMessage(false), "16 00" },
+        { KeyboardOpenMessage.Instance, "8F" },
+        { new KeyboardLedsMessage(3), "90 03" },
+        { new KeyboardLedsMessage(0), "90 00" },
+        { new KeyboardLayoutMessage("es"), "91 03 00 02 65 73" },
+        { new KeyboardLayoutMessage("us"), "91 03 00 02 75 73" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -117,6 +126,12 @@ public class MessageCodecTests
     [InlineData("8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 02")] // force inválido
     [InlineData("8D 02 00 01")] // nombre truncado
     [InlineData("12")] // SHAPE_LIST_END truncado
+    [InlineData("15 04 02")] // KEY con booleano inválido
+    [InlineData("15 04")] // KEY truncado
+    [InlineData("16 02")] // KEYBOARD_MODE con booleano inválido
+    [InlineData("91 02 00 02 65")] // KEYBOARD_LAYOUT truncado
+    [InlineData("91 04 00 02 65 73 00")] // bytes sobrantes
+    [InlineData("91 12 00 11 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61")] // id de más de 16 bytes
     public async Task Read_InvalidInput_Throws(string hex)
     {
         var reader = new MessageReader(new MemoryStream(Hex(hex)));

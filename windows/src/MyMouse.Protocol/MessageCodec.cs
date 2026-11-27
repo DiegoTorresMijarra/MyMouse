@@ -14,16 +14,17 @@ public static class MessageCodec
     {
         MessageType.Hello or MessageType.HelloAck or MessageType.GestureResult
             or MessageType.WidgetPress or MessageType.VolumeSet or MessageType.MediaCommand or MessageType.VolumeMute
-            or MessageType.SystemGesture or MessageType.Toolbox or MessageType.StrokeEnd or MessageType.ShapeListEnd => 1,
+            or MessageType.SystemGesture or MessageType.Toolbox or MessageType.StrokeEnd or MessageType.ShapeListEnd
+            or MessageType.KeyboardMode or MessageType.KeyboardLeds => 1,
         MessageType.GestureMode => 3,
         MessageType.VolumeState or MessageType.WidgetResult => 2,
         MessageType.Move or MessageType.Scroll => 4,
-        MessageType.Button or MessageType.Zoom => 2,
-        MessageType.Ping or MessageType.Pong => 0,
+        MessageType.Button or MessageType.Zoom or MessageType.Key => 2,
+        MessageType.Ping or MessageType.Pong or MessageType.KeyboardOpen => 0,
         MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState
             or MessageType.StrokePoints or MessageType.ShapeInfo or MessageType.ShapeResult
             or MessageType.ShapeAdd or MessageType.ShapeDelete
-            or MessageType.AppVersion or MessageType.AppVersionHost => null,
+            or MessageType.AppVersion or MessageType.AppVersionHost or MessageType.KeyboardLayout => null,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
 
@@ -162,7 +163,15 @@ public static class MessageCodec
                 return EncodeAppVersion(m.Version);
             case HostAppVersionMessage m:
                 return EncodeAppVersion(m.Version);
-            case PingMessage or PongMessage:
+            case KeyMessage m:
+                return [m.Usage, m.Down ? (byte)1 : (byte)0];
+            case KeyboardModeMessage m:
+                return [m.On ? (byte)1 : (byte)0];
+            case KeyboardLedsMessage m:
+                return [m.Bits];
+            case KeyboardLayoutMessage m:
+                return EncodeLayoutId(m.Id);
+            case PingMessage or PongMessage or KeyboardOpenMessage:
                 return [];
             default:
                 throw new ArgumentException($"Mensaje no soportado: {message.GetType().Name}", nameof(message));
@@ -212,6 +221,11 @@ public static class MessageCodec
             MessageType.ShapeDelete => DecodeShapeDelete(payload),
             MessageType.AppVersion => new AppVersionMessage(DecodeAppVersion(payload)),
             MessageType.AppVersionHost => new HostAppVersionMessage(DecodeAppVersion(payload)),
+            MessageType.Key => new KeyMessage(payload[0], ParseBool(payload[1])),
+            MessageType.KeyboardMode => new KeyboardModeMessage(ParseBool(payload[0])),
+            MessageType.KeyboardOpen => KeyboardOpenMessage.Instance,
+            MessageType.KeyboardLeds => new KeyboardLedsMessage(payload[0]),
+            MessageType.KeyboardLayout => new KeyboardLayoutMessage(DecodeLayoutId(payload)),
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
         };
     }
@@ -364,6 +378,25 @@ public static class MessageCodec
         if (Encoding.UTF8.GetByteCount(version) > ProtocolInfo.MaxAppVersionBytes)
             throw new ProtocolException("Versión demasiado larga en APP_VERSION");
         return version;
+    }
+
+    private static byte[] EncodeLayoutId(string id)
+    {
+        if (Encoding.UTF8.GetByteCount(id) > ProtocolInfo.MaxLayoutIdBytes)
+            throw new ArgumentException("Id de distribución demasiado largo");
+        var ms = new MemoryStream();
+        WriteStr8(ms, id);
+        return ms.ToArray();
+    }
+
+    private static string DecodeLayoutId(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var id = ReadStr8(payload, ref pos);
+        if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en KEYBOARD_LAYOUT");
+        if (Encoding.UTF8.GetByteCount(id) > ProtocolInfo.MaxLayoutIdBytes)
+            throw new ProtocolException("Id de distribución demasiado largo en KEYBOARD_LAYOUT");
+        return id;
     }
 
     private static ShapeDeleteMessage DecodeShapeDelete(ReadOnlySpan<byte> payload)

@@ -44,6 +44,7 @@ public static class ActionText
         MediaAction m => "media " + m.Key,
         MyMouseAction { Command: MyMouseCommand.Pause } => "mymouse pause",
         MyMouseAction { Command: MyMouseCommand.Lock } => "mymouse lock",
+        MyMouseAction { Command: MyMouseCommand.Keyboard } => "mymouse keyboard",
         _ => "sin acción",
     };
 

@@ -14,6 +14,7 @@ public class ClientSessionWidgetTests
         public void Scroll(int vertical, int horizontal) { }
         public void Zoom(int delta) { }
         public void SystemGesture(SystemGestureCommand command) { }
+        public void SetKey(byte usage, bool down) { }
     }
 
     private readonly FakeExecutor _executor = new();

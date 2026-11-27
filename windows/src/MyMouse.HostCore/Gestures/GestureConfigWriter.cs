@@ -94,6 +94,10 @@ internal static class GestureConfigWriter
                 w.WriteString("type", "mymouse");
                 w.WriteString("command", "lock");
                 break;
+            case MyMouseAction { Command: MyMouseCommand.Keyboard }:
+                w.WriteString("type", "mymouse");
+                w.WriteString("command", "keyboard");
+                break;
             default:
                 throw new NotSupportedException(action.GetType().Name);
         }

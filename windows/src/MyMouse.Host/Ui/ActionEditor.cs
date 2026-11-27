@@ -185,6 +185,7 @@ internal sealed class ActionEditor : StackPanel
         [
             ("Pausar / reanudar MyMouse", () => { _command = MyMouseCommand.Pause; Raise(); }, () => _command == MyMouseCommand.Pause),
             ("Bloquear el PC", () => { _command = MyMouseCommand.Lock; Raise(); }, () => _command == MyMouseCommand.Lock),
+            ("Abrir teclado del móvil", () => { _command = MyMouseCommand.Keyboard; Raise(); }, () => _command == MyMouseCommand.Keyboard),
         ]);
         SetKind(ActionKind.None, raise: false);
     }

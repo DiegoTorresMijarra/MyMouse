@@ -31,6 +31,18 @@ public sealed class PhoneHub
     /// <summary>Versión de MyMouse de este PC, que se envía al móvil tras el handshake (v6). Vacía = no se envía.</summary>
     public string HostAppVersion { get; set; } = "";
 
+    /// <summary>¿Está el móvil conectado en modo teclado (<c>KEYBOARD_MODE</c>, protocolo v7)?</summary>
+    public bool KeyboardMode
+    {
+        get { lock (_lock) return _current?.KeyboardMode ?? false; }
+    }
+
+    /// <summary>¿Hay un móvil conectado que entienda el modo teclado (versión ≥ 7)?</summary>
+    public bool SupportsKeyboard => Version >= ProtocolInfo.KeyboardVersion;
+
+    /// <summary>El móvil entra (true) o sale (false) del modo teclado. Se dispara en el hilo de la sesión.</summary>
+    public event Action<bool>? KeyboardModeChanged;
+
     /// <summary>Se conecta o desconecta un móvil de la versión 5 o posterior.</summary>
     public event Action? Changed;
 
@@ -54,6 +66,18 @@ public sealed class PhoneHub
             if (_current is null) return;
             _current.AppVersion = version;
         }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Lo llama <see cref="ClientSession"/> al recibir <c>KEYBOARD_MODE</c>. También avisa por <see cref="Changed"/>.</summary>
+    public void SetKeyboardMode(bool on)
+    {
+        lock (_lock)
+        {
+            if (_current is null || _current.KeyboardMode == on) return;
+            _current.KeyboardMode = on;
+        }
+        KeyboardModeChanged?.Invoke(on);
         Changed?.Invoke();
     }
 
@@ -93,6 +117,8 @@ public sealed class PhoneHub
         public byte Version { get; } = version;
 
         public string? AppVersion { get; set; }
+
+        public bool KeyboardMode { get; set; }
 
         public ValueTask Send(Message message, CancellationToken cancellationToken) => send(message, cancellationToken);
 

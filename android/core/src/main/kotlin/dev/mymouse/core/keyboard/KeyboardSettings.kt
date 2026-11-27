@@ -35,7 +35,4 @@ object KeyboardSettings {
         KeyboardLayoutSetting.US -> "us"
         KeyboardLayoutSetting.AUTO -> if (bluetooth || hostLayoutId == null) textLayoutId else if (hostLayoutId == "es") "es" else "us"
     }
-
-    /** Id que el PC envía en `KEYBOARD_LAYOUT` para el nombre de una distribución de Windows (`es-ES`, `en-US`…). */
-    fun layoutIdForCulture(cultureName: String): String = if (cultureName.equals("es-ES", ignoreCase = true)) "es" else "us"
 }

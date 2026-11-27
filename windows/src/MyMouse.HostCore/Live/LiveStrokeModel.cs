@@ -40,6 +40,9 @@ public enum LiveResultKind
 
     /// <summary>La acción falló (rojo).</summary>
     Failed,
+
+    /// <summary>Aviso de cambio de modo del móvil ("⌨ Teclado", "🖱 Mouse"): título en <c>Help</c> y detalle en <c>Action</c>.</summary>
+    Notice,
 }
 
 /// <summary>Lo que se muestra al terminar el trazo. <see cref="Shape"/>: nombre de la forma reconocida.</summary>
@@ -169,6 +172,21 @@ public sealed class LiveStrokeModel(TimeProvider? time = null)
             _ => (LiveResultKind.Failed, CloseDelay),
         };
         Finish(new LiveResult(kind, shape, help, action, error), delay);
+    }
+
+    /// <summary>Tiempo que se ve el aviso de cambio de modo.</summary>
+    public static readonly TimeSpan NoticeDelay = TimeSpan.FromSeconds(1.2);
+
+    /// <summary>
+    /// Aviso corto de cambio de modo (<c>KEYBOARD_MODE</c>: "⌨ Teclado" al entrar y "🖱 Mouse" al salir). Usa la misma tarjeta y animación
+    /// que el gesto en vivo; si hay un gesto en curso, no lo interrumpe.
+    /// </summary>
+    public void ShowNotice(string headline, string? detail = null)
+    {
+        if (Phase is LivePhase.Waiting or LivePhase.Drawing) return;
+        _points.Clear();
+        Generation++;
+        Finish(new LiveResult(LiveResultKind.Notice, Help: headline, Action: detail), NoticeDelay);
     }
 
     /// <summary>Hay que avisar a la vista (cada ~100 ms mientras sea visible): cierra la tarjeta si ya toca y resuelve lo pendiente.</summary>

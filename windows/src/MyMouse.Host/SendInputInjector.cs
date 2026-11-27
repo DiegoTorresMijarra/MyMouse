@@ -1,4 +1,5 @@
 using MyMouse.HostCore;
+using MyMouse.HostCore.Keyboard;
 using MyMouse.Protocol;
 using static MyMouse.Host.Native;
 
@@ -72,5 +73,15 @@ internal sealed class SendInputInjector : IInputInjector
                 Send(Key(VK_MENU, up: true));
                 break;
         }
+    }
+
+    /// <summary>
+    /// Tecla del modo teclado por scancode (docs/spec-v6-teclado.md §2). Un "pulsar" repetido se inyecta otra vez sin soltar en medio.
+    /// Por cable Windows no deja inyectar Ctrl+Alt+Supr (el escritorio seguro la intercepta).
+    /// </summary>
+    public void SetKey(byte usage, bool down)
+    {
+        if (!HidScancodes.TryGet(usage, out var sc)) return;
+        Send(ScanKey(sc.Code, up: !down, sc.Extended));
     }
 }

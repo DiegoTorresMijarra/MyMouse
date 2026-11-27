@@ -268,6 +268,7 @@ internal sealed class LiveGestureWindow : FloatingWindow
                 LiveResultKind.NotRecognized => ("?", "No se ha reconocido la forma", Theme.Gray),
                 LiveResultKind.Cancelled => ("Cancelado", "", Theme.Gray),
                 LiveResultKind.Failed => ("No se ha podido ejecutar", r.Error ?? "", Theme.Red),
+                LiveResultKind.Notice => (r.Help ?? "", r.Action ?? "", Theme.Text),
                 _ => ("…", "", Theme.Dim),
             },
             _ => ("", "", Theme.Text),

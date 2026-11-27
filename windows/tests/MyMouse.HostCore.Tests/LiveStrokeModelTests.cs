@@ -206,4 +206,43 @@ public class LiveStrokeModelTests
         var fit = LiveStrokeModel.ComputeFit([], 200, 100, 10);
         Assert.Equal(80f, fit.Scale);
     }
+
+    [Fact]
+    public void ModeNotice_ShowsTheCardBrieflyAndClosesItself()
+    {
+        _model.ShowNotice("⌨ Teclado", "Escribe con el teclado del móvil");
+        Assert.True(_model.Visible);
+        Assert.Equal(LivePhase.Finished, _model.Phase);
+        Assert.Equal(new LiveResult(LiveResultKind.Notice, Help: "⌨ Teclado", Action: "Escribe con el teclado del móvil"), _model.Result);
+        Assert.False(_model.CanAssign);
+        Assert.Empty(_model.Points);
+
+        _time.Advance(LiveStrokeModel.NoticeDelay - TimeSpan.FromMilliseconds(1));
+        _model.Tick();
+        Assert.True(_model.Visible);
+        _time.Advance(TimeSpan.FromMilliseconds(2));
+        _model.Tick();
+        Assert.False(_model.Visible);
+    }
+
+    [Fact]
+    public void ModeNotice_DoesNotInterruptAGestureInProgress()
+    {
+        Draw();
+        _model.ShowNotice("🖱 Mouse");
+        Assert.Equal(LivePhase.Drawing, _model.Phase);
+        Assert.Equal(3, _model.Points.Count);
+    }
+
+    [Fact]
+    public void ModeNotice_ReplacesAnOldResult_AndAGestureCanFollow()
+    {
+        Draw();
+        _model.OnStrokeEnd(StrokeResult.NotRecognized);
+        _model.ShowNotice("⌨ Teclado");
+        Assert.Equal(LiveResultKind.Notice, _model.Result.Kind);
+        _model.OnGestureMode(true, TimeSpan.FromSeconds(3));
+        Assert.Equal(LivePhase.Waiting, _model.Phase);
+        Assert.Equal(LiveResult.None, _model.Result);
+    }
 }

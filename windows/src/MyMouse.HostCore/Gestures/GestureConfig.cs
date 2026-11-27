@@ -54,7 +54,7 @@ public sealed record MediaAction(string Key, KeyStroke Stroke) : GestureAction
     public override string DefaultHelp => KeyChord.MediaLabels.TryGetValue(Key, out var l) ? l : Key;
 }
 
-public enum MyMouseCommand { Pause, Lock }
+public enum MyMouseCommand { Pause, Lock, Keyboard }
 
 public sealed record MyMouseAction(MyMouseCommand Command) : GestureAction
 {
@@ -62,6 +62,7 @@ public sealed record MyMouseAction(MyMouseCommand Command) : GestureAction
     {
         MyMouseCommand.Pause => "Pausar / reanudar MyMouse",
         MyMouseCommand.Lock => "Bloquear el PC",
+        MyMouseCommand.Keyboard => "Abrir teclado del móvil",
         _ => Command.ToString(),
     };
 }
@@ -261,7 +262,8 @@ public sealed class GestureConfig
                 {
                     "pause" => new MyMouseAction(MyMouseCommand.Pause),
                     "lock" => new MyMouseAction(MyMouseCommand.Lock),
-                    _ => throw new FormatException($"Comando de MyMouse desconocido: '{command}' (válidos: pause, lock)"),
+                    "keyboard" => new MyMouseAction(MyMouseCommand.Keyboard),
+                    _ => throw new FormatException($"Comando de MyMouse desconocido: '{command}' (válidos: pause, lock, keyboard)"),
                 };
             }
             default:
@@ -311,7 +313,8 @@ public sealed class GestureConfig
             { "type": "button", "label": "Copiar",   "icon": "📋", "action": { "type": "keys", "keys": "Ctrl+C" } },
             { "type": "button", "label": "Pegar",    "icon": "📄", "action": { "type": "keys", "keys": "Ctrl+V" } },
             { "type": "button", "label": "Captura",  "icon": "✂️", "action": { "type": "keys", "keys": "Win+Shift+S" } },
-            { "type": "button", "label": "Bloquear", "icon": "🔒", "action": { "type": "mymouse", "command": "lock" } }
+            { "type": "button", "label": "Bloquear", "icon": "🔒", "action": { "type": "mymouse", "command": "lock" } },
+            { "type": "button", "label": "Teclado",  "icon": "⌨️", "action": { "type": "mymouse", "command": "keyboard" } }
           ]
         }
         """;

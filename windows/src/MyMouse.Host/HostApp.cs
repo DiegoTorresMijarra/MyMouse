@@ -73,7 +73,7 @@ internal sealed class HostApp : IDisposable
         _icon.BalloonTipClosed += (_, _) => _balloonClick = null;
 
         // Servicios.
-        Executor = new WindowsActionExecutor(() => Post(TogglePause));
+        Executor = new WindowsActionExecutor(() => Post(TogglePause), OpenPhoneKeyboard);
         Gestures = new GestureService(Executor);
         Gestures.Unassigned += name =>
         {
@@ -119,7 +119,15 @@ internal sealed class HostApp : IDisposable
         {
             if (!Phone.SupportsToolbox) Live.Hide();
             Updates.Manager.SetPhoneVersion(Phone.PhoneAppVersion); // avisos cruzados (v5.1); dispara su propio Changed
-            StateChanged?.Invoke();
+            UpdateStatus(); // "Modo teclado" en la línea de estado, o fuera si el móvil se desconecta
+        });
+        // Modo teclado (v6): una tarjeta corta como la del gesto en vivo, que respeta "Mostrar gesto en vivo".
+        Phone.KeyboardModeChanged += on => Post(() =>
+        {
+            if (!Layout.ShowLiveGesture) return;
+            _ = LiveWindow;
+            if (on) Live.ShowNotice("⌨ Teclado", "Escribe con el teclado del móvil");
+            else Live.ShowNotice("🖱 Mouse");
         });
 
         // gestures.json: se recarga solo al guardarlo (también cuando lo guarda el editor).
@@ -142,7 +150,7 @@ internal sealed class HostApp : IDisposable
         _foregroundTimer.Tick += (_, _) => Gestures.SetForegroundApp(WindowsActionExecutor.ForegroundProcessName());
         _foregroundTimer.Start();
 
-        var server = new HostServer(new SendInputInjector(), () => _paused, config.Port, Gestures, _widgets, Phone);
+        var server = new HostServer(new SendInputInjector(), () => _paused, config.Port, Gestures, _widgets, Phone, new WindowsKeyboardState());
         server.Log += FileLog.Write;
         server.ConnectionChanged += connected => Post(() =>
         {
@@ -300,6 +308,14 @@ internal sealed class HostApp : IDisposable
 
     // ---- Del móvil ----
 
+    /// <summary>Acción "Abrir teclado del móvil" (widget o gesto): pide al móvil que abra su teclado (<c>KEYBOARD_OPEN</c>).</summary>
+    private void OpenPhoneKeyboard()
+    {
+        if (!Phone.SupportsKeyboard)
+            throw new InvalidOperationException("El móvil no está conectado por USB o su MyMouse es anterior a la v6.0 (sin modo teclado).");
+        _ = Phone.SendAsync(KeyboardOpenMessage.Instance);
+    }
+
     private void OnPhoneMessage(Message message)
     {
         switch (message)
@@ -451,7 +467,7 @@ internal sealed class HostApp : IDisposable
         var (status, icon, brush) = (_paused, _connected, _adb.Status) switch
         {
             (true, _, _) => ("En pausa", TrayIcons.Paused, Theme.Gray),
-            (_, true, _) => (_adb.DeviceName is { } name ? $"Conectado · {name}" : "Conectado", TrayIcons.Connected, Theme.Green),
+            (_, true, _) => ((_adb.DeviceName is { } name ? $"Conectado · {name}" : "Conectado") + (Phone.KeyboardMode ? " · Modo teclado" : ""), TrayIcons.Connected, Theme.Green),
             (_, _, AdbStatus.AdbNotFound) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
             (_, _, AdbStatus.NoDevice) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
             _ => ("Esperando al móvil", TrayIcons.Waiting, Theme.Amber),

@@ -1,3 +1,4 @@
+using MyMouse.HostCore.Keyboard;
 using MyMouse.HostCore.Phone;
 using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
@@ -27,7 +28,15 @@ public sealed class ClientSession
     private readonly IGestureService? _gestures;
     private readonly IWidgetService? _widgets;
     private readonly PhoneHub? _phone;
+    private readonly IKeyboardState? _keyboard;
+    private readonly TimeSpan? _keyboardInterval;
     private readonly HashSet<MouseButton> _pressed = [];
+
+    /// <summary>Teclas del modo teclado (usos HID) que están pulsadas: se sueltan si termina la sesión o el modo (docs/spec-v6-teclado.md §5).</summary>
+    private readonly HashSet<byte> _keysDown = [];
+
+    /// <summary>Vigilancia de luces y distribución mientras el móvil está en modo teclado.</summary>
+    private CancellationTokenSource? _keyboardWatch;
 
     /// <summary>Cambio de app en curso: el inyector tiene Alt pulsado y hay que soltarlo si la sesión se corta.</summary>
     private bool _appSwitching;
@@ -37,8 +46,10 @@ public sealed class ClientSession
 
     public ClientSession(Stream input, Stream output, IInputInjector injector,
         Func<bool>? isPaused = null, TimeSpan? idleTimeout = null, IGestureService? gestures = null,
-        IWidgetService? widgets = null, PhoneHub? phone = null)
+        IWidgetService? widgets = null, PhoneHub? phone = null, IKeyboardState? keyboard = null, TimeSpan? keyboardInterval = null)
     {
+        _keyboard = keyboard;
+        _keyboardInterval = keyboardInterval;
         _input = input;
         _output = output;
         _injector = injector;
@@ -50,8 +61,8 @@ public sealed class ClientSession
     }
 
     public ClientSession(Stream duplex, IInputInjector injector, Func<bool>? isPaused = null,
-        IGestureService? gestures = null, IWidgetService? widgets = null, PhoneHub? phone = null)
-        : this(duplex, duplex, injector, isPaused, gestures: gestures, widgets: widgets, phone: phone) { }
+        IGestureService? gestures = null, IWidgetService? widgets = null, PhoneHub? phone = null, IKeyboardState? keyboard = null)
+        : this(duplex, duplex, injector, isPaused, gestures: gestures, widgets: widgets, phone: phone, keyboard: keyboard) { }
 
     /// <summary>Último error de protocolo, si la sesión terminó por uno.</summary>
     public string? Error { get; private set; }
@@ -156,6 +167,7 @@ public sealed class ClientSession
             if (onVolume is not null) _widgets!.VolumeChanged -= onVolume;
             if (onMedia is not null) _widgets!.MediaChanged -= onMedia;
             phoneAttachment?.Dispose();
+            StopKeyboardWatch();
             sessionCts.Cancel();
             ReleaseAll();
         }
@@ -230,6 +242,18 @@ public sealed class ClientSession
             return;
         }
 
+        if (message is KeyMessage or KeyboardModeMessage)
+        {
+            if (Version < ProtocolInfo.KeyboardVersion)
+                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            if (message is KeyboardModeMessage mode)
+            {
+                // El modo teclado se atiende aunque el PC esté en pausa (solo se dejan de inyectar las teclas).
+                SetKeyboardMode(mode.On);
+                return;
+            }
+        }
+
         if (message is WidgetPressMessage or VolumeSetMessage or MediaCommandMessage or VolumeMuteMessage)
         {
             await HandleWidgetAsync(message, cancellationToken).ConfigureAwait(false);
@@ -262,6 +286,9 @@ public sealed class ClientSession
                 break;
             case SystemGestureMessage g:
                 HandleSystemGesture(g.Command);
+                break;
+            case KeyMessage k:
+                HandleKey(k);
                 break;
             case HelloMessage:
                 throw new ProtocolException("HELLO duplicado");
@@ -340,11 +367,62 @@ public sealed class ClientSession
         _injector.SystemGesture(command);
     }
 
+    /// <summary>Una tecla del móvil. Un uso que el PC no conoce se ignora: es un valor, no un tipo de mensaje.</summary>
+    private void HandleKey(KeyMessage key)
+    {
+        if (!HidScancodes.TryGet(key.Usage, out _)) return;
+        if (key.Down)
+        {
+            // Un "pulsar" repetido (la repetición por cable) se inyecta otra vez sin soltar en medio, como un teclado real.
+            _keysDown.Add(key.Usage);
+            _injector.SetKey(key.Usage, true);
+        }
+        else if (_keysDown.Remove(key.Usage))
+        {
+            _injector.SetKey(key.Usage, false);
+        }
+    }
+
+    private void SetKeyboardMode(bool on)
+    {
+        if (!on)
+        {
+            StopKeyboardWatch();
+            ReleaseKeys();
+            _phone?.SetKeyboardMode(false);
+            return;
+        }
+
+        _phone?.SetKeyboardMode(true);
+        if (_keyboard is null || _keyboardWatch is not null) return;
+        // Luces y distribución: al entrar y luego solo cuando cambian.
+        _keyboardWatch = new CancellationTokenSource();
+        var monitor = new KeyboardStateMonitor(_keyboard, (m, ct) => SendAsync(m, ct), _keyboardInterval);
+        _ = monitor.RunAsync(_keyboardWatch.Token);
+    }
+
+    private void StopKeyboardWatch()
+    {
+        var watch = Interlocked.Exchange(ref _keyboardWatch, null);
+        if (watch is null) return;
+        watch.Cancel();
+        watch.Dispose();
+    }
+
+    /// <summary>Suelta las teclas del modo teclado: las normales primero y los modificadores al final.</summary>
+    private void ReleaseKeys()
+    {
+        foreach (var usage in _keysDown.OrderBy(u => HidScancodes.IsModifier(u) ? 1 : 0).ThenBy(u => u))
+            _injector.SetKey(usage, false);
+        _keysDown.Clear();
+    }
+
     private void ReleaseAll()
     {
         foreach (var button in _pressed)
             _injector.SetButton(button, false);
         _pressed.Clear();
+        ReleaseKeys();
 
         // Un cambio de app a medias (sesión cortada o PC en pausa) no puede dejar Alt pulsado.
         if (_appSwitching)

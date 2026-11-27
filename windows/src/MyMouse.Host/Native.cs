@@ -11,6 +11,7 @@ internal static class Native
     public const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
     public const uint KEYEVENTF_KEYUP = 0x0002;
     public const uint KEYEVENTF_UNICODE = 0x0004;
+    public const uint KEYEVENTF_SCANCODE = 0x0008;
 
     public const uint MOUSEEVENTF_MOVE = 0x0001;
     public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
@@ -79,6 +80,20 @@ internal static class Native
         },
     };
 
+    /// <summary>Tecla por scancode (modo teclado): Windows la convierte en carácter según su distribución.</summary>
+    public static INPUT ScanKey(ushort scan, bool up, bool extended) => new()
+    {
+        type = INPUT_KEYBOARD,
+        u = new InputUnion
+        {
+            ki = new KEYBDINPUT
+            {
+                wScan = scan,
+                dwFlags = KEYEVENTF_SCANCODE | (up ? KEYEVENTF_KEYUP : 0) | (extended ? KEYEVENTF_EXTENDEDKEY : 0),
+            },
+        },
+    };
+
     public static INPUT Unicode(char c, bool up) => new()
     {
         type = INPUT_KEYBOARD,
@@ -113,6 +128,16 @@ internal static class Native
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool LockWorkStation();
+
+    [DllImport("user32.dll")]
+    public static extern short GetKeyState(int virtualKey);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetKeyboardLayout(uint threadId);
+
+    public const int VK_CAPITAL = 0x14;
+    public const int VK_NUMLOCK = 0x90;
+    public const int VK_SCROLL = 0x91;
 
     public const int SW_RESTORE = 9;
 }

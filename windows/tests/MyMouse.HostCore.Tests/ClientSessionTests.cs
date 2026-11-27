@@ -13,6 +13,7 @@ public class ClientSessionTests
         public void Scroll(int vertical, int horizontal) => Calls.Add($"scroll {vertical},{horizontal}");
         public void Zoom(int delta) => Calls.Add($"zoom {delta}");
         public void SystemGesture(SystemGestureCommand command) => Calls.Add($"system {command}");
+        public void SetKey(byte usage, bool down) => Calls.Add($"key {usage:X2} {(down ? "down" : "up")}");
     }
 
     private sealed class FakeGestures : IGestureService

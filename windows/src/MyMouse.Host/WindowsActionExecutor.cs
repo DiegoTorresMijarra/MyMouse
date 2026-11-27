@@ -6,7 +6,7 @@ using static MyMouse.Host.Native;
 namespace MyMouse.Host;
 
 /// <summary>Ejecuta las acciones del modo gestos en Windows (docs/spec-v1-gestos.md §3).</summary>
-internal sealed class WindowsActionExecutor(Action togglePause) : IActionExecutor
+internal sealed class WindowsActionExecutor(Action togglePause, Action openPhoneKeyboard) : IActionExecutor
 {
     public void Execute(GestureAction action)
     {
@@ -29,6 +29,9 @@ internal sealed class WindowsActionExecutor(Action togglePause) : IActionExecuto
                 break;
             case MyMouseAction { Command: MyMouseCommand.Lock }:
                 if (!LockWorkStation()) throw new Win32Exception();
+                break;
+            case MyMouseAction { Command: MyMouseCommand.Keyboard }:
+                openPhoneKeyboard();
                 break;
             default:
                 throw new NotSupportedException(action.GetType().Name);

@@ -16,6 +16,7 @@ public class HostServerTests
         public void Scroll(int vertical, int horizontal) => Calls.Enqueue($"scroll {vertical},{horizontal}");
         public void Zoom(int delta) => Calls.Enqueue($"zoom {delta}");
         public void SystemGesture(SystemGestureCommand command) => Calls.Enqueue($"system {command}");
+        public void SetKey(byte usage, bool down) => Calls.Enqueue($"key {usage:X2} {(down ? "down" : "up")}");
     }
 
     private static int FreePort()

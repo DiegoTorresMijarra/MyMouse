@@ -154,15 +154,6 @@ class KeyboardSettingsTest {
     }
 
     @Test
-    fun cultureMapsToLayoutId() {
-        assertEquals("es", KeyboardSettings.layoutIdForCulture("es-ES"))
-        assertEquals("es", KeyboardSettings.layoutIdForCulture("ES-es"))
-        assertEquals("us", KeyboardSettings.layoutIdForCulture("en-US"))
-        assertEquals("us", KeyboardSettings.layoutIdForCulture("es-MX"))
-        assertEquals("us", KeyboardSettings.layoutIdForCulture(""))
-    }
-
-    @Test
     fun settingsParseWithDefaults() {
         assertEquals(KeyboardLayoutSetting.AUTO, KeyboardLayoutSetting.fromId(null))
         assertEquals(KeyboardLayoutSetting.US, KeyboardLayoutSetting.fromId("us"))
