@@ -122,10 +122,11 @@ class BtWidgetConfigTest {
     private val button = BtButton("Atrás", "←", BtActions.parseKeys("Alt+Left"))
 
     @Test
-    fun defaultsAreTheFiveSpecButtons() {
+    fun defaultsAreTheSixSpecButtons() {
         val d = BtWidgetConfig.DEFAULT
-        assertEquals(listOf("Copiar", "Pegar", "Captura", "Deshacer", "Bloquear"), d.buttons.map { it.label })
-        assertEquals(listOf("📋", "📄", "✂️", "↩️", "🔒"), d.buttons.map { it.icon })
+        assertEquals(listOf("Copiar", "Pegar", "Captura", "Deshacer", "Bloquear", "Teclado"), d.buttons.map { it.label })
+        assertEquals(listOf("📋", "📄", "✂️", "↩️", "🔒", "⌨"), d.buttons.map { it.icon })
+        assertEquals(BtAction.Keyboard, d.buttons[5].action)
         assertEquals("Ctrl+C", BtActions.formatKeys(d.buttons[0].action as BtAction.Keys))
         assertEquals("Ctrl+V", BtActions.formatKeys(d.buttons[1].action as BtAction.Keys))
         assertEquals("Shift+Win+S", BtActions.formatKeys(d.buttons[2].action as BtAction.Keys))
@@ -137,10 +138,10 @@ class BtWidgetConfigTest {
     @Test
     fun panelHasMediaVolumeThenCustomButtons() {
         val entries = BtWidgetConfig.DEFAULT.entries()
-        assertEquals(4 + 5, entries.size)
+        assertEquals(4 + 6, entries.size)
         assertEquals(WidgetKind.MEDIA, entries[0].kind)
         assertEquals(listOf("Vol −", "Vol +", "Silencio"), entries.subList(1, 4).map { it.label })
-        assertEquals(listOf("Copiar", "Pegar", "Captura", "Deshacer", "Bloquear"), entries.drop(4).map { it.label })
+        assertEquals(listOf("Copiar", "Pegar", "Captura", "Deshacer", "Bloquear", "Teclado"), entries.drop(4).map { it.label })
         assertEquals(entries.size, entries.map { it.id }.toSet().size)
         assertTrue(entries.drop(1).all { it.kind == WidgetKind.BUTTON })
     }
@@ -150,9 +151,9 @@ class BtWidgetConfigTest {
         val d = BtWidgetConfig.DEFAULT
         val entries = d.entries()
         assertEquals("Copiar", d.buttonFor(entries[4].id)!!.label)
-        assertEquals("Bloquear", d.buttonFor(entries.last().id)!!.label)
+        assertEquals("Teclado", d.buttonFor(entries.last().id)!!.label)
         assertNull(d.buttonFor(BtWidgetConfig.ID_VOLUME_UP))
-        assertNull(d.buttonFor(BtWidgetConfig.FIRST_CUSTOM_ID + 5))
+        assertNull(d.buttonFor(BtWidgetConfig.FIRST_CUSTOM_ID + 6))
         assertNull(d.buttonFor(-1))
     }
 
@@ -171,9 +172,9 @@ class BtWidgetConfigTest {
         val c = BtWidgetConfig.DEFAULT
         assertEquals(listOf("Pegar", "Copiar"), c.move(0, 1).buttons.map { it.label }.take(2))
         assertEquals(c, c.move(0, -1))
-        assertEquals(c, c.move(4, 1))
+        assertEquals(c, c.move(5, 1))
         assertEquals(listOf("Copiar", "Captura", "Pegar"), c.move(1, 1).buttons.map { it.label }.take(3))
-        assertEquals(4, c.remove(2).buttons.size)
+        assertEquals(5, c.remove(2).buttons.size)
         assertEquals(c, c.remove(9))
         assertEquals("Atrás", c.replace(1, button).buttons[1].label)
     }

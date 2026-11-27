@@ -64,6 +64,10 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
             currentKind = null
             newLabel(if (action.up) "4 dedos ↑: abrir la toolbox del PC" else "4 dedos ↓: cerrar la toolbox del PC")
         }
+        is OutputAction.FourFingerDoubleTap -> {
+            currentKind = null
+            newLabel("4 dedos doble toque: abrir el teclado")
+        }
         // Los lotes de puntos son demasiado frecuentes para listarlos; el fin del trazo ya sale en "Forma: …".
         is OutputAction.StrokePoints, is OutputAction.StrokeEnd -> null
         is OutputAction.GestureMode -> {

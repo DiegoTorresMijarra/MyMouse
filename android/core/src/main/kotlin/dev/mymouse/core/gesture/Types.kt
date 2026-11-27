@@ -49,6 +49,9 @@ sealed interface OutputAction {
     /** Fin del trazo (protocolo v5, `STROKE_END`). Precede a [Gesture] si se reconoció. */
     data class StrokeEnd(val result: StrokeResult) : OutputAction
 
+    /** Doble toque con 4 dedos: abre el teclado (docs/spec-v6-teclado.md §3). Solo local, no se envía. */
+    data object FourFingerDoubleTap : OutputAction
+
     // ---- Solo locales (feedback en el móvil, no se envían) ----
 
     /** Trazo dibujado en el modo gestos que no se ha reconocido (o se ha cancelado). */
@@ -109,6 +112,8 @@ data class TrackpadConfig(
     val inertiaMinVelocity: Float = 0.2f,
     /** Intervalo entre envíos durante la inercia. */
     val inertiaTickMs: Long = 16,
+    /** Doble toque con 4 dedos: tiempo máximo desde que se levanta el primer toque hasta que empieza el segundo (docs/spec-v6-teclado.md §3). */
+    val fourFingerDoubleTapMs: Long = 350,
 ) {
     companion object {
         /**

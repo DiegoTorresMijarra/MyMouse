@@ -80,6 +80,18 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
 
     private var inertia: Inertia? = null
 
+    /**
+     * Posible toque con 4 dedos en curso (docs/spec-v6-teclado.md §3): [startTime] es cuando bajó el primer dedo, [fourthDownTime] cuando
+     * bajó el cuarto y [base] las posiciones en ese momento. Deja de ser válido si algo se mueve más que el umbral, llega otro dedo,
+     * se decide otro gesto o se activa el modo gestos.
+     */
+    private class FourTap(val startTime: Long, val fourthDownTime: Long, val base: Map<Int, Point>)
+
+    private var fourTap: FourTap? = null
+
+    /** Instante en que se levantó el último dedo del primer toque con 4 dedos, si es candidato a primer toque de un doble toque. */
+    private var lastFourTapUp: Long? = null
+
     /** Próximo instante (misma base que [TouchInput.timeMs]) en que debe llamarse a [onTick]. */
     val nextDeadlineMs: Long?
         get() = listOfNotNull(pendingReleaseAt, (state as? State.Multi)?.deadline, inertia?.nextAt).minOrNull()
@@ -95,6 +107,8 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         val activation = (s as? State.Multi)?.deadline
         if (activation != null && nowMs >= activation) {
             state = State.Ignoring // los dedos siguen apoyados: se esperan a que se levanten
+            fourTap = null
+            lastFourTapUp = null
             out += OutputAction.GestureMode(true)
         }
         inertia?.let { if (nowMs >= it.nextAt) stepInertia(it, nowMs, out) }
@@ -115,6 +129,8 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
     private fun onDown(e: TouchInput.Down, out: MutableList<OutputAction>) {
         pointers[e.id] = Point(e.x, e.y)
         inertia = null // cualquier toque nuevo corta la inercia
+        // Un dedo más con un toque de 4 dedos ya reconocido, o fuera del patrón, lo invalida.
+        if (fourTap != null) fourTap = null
         when (val s = state) {
             State.Idle -> {
                 val pending = pendingReleaseAt
@@ -138,6 +154,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
             is State.Multi -> state =
                 if (s.count == 3 && e.timeMs - s.startTime <= config.gestureWindowMs) {
                     // Cuarto dedo a tiempo: ya no se puede decidir un gesto de 3 dedos.
+                    fourTap = FourTap(s.startTime, e.timeMs, pointers.toMap())
                     State.Multi(s.startTime, pointers.toMap(), 4, if (config.gestureFingers == 4) e.timeMs + config.gestureHoldMs else null)
                 } else {
                     State.Ignoring
@@ -153,6 +170,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         if (e.id !in pointers) return
         val p = Point(e.x, e.y)
         pointers[e.id] = p
+        fourTap?.let { t -> t.base[e.id]?.let { if (distance(it, p) > config.touchSlopPx) fourTap = null } }
 
         when (val s = state) {
             is State.OneDown -> if (e.id == s.id && distance(s.start, p) > config.touchSlopPx) {
@@ -258,6 +276,7 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
 
         // Un gesto decidido no cambia de tipo hasta levantar todos los dedos.
         state = State.Ignoring
+        fourTap = null
         val vertical = abs(dy) > abs(dx)
         if (s.count == 4) {
             if (pinch) out += OutputAction.WidgetPanel(show = r1 < r0)
@@ -357,6 +376,25 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
                 state = if (pointers.isEmpty()) State.Idle else State.Ignoring
             State.Idle -> Unit
         }
+        if (pointers.isEmpty()) endOfTouch(e.timeMs, out)
+    }
+
+    /** Se han levantado todos los dedos: ¿ha sido un toque con 4 dedos y es el segundo de un doble toque? */
+    private fun endOfTouch(timeMs: Long, out: MutableList<OutputAction>) {
+        val tap = fourTap
+        fourTap = null
+        val valid = tap != null && timeMs - tap.fourthDownTime <= config.gestureHoldMs
+        if (!valid) {
+            lastFourTapUp = null
+            return
+        }
+        val previous = lastFourTapUp
+        if (previous != null && tap!!.startTime - previous <= config.fourFingerDoubleTapMs) {
+            lastFourTapUp = null
+            out += OutputAction.FourFingerDoubleTap
+        } else {
+            lastFourTapUp = timeMs
+        }
     }
 
     private fun onCancel(out: MutableList<OutputAction>) {
@@ -367,6 +405,8 @@ class GestureInterpreter(private val config: TrackpadConfig = TrackpadConfig()) 
         if (s is State.AppSwitching) out += OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_END)
         pendingReleaseAt = null
         inertia = null
+        fourTap = null
+        lastFourTapUp = null
         pointers.clear()
         state = State.Idle
     }

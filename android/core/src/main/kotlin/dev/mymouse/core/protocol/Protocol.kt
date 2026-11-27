@@ -4,8 +4,8 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app. */
-    const val VERSION = 6
+    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app, 7 = modo teclado. */
+    const val VERSION = 7
     const val GESTURES_VERSION = 2
 
     /** Primera versión con los mensajes del panel de widgets. */
@@ -20,6 +20,12 @@ object Protocol {
 
     /** Primera versión con `APP_VERSION` (avisos de versión cruzados entre móvil y PC). */
     const val APP_VERSION_VERSION = 6
+
+    /** Primera versión con el modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS` y `KEYBOARD_LAYOUT`. */
+    const val KEYBOARD_VERSION = 7
+
+    /** Longitud máxima del id de distribución de `KEYBOARD_LAYOUT`, en bytes UTF-8. */
+    const val MAX_LAYOUT_ID_BYTES = 16
 
     /** Longitud máxima del texto de versión de `APP_VERSION`, en bytes UTF-8. */
     const val MAX_APP_VERSION_BYTES = 64
@@ -197,6 +203,43 @@ sealed interface Message {
         }
     }
 
+    /** Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil → PC (0x15; protocolo v7). */
+    data class Key(val usage: Int, val down: Boolean) : Message {
+        init {
+            require(usage in 0..255) { "Uso HID fuera de 0–255: $usage" }
+        }
+    }
+
+    /** El móvil entra (true) o sale (false) del modo teclado, móvil → PC (0x16; protocolo v7). */
+    data class KeyboardMode(val on: Boolean) : Message
+
+    /** El widget Teclado pide abrir el teclado del móvil, PC → móvil (0x8F; protocolo v7). */
+    data object KeyboardOpen : Message
+
+    /** Luces del teclado del PC, PC → móvil (0x90; protocolo v7). [bits]: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl. */
+    data class KeyboardLeds(val bits: Int) : Message {
+        init {
+            require(bits in 0..255)
+        }
+
+        val capsLock: Boolean get() = bits and LED_CAPS != 0
+        val numLock: Boolean get() = bits and LED_NUM != 0
+        val scrollLock: Boolean get() = bits and LED_SCROLL != 0
+
+        companion object {
+            const val LED_CAPS = 1
+            const val LED_NUM = 2
+            const val LED_SCROLL = 4
+        }
+    }
+
+    /** Distribución activa del PC, PC → móvil (0x91; protocolo v7): `es` o `us`. */
+    data class KeyboardLayoutId(val id: String) : Message {
+        init {
+            require(id.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_LAYOUT_ID_BYTES) { "Id de distribución demasiado largo" }
+        }
+    }
+
     data object Ping : Message
     data object Pong : Message
 }
@@ -225,6 +268,8 @@ object MessageCodec {
     private const val SHAPE_LIST_END = 0x12
     private const val SHAPE_RESULT = 0x13
     private const val APP_VERSION = 0x14
+    private const val KEY = 0x15
+    private const val KEYBOARD_MODE = 0x16
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
     private const val GESTURE_RESULT = 0x86
@@ -236,17 +281,20 @@ object MessageCodec {
     private const val SHAPE_ADD = 0x8C
     private const val SHAPE_DELETE = 0x8D
     private const val APP_VERSION_HOST = 0x8E
+    private const val KEYBOARD_OPEN = 0x8F
+    private const val KEYBOARD_LEDS = 0x90
+    private const val KEYBOARD_LAYOUT = 0x91
 
     /** Tamaño fijo del payload, o null si el tipo es variable. */
     fun payloadSize(type: Int): Int? = when (type) {
         HELLO, HELLO_ACK, GESTURE_RESULT, WIDGET_PRESS, VOLUME_SET, MEDIA_COMMAND, VOLUME_MUTE, SYSTEM_GESTURE,
-        TOOLBOX, STROKE_END, SHAPE_LIST_END -> 1
+        TOOLBOX, STROKE_END, SHAPE_LIST_END, KEYBOARD_MODE, KEYBOARD_LEDS -> 1
         MOVE, SCROLL -> 4
-        BUTTON, ZOOM, VOLUME_STATE, WIDGET_RESULT -> 2
+        BUTTON, ZOOM, VOLUME_STATE, WIDGET_RESULT, KEY -> 2
         GESTURE_MODE -> 3
-        PING, PONG -> 0
+        PING, PONG, KEYBOARD_OPEN -> 0
         GESTURE, GESTURE_LIST, WIDGET_LAYOUT, MEDIA_STATE,
-        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE, APP_VERSION, APP_VERSION_HOST -> null
+        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE, APP_VERSION, APP_VERSION_HOST, KEYBOARD_LAYOUT -> null
         else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
     }
 
@@ -283,6 +331,11 @@ object MessageCodec {
             is Message.ShapeDelete -> SHAPE_DELETE to encodeName(message.name)
             is Message.AppVersion -> APP_VERSION to encodeName(message.version)
             is Message.HostAppVersion -> APP_VERSION_HOST to encodeName(message.version)
+            is Message.Key -> KEY to byteArrayOf(message.usage.toByte(), (if (message.down) 1 else 0).toByte())
+            is Message.KeyboardMode -> KEYBOARD_MODE to byteArrayOf((if (message.on) 1 else 0).toByte())
+            Message.KeyboardOpen -> KEYBOARD_OPEN to ByteArray(0)
+            is Message.KeyboardLeds -> KEYBOARD_LEDS to byteArrayOf(message.bits.toByte())
+            is Message.KeyboardLayoutId -> KEYBOARD_LAYOUT to encodeName(message.id)
             Message.Ping -> PING to ByteArray(0)
             Message.Pong -> PONG to ByteArray(0)
         }
@@ -359,6 +412,11 @@ object MessageCodec {
             SHAPE_DELETE -> decodeName(payload)
             APP_VERSION -> Message.AppVersion(decodeAppVersion(payload))
             APP_VERSION_HOST -> Message.HostAppVersion(decodeAppVersion(payload))
+            KEY -> Message.Key(payload.u8(0), bool(payload.u8(1)))
+            KEYBOARD_MODE -> Message.KeyboardMode(bool(payload.u8(0)))
+            KEYBOARD_OPEN -> Message.KeyboardOpen
+            KEYBOARD_LEDS -> Message.KeyboardLeds(payload.u8(0))
+            KEYBOARD_LAYOUT -> Message.KeyboardLayoutId(decodeLayoutId(payload))
             PING -> Message.Ping
             PONG -> Message.Pong
             else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
@@ -487,6 +545,14 @@ object MessageCodec {
         c.requireEnd("APP_VERSION")
         if (version.toByteArray(Charsets.UTF_8).size > Protocol.MAX_APP_VERSION_BYTES) throw ProtocolException("Versión demasiado larga en APP_VERSION")
         return version
+    }
+
+    private fun decodeLayoutId(p: ByteArray): String {
+        val c = Cursor(p)
+        val id = c.str()
+        c.requireEnd("KEYBOARD_LAYOUT")
+        if (id.toByteArray(Charsets.UTF_8).size > Protocol.MAX_LAYOUT_ID_BYTES) throw ProtocolException("Id de distribución demasiado largo")
+        return id
     }
 
     private fun decodeName(p: ByteArray): Message.ShapeDelete {

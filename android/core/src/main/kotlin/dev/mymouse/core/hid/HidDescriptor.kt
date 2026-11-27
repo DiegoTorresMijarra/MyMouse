@@ -6,11 +6,17 @@ package dev.mymouse.core.hid
  *   (informe *feature* del id 1, de un byte; ver [ScrollResolution]). Es el patrón de los ratones de "scroll suave" de Windows.
  * - **Antiguo:** sin multiplicador, como hasta la v4. Por si algún PC se porta mal con el nuevo.
  * El informe de entrada del ratón es el mismo en las dos (botones, X, Y, rueda, pan: 5 bytes).
+ *
+ * El teclado (id 2) lleva además, desde la v6, el informe de **salida** de LEDs (1 byte, [LED_REPORT_SIZE]): así Windows nos dice
+ * cuándo cambian Bloq Mayús y Bloq Num (docs/spec-v6-teclado.md §5.4).
  */
 object HidDescriptor {
     private const val MOUSE_ID = HidMapper.MOUSE_ID
     private const val KEYBOARD_ID = HidMapper.KEYBOARD_ID
     private const val CONSUMER_ID = HidMapper.CONSUMER_ID
+
+    /** Tamaño, sin el id, del informe de salida de LEDs del teclado. */
+    const val LED_REPORT_SIZE = 1
 
     /** Cabecera del ratón hasta X e Y (común a las dos versiones, sin la rueda). */
     private val MOUSE_START = intArrayOf(
@@ -51,6 +57,9 @@ object HidDescriptor {
         0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02,
         0x95, 0x01, 0x75, 0x08, 0x81, 0x01,
         0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00,
+        // Informe de salida de LEDs (v6, docs/spec-v6-teclado.md §5.4): Num, Mayús, Despl., Compose y Kana + 3 bits de relleno = 1 byte.
+        0x05, 0x08, 0x19, 0x01, 0x29, 0x05, 0x95, 0x05, 0x75, 0x01, 0x91, 0x02,
+        0x95, 0x01, 0x75, 0x03, 0x91, 0x01,
         0xC0,
         // Consumo (id 3)
         0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, CONSUMER_ID,

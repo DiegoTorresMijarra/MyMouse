@@ -15,9 +15,14 @@ class HidDescriptorTest {
     /** Los bytes del descriptor de la v4 (sin scroll fino): el ajuste "Scroll fino por Bluetooth" apagado debe registrar exactamente este. */
     private val v4Hex = "05010902A10185010901A1000509190129051500250195057501810295017503810105010930093109381581257F750895038106050C0A38021581257F750895018106C0C005010906A1018502050719E029E71500250175019508810295017508810195067508150025650507190029658100C0050C0901A1018503150026FF0319002AFF03751095018100C0"
 
+    /** El informe de salida de LEDs que la v6 añade al teclado (justo antes de cerrar su colección). */
+    private val ledHex = "050819012905950575019102950175039101"
+
     @Test
-    fun legacyDescriptorIsExactlyTheOneFromV4() {
-        val expected = v4Hex.chunked(2).map { it.toInt(16) }
+    fun legacyDescriptorIsTheOneFromV4PlusTheKeyboardLedReport() {
+        val keysEnd = "0507190029658100"
+        assertTrue(v4Hex.contains(keysEnd + "C0"))
+        val expected = v4Hex.replace(keysEnd + "C0", keysEnd + ledHex + "C0").chunked(2).map { it.toInt(16) }
         assertEquals(expected, ints(HidDescriptor.build(fineScroll = false)))
         assertContentEquals(HidDescriptor.build(false), HidMapper.DESCRIPTOR)
     }
@@ -69,6 +74,28 @@ class HidDescriptorTest {
         val sizes = w.items.withIndex().filter { it.value.first == 0x74 }.map { it.value.second.single() }
         assertTrue(sizes.contains(2))
         assertTrue(sizes.contains(4))
+    }
+
+    @Test
+    fun keyboardDeclaresTheLedOutputReportInOneByte() {
+        for (fine in listOf(false, true)) {
+            val w = Walk(ints(HidDescriptor.build(fine)))
+            // Los elementos del teclado: entre su id (2) y el id del consumo (3).
+            val from = w.items.indexOfFirst { it.first == 0x84 && it.second == listOf(HidMapper.KEYBOARD_ID) }
+            val to = w.items.indexOfFirst { it.first == 0x84 && it.second == listOf(HidMapper.CONSUMER_ID) }
+            val kb = w.items.subList(from, to)
+            // Página de LEDs, usos 1–5, cinco campos de 1 bit de salida (0x91 → etiqueta 0x90, datos 0x02) y 3 bits de relleno constante.
+            assertTrue(kb.contains(0x04 to listOf(0x08)), "página de LEDs (fine=$fine)")
+            val outputs = kb.filter { it.first == 0x90 }
+            assertEquals(listOf(0x02, 0x01), outputs.map { it.second.single() })
+            val bits = kb.withIndex().filter { it.value.first == 0x74 }.map { it.value.second.single() }
+            // Entrada: 8×1 (modificadores), 1×8 (reservado), 6×8 (teclas); salida: 5×1 y 1×3.
+            assertEquals(listOf(1, 8, 8, 1, 3), bits)
+            val counts = kb.filter { it.first == 0x94 }.map { it.second.single() }
+            assertEquals(listOf(8, 1, 6, 5, 1), counts)
+            // 5 + 3 bits = un byte (el informe de salida sin el id).
+            assertEquals(HidDescriptor.LED_REPORT_SIZE * 8, 5 * 1 + 1 * 3)
+        }
     }
 
     @Test

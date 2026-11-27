@@ -20,6 +20,9 @@ sealed interface BtAction {
     /** Texto tecleado según la distribución del teclado del PC. */
     data class Text(val text: String) : BtAction
 
+    /** Abre el teclado del móvil (docs/spec-v6-teclado.md §3). No envía nada: lo resuelve la app. */
+    data object Keyboard : BtAction
+
     companion object {
         /** Tope del texto de una acción (cada carácter son unos 2 informes HID). */
         const val MAX_TEXT = 300
@@ -98,6 +101,7 @@ object BtActions {
         is BtAction.Keys -> displayKeys(action)
         is BtAction.Media -> mediaOption(action.key).label
         is BtAction.Text -> "Escribir \"" + action.text.let { if (it.length > 20) it.take(20) + "…" else it }.replace('\n', ' ') + "\""
+        BtAction.Keyboard -> "Abrir teclado del móvil"
     }
 
     /** Tipo en el fichero. */
@@ -105,6 +109,7 @@ object BtActions {
         is BtAction.Keys -> "keys"
         is BtAction.Media -> "media"
         is BtAction.Text -> "text"
+        BtAction.Keyboard -> "keyboard"
     }
 
     /** Objeto JSON de la acción: `{"type":"keys","keys":"Ctrl+Z"}`. */
@@ -112,6 +117,7 @@ object BtActions {
         is BtAction.Keys -> linkedMapOf("type" to "keys", "keys" to formatKeys(action))
         is BtAction.Media -> linkedMapOf("type" to "media", "key" to mediaOption(action.key).name)
         is BtAction.Text -> linkedMapOf("type" to "text", "text" to action.text)
+        BtAction.Keyboard -> linkedMapOf("type" to "keyboard")
     }
 
     /** Lee un objeto JSON de acción (ya analizado con [MiniJson]). Lanza [IllegalArgumentException] si no es válido. */
@@ -125,8 +131,9 @@ object BtActions {
                 if (text.isEmpty()) throw IllegalArgumentException("texto vacío")
                 BtAction.Text(text.take(BtAction.MAX_TEXT))
             }
+            "keyboard" -> BtAction.Keyboard
             null -> throw IllegalArgumentException("falta 'type'")
-            else -> throw IllegalArgumentException("tipo '$type' no disponible por Bluetooth (solo keys, media y text)")
+            else -> throw IllegalArgumentException("tipo '$type' no disponible por Bluetooth (solo keys, media, text y keyboard)")
         }
     }
 }

@@ -63,7 +63,7 @@ class HidMapper(
         is OutputAction.SystemGesture -> system(action.command)
         is OutputAction.Gesture, is OutputAction.GestureMode, is OutputAction.GestureRejected,
         is OutputAction.StrokePoints, is OutputAction.StrokeEnd,
-        is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> emptyList()
+        is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe, is OutputAction.FourFingerDoubleTap -> emptyList()
     }
 
     private fun zoom(delta: Int): List<HidReport> {
@@ -118,6 +118,7 @@ class HidMapper(
         is BtAction.Keys -> chord(action.modifiers, action.key)
         is BtAction.Media -> consumer(action.key)
         is BtAction.Text -> typeText(action.text, layout)
+        BtAction.Keyboard -> emptyList() // lo resuelve la app: abre el teclado
     }
 
     /** Teclea [text]: por cada carácter, sus pulsaciones (pulsar y soltar). Los saltos de línea son Intro. */

@@ -75,6 +75,7 @@ class BtWidgetConfig(buttons: List<BtButton>) {
             BtButton("Captura", "✂️", keys(HidKeys.MOD_GUI or HidKeys.MOD_SHIFT, "S")),
             BtButton("Deshacer", "↩️", keys(HidKeys.MOD_CTRL, "Z")),
             BtButton("Bloquear", "🔒", keys(HidKeys.MOD_GUI, "L")),
+            BtButton("Teclado", "⌨", BtAction.Keyboard),
         ))
 
         /** El icono es un emoji o 1–3 letras: como mucho 4 puntos de código (un emoji puede llevar un selector de variante). */

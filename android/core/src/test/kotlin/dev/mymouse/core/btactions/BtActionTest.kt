@@ -63,6 +63,7 @@ class BtActionTest {
             BtAction.Keys(HidKeys.MOD_CTRL or HidKeys.MOD_ALT, 0x4C),
             BtAction.Media(ConsumerKey.NEXT),
             BtAction.Text("Un saludo,\nDiego ñ"),
+            BtAction.Keyboard,
         )
         for (a in actions) {
             val json = MiniJson.parse(MiniJson.write(BtActions.toJson(a)))
@@ -77,6 +78,15 @@ class BtActionTest {
             """{"type":"launch","target":"chrome.exe"}""", """{"type":"mymouse","command":"lock"}""", """{"keys":"Ctrl+Z"}""",
             """{"type":"keys"}""", """{"type":"text","text":""}""", """{"type":"media","key":"Stop"}""", "[]", "null",
         )) assertFailsWith<IllegalArgumentException>(bad) { parse(bad) }
+    }
+
+    @Test
+    fun keyboardActionIsAJsonTypeAndIgnoresExtraFields() {
+        assertEquals(BtAction.Keyboard, BtActions.fromJson(MiniJson.parse("""{"type":"keyboard"}""")))
+        assertEquals(BtAction.Keyboard, BtActions.fromJson(MiniJson.parse("""{"type":"keyboard","x":1}""")))
+        assertEquals(mapOf("type" to "keyboard"), BtActions.toJson(BtAction.Keyboard))
+        assertEquals("keyboard", BtActions.typeOf(BtAction.Keyboard))
+        assertEquals("Abrir teclado del móvil", BtActions.describe(BtAction.Keyboard))
     }
 
     @Test
