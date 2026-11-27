@@ -33,7 +33,7 @@ public sealed class AdbReverseKeeper(string? configuredAdbPath, int port = Proto
         if (adb is null)
         {
             SetStatus(AdbStatus.AdbNotFound);
-            Log?.Invoke("No se encontró adb.exe. Configura su ruta en config.json o añádelo al PATH.");
+            Log?.Invoke("No se encontró adb.exe (ni junto a MyMouse ni en el PATH). Instala MyMouse con el instalador, que lo incluye, o configura su ruta en config.json.");
             return;
         }
 
@@ -56,21 +56,40 @@ public sealed class AdbReverseKeeper(string? configuredAdbPath, int port = Proto
         while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
     }
 
-    public static string? FindAdb(string? configuredPath)
+    /// <summary>
+    /// Dónde está adb (docs/spec-v5-bluetooth-completo.md §5): primero la ruta puesta a mano en <c>config.json</c>, después **junto al
+    /// ejecutable** (el instalador lo trae), luego el PATH y por último el SDK de Android. Los parámetros solo existen para las
+    /// pruebas; sin ellos se usa el sistema real.
+    /// </summary>
+    public static string? FindAdb(
+        string? configuredPath,
+        string? exeDirectory = null,
+        string? pathVariable = null,
+        string? localAppData = null,
+        Func<string, bool>? fileExists = null,
+        bool? windows = null)
     {
-        var exe = OperatingSystem.IsWindows() ? "adb.exe" : "adb";
+        fileExists ??= File.Exists;
+        var exe = (windows ?? OperatingSystem.IsWindows()) ? "adb.exe" : "adb";
         var candidates = new List<string?> { configuredPath };
 
-        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
-        candidates.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(dir => Path.Combine(dir, exe)));
+        exeDirectory ??= ExeDirectory();
+        if (!string.IsNullOrEmpty(exeDirectory)) candidates.Add(Path.Combine(exeDirectory, exe));
 
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var path = pathVariable ?? Environment.GetEnvironmentVariable("PATH") ?? "";
+        candidates.AddRange(path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(dir => Path.Combine(dir.Trim('"'), exe)));
+
+        localAppData ??= Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (!string.IsNullOrEmpty(localAppData))
             candidates.Add(Path.Combine(localAppData, "Android", "Sdk", "platform-tools", exe));
 
-        return candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c) && File.Exists(c));
+        return candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c) && fileExists(c));
     }
+
+    /// <summary>Carpeta del ejecutable en marcha (con el exe de un solo fichero, <see cref="AppContext.BaseDirectory"/> también vale, pero esto no depende de la extracción).</summary>
+    private static string? ExeDirectory() =>
+        Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
 
     /// <summary>
     /// Modelo del primer dispositivo de la salida de <c>adb devices -l</c> (<c>... device usb:1-2 product:x model:Poco_X8_Pro_Max ...</c>),

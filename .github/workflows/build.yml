@@ -86,10 +86,65 @@ jobs:
           dotnet publish src/MyMouse.TestClient @common -o out/MyMouse
           Get-ChildItem out/MyMouse -Filter *.pdb | Remove-Item
           Compress-Archive -Path out/MyMouse/* -DestinationPath "$env:GITHUB_WORKSPACE/MyMouse-Windows-$name.zip"
+      # adb para el instalador: solo adb.exe, AdbWinApi.dll, AdbWinUsbApi.dll y la licencia (NOTICE.txt) de las platform-tools de Google.
+      - name: Descargar adb
+        run: |
+          $zip = Join-Path $PWD 'out/platform-tools.zip'
+          $url = 'https://dl.google.com/android/repository/platform-tools-latest-windows.zip'
+          for ($i = 1; $i -le 3; $i++) {
+            try { Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing; break }
+            catch { if ($i -eq 3) { throw }; Write-Host "Descarga fallida ($i): $($_.Exception.Message)"; Start-Sleep -Seconds (5 * $i) }
+          }
+          Expand-Archive -Path $zip -DestinationPath out/platform-tools -Force
+          New-Item -ItemType Directory -Force -Path out/adb | Out-Null
+          foreach ($f in 'adb.exe', 'AdbWinApi.dll', 'AdbWinUsbApi.dll', 'NOTICE.txt') {
+            $src = Join-Path out/platform-tools/platform-tools $f
+            if (-not (Test-Path $src)) { throw "Falta $f en las platform-tools" }
+            Copy-Item $src out/adb
+          }
+          Get-ChildItem out/adb | Format-Table Name, Length
+      # Inno Setup: si el runner no trae ISCC.exe, se instala con Chocolatey. Se busca en las rutas habituales porque el PATH de
+      # esta sesión no se actualiza tras instalarlo.
+      - name: Inno Setup
+        run: |
+          function Find-Iscc {
+            $cmd = Get-Command iscc -ErrorAction SilentlyContinue
+            if ($cmd) { return $cmd.Source }
+            $roots = @(${env:ProgramFiles(x86)}, $env:ProgramFiles, "$env:LOCALAPPDATA\Programs") | Where-Object { $_ }
+            foreach ($r in $roots) {
+              $p = Join-Path $r 'Inno Setup 6\ISCC.exe'
+              if (Test-Path $p) { return $p }
+            }
+            return $null
+          }
+          $iscc = Find-Iscc
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "choco install innosetup falló ($LASTEXITCODE)" }
+            $iscc = Find-Iscc
+          }
+          if (-not $iscc) { throw 'No se encuentra ISCC.exe tras instalar Inno Setup' }
+          Write-Host "ISCC: $iscc"
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      # Los parámetros van por variables de entorno (las lee MyMouse.iss con GetEnv): valores con puntos, guiones o barras no necesitan comillas.
+      - name: Instalador
+        run: |
+          $name = "${{ needs.meta.outputs.version }}"
+          $env:MYMOUSE_VERSION = $name
+          $env:MYMOUSE_SOURCE_DIR = (Resolve-Path out/MyMouse).Path
+          $env:MYMOUSE_ADB_DIR = (Resolve-Path out/adb).Path
+          $env:MYMOUSE_OUTPUT_DIR = $env:GITHUB_WORKSPACE
+          & $env:ISCC installer/MyMouse.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC falló ($LASTEXITCODE)" }
+          $setup = Join-Path $env:GITHUB_WORKSPACE "MyMouse-Setup-$name.exe"
+          if (-not (Test-Path $setup)) { throw "No se generó $setup" }
+          Get-Item $setup | Format-Table Name, Length
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: MyMouse-Windows-*.zip
+          path: |
+            MyMouse-Windows-*.zip
+            MyMouse-Setup-*.exe
 
   release:
     if: needs.meta.outputs.tag != ''

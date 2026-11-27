@@ -462,7 +462,7 @@ internal sealed class HostApp : IDisposable
     /// <summary>Es normal que el host diga "Sin dispositivo" en el modo Bluetooth (docs/spec-v4.5-estilo.md §4).</summary>
     public const string SinDispositivoHint = "Conecta el cable y activa la depuración USB. ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
 
-    public const string SinAdbHint = "No se encuentra adb: instálalo o indica su ruta en config.json (AdbPath). ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
+    public const string SinAdbHint = "No se encuentra adb: reinstala MyMouse con el instalador (lo incluye), añádelo al PATH o indica su ruta en config.json (AdbPath). ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
 
     public const string EsperandoHint = "Abre la app MyMouse en el móvil.";
 
