@@ -32,6 +32,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.debug.WidgetDescriber
 import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Message
@@ -88,6 +89,7 @@ class MainActivity : Activity() {
 
         settings = AppSettings.load(this)
         GlassTheme.applyTheme(settings.theme) // antes de crear ninguna vista
+        appliedTheme = settings.theme.normalized()
         shapes = ShapeStore(this)
         panelShown = settings.showWidgets
         panelProgress = if (panelShown) 1f else 0f
@@ -219,13 +221,26 @@ class MainActivity : Activity() {
         return TrackpadEngine(config, recognizer)
     }
 
+    /** Tema con el que está pintada esta pantalla (ver [applySettings]). */
+    private var appliedTheme: ThemeChoice? = null
+
+    private fun invalidateTree(view: View) {
+        view.invalidate()
+        if (view is ViewGroup) for (i in 0 until view.childCount) invalidateTree(view.getChildAt(i))
+    }
+
     private fun applySettings() {
         settings = AppSettings.load(this)
-        if (settings.theme != GlassTheme.choice) {
-            // Se cambió el tema en Ajustes: fondo y acento nuevos (docs/spec-v4.8-temas.md §3).
-            GlassTheme.applyTheme(settings.theme)
+        // Se cambió el tema en Ajustes: fondo y acento nuevos (docs/spec-v4.8-temas.md §3). Se compara con el tema que
+        // tiene pintado ESTA pantalla y no con GlassTheme.choice: Ajustes ya cambia GlassTheme al momento, así que esa
+        // comparación nunca veía el cambio y el trackpad se quedaba con el tema viejo hasta reiniciar la app.
+        val theme = settings.theme.normalized()
+        if (theme != appliedTheme) {
+            appliedTheme = theme
+            GlassTheme.applyTheme(theme)
             root.background = GlassTheme.universe(this, trackpad = true)
             trackpad.onThemeChanged()
+            invalidateTree(root) // botones, panel de widgets y demás vistas leen el acento al dibujarse
         }
         if (panelAnimator == null) {
             panelShown = settings.showWidgets
