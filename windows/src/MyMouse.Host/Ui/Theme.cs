@@ -46,6 +46,7 @@ internal static class Theme
         var surface = ThemeCatalog.SurfaceSolid(c.Theme);
         CardSolid.Color = Rgb(surface);
         PanelSolid.Color = Rgb(surface, 0xF2);
+        if (_resources is not null) _resources[AccentKey] = Brush(Accent.Color.ToString());
         Changed?.Invoke();
     }
 
@@ -143,6 +144,9 @@ internal static class Theme
         return brush;
     }
 
+    private const string AccentKey = "MyMouseAccent";
+    private static ResourceDictionary? _resources;
+
     private static ControlTemplate? _buttonTemplate;
     private static ControlTemplate? _roundButtonTemplate;
     private static ControlTemplate? _textBoxTemplate;
@@ -152,7 +156,11 @@ internal static class Theme
     /// <summary>Instala los estilos de scroll en los recursos de la aplicación. Si una plantilla falla, se usa la de Windows.</summary>
     public static void Apply(ResourceDictionary resources)
     {
-        resources["MyMouseAccent"] = Accent; // las plantillas siguen al acento del tema con DynamicResource
+        // Las plantillas siguen al acento con DynamicResource. Los recursos de la aplicación congelan lo que se les mete (se pueden
+        // leer desde cualquier hilo), así que aquí va una copia congelada que Set sustituye, nunca el pincel mutable Accent: si se
+        // congela, el siguiente Set revienta al arrancar.
+        _resources = resources;
+        resources[AccentKey] = Brush(Accent.Color.ToString());
         _buttonTemplate = Load("botón", ButtonXaml(8));
         _roundButtonTemplate = Load("botón redondo", ButtonXaml(999));
         _textBoxTemplate = Load("cuadro de texto", """
