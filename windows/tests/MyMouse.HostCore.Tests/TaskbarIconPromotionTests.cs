@@ -128,7 +128,7 @@ public class TaskbarIconPromotionTests
     public void ToolboxSettingDefaultsToOnAndIsPersisted()
     {
         Assert.True(ToolboxLayout.Default.AlwaysShowIcon);
-        Assert.True(ToolboxLayout.Parse("{}").AlwaysShowIcon); // un toolbox.json de la v4.6: se activa solo
+        Assert.True(ToolboxLayout.Parse("{}").AlwaysShowIcon); // sin el ajuste guardado: activado
         var off = ToolboxLayout.Default.WithAlwaysShowIcon(false);
         Assert.False(off.AlwaysShowIcon);
         Assert.False(ToolboxLayout.Parse(off.ToJson()).AlwaysShowIcon);

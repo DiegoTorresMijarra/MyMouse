@@ -4,10 +4,10 @@ package dev.mymouse.core.hid
  * Descriptor HID compuesto: ratón (id 1), teclado (id 2) y consumo (id 3). Hay dos versiones del ratón (docs/spec-v5-bluetooth-completo.md §4):
  * - **Con scroll fino:** la rueda y la rueda horizontal (AC Pan) van cada una en una colección lógica con su *Resolution Multiplier*
  *   (informe *feature* del id 1, de un byte; ver [ScrollResolution]). Es el patrón de los ratones de "scroll suave" de Windows.
- * - **Antiguo:** sin multiplicador, como hasta la v4. Por si algún PC se porta mal con el nuevo.
+ * - **Sin scroll fino:** sin multiplicador, con pasos enteros. Por si algún PC se porta mal con el otro.
  * El informe de entrada del ratón es el mismo en las dos (botones, X, Y, rueda, pan: 5 bytes).
  *
- * El teclado (id 2) lleva además, desde la v6, el informe de **salida** de LEDs (1 byte, [LED_REPORT_SIZE]): así Windows nos dice
+ * El teclado (id 2) lleva además el informe de **salida** de LEDs (1 byte, [LED_REPORT_SIZE]): así Windows nos dice
  * cuándo cambian Bloq Mayús y Bloq Num (docs/spec-v6-teclado.md §5.4).
  */
 object HidDescriptor {
@@ -67,7 +67,7 @@ object HidDescriptor {
         0xC0,
     )
 
-    /** El descriptor que se registra: con [fineScroll] el del ratón con *Resolution Multiplier*, y si no el de la v4. */
+    /** El descriptor que se registra: con [fineScroll] el del ratón con *Resolution Multiplier*, y si no el de pasos enteros. */
     fun build(fineScroll: Boolean): ByteArray =
         ((if (fineScroll) MOUSE_FINE else MOUSE_LEGACY) + KEYBOARD_AND_CONSUMER).map { it.toByte() }.toByteArray()
 }

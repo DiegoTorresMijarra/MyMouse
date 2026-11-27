@@ -3,9 +3,9 @@ using MyMouse.Protocol;
 namespace MyMouse.HostCore.Phone;
 
 /// <summary>
-/// Punto de unión entre la sesión del móvil (<see cref="ClientSession"/>) y la toolbox (protocolo v5): recibe los
-/// mensajes <c>TOOLBOX</c>, <c>GESTURE_MODE</c>, <c>STROKE_*</c> y <c>SHAPE_*</c> del móvil y permite enviarle
-/// <c>SHAPE_ADD</c> y <c>SHAPE_DELETE</c>. Los eventos se disparan en el hilo de la sesión: quien los recibe debe
+/// Punto de unión entre la sesión del móvil (<see cref="ClientSession"/>) y el resto del PC: recibe los
+/// mensajes <c>TOOLBOX</c>, <c>GESTURE_MODE</c>, <c>STROKE_*</c>, <c>SHAPE_*</c> y <c>THEME</c> del móvil, sabe si está
+/// en modo teclado y permite enviarle mensajes (<c>SHAPE_ADD</c>, <c>SHAPE_DELETE</c>, <c>KEYBOARD_OPEN</c>, <c>THEME</c>). Los eventos se disparan en el hilo de la sesión: quien los recibe debe
 /// pasar al hilo de la interfaz si hace falta.
 /// </summary>
 public sealed class PhoneHub
@@ -19,37 +19,34 @@ public sealed class PhoneHub
         get { lock (_lock) return _current?.Version ?? 0; }
     }
 
-    /// <summary>¿Hay un móvil conectado que entienda la toolbox (versión ≥ 5)?</summary>
-    public bool SupportsToolbox => Version >= ProtocolInfo.ToolboxVersion;
+    /// <summary>¿Hay un móvil conectado por USB?</summary>
+    public bool Connected => Version > 0;
 
-    /// <summary>Versión de la app del móvil conectado (<c>APP_VERSION</c>, protocolo v6), o null si no hay móvil o aún no la ha dicho.</summary>
+    /// <summary>Versión de la app del móvil conectado (<c>APP_VERSION</c>), o null si no hay móvil o aún no la ha dicho.</summary>
     public string? PhoneAppVersion
     {
         get { lock (_lock) return _current?.AppVersion; }
     }
 
-    /// <summary>Versión de MyMouse de este PC, que se envía al móvil tras el handshake (v6). Vacía = no se envía.</summary>
+    /// <summary>Versión de MyMouse de este PC, que se envía al móvil tras el handshake. Vacía = no se envía.</summary>
     public string HostAppVersion { get; set; } = "";
 
-    /// <summary>Tema de este PC, que se envía al móvil tras el handshake (v8). Null = no se envía. Lo pone <c>ThemeSyncService</c>.</summary>
+    /// <summary>Tema de este PC, que se envía al móvil tras el handshake. Null = no se envía. Lo pone <c>ThemeSyncService</c>.</summary>
     public Func<ThemeMessage>? LocalTheme { get; set; }
 
-    /// <summary>¿Está el móvil conectado en modo teclado (<c>KEYBOARD_MODE</c>, protocolo v7)?</summary>
+    /// <summary>¿Está el móvil conectado en modo teclado (<c>KEYBOARD_MODE</c>)?</summary>
     public bool KeyboardMode
     {
         get { lock (_lock) return _current?.KeyboardMode ?? false; }
     }
 
-    /// <summary>¿Hay un móvil conectado que entienda el modo teclado (versión ≥ 7)?</summary>
-    public bool SupportsKeyboard => Version >= ProtocolInfo.KeyboardVersion;
-
     /// <summary>El móvil entra (true) o sale (false) del modo teclado. Se dispara en el hilo de la sesión.</summary>
     public event Action<bool>? KeyboardModeChanged;
 
-    /// <summary>Se conecta o desconecta un móvil de la versión 5 o posterior.</summary>
+    /// <summary>Se conecta o desconecta un móvil.</summary>
     public event Action? Changed;
 
-    /// <summary>Mensaje de la v5 recibido del móvil.</summary>
+    /// <summary>Mensaje de la toolbox o del tema recibido del móvil.</summary>
     public event Action<Message>? Received;
 
     /// <summary>Lo llama <see cref="ClientSession"/> tras el handshake con versión ≥ 5. Desechar el resultado al terminar la sesión.</summary>
@@ -84,10 +81,10 @@ public sealed class PhoneHub
         Changed?.Invoke();
     }
 
-    /// <summary>Lo llama <see cref="ClientSession"/> con cada mensaje de la v5 que llega.</summary>
+    /// <summary>Lo llama <see cref="ClientSession"/> con cada mensaje de la toolbox o del tema que llega.</summary>
     public void Dispatch(Message message) => Received?.Invoke(message);
 
-    /// <summary>Envía un mensaje al móvil. <c>false</c> si no hay móvil v5 conectado o el envío falla.</summary>
+    /// <summary>Envía un mensaje al móvil. <c>false</c> si no hay móvil conectado o el envío falla.</summary>
     public async Task<bool> SendAsync(Message message, CancellationToken cancellationToken = default)
     {
         Attachment? attachment;

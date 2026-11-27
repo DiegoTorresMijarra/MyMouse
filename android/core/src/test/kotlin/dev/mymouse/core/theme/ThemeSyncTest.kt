@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Tema sincronizado (protocolo v8). Mismos casos que ThemeSyncTests en el PC. */
+/** Tema sincronizado. Mismos casos que ThemeSyncTests en el PC. */
 class ThemeSyncTest {
     private val universe = SyncedTheme("universe", "auto", true, 1000)
 

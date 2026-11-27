@@ -17,7 +17,7 @@ public class ThemeCatalogTests
         Assert.Equal(["steel", "lavender", "turquoise", "green", "amber", "pink", "white"], ThemeCatalog.Accents.Select(a => a.Id));
     }
 
-    /// <summary>Los mismos valores que comprueba <c>ThemesTest</c> en Kotlin: Universo es sobrio y Nebulosa es la paleta de la v4.7.</summary>
+    /// <summary>Los mismos valores que comprueba <c>ThemesTest</c> en Kotlin: Universo es sobrio y Nebulosa, más intensa.</summary>
     [Fact]
     public void UniverseIsSoberAndNebulaIsTheOldPalette()
     {
@@ -168,7 +168,7 @@ public class ToolboxThemeTests
     public void ThemeDefaultsToUniverseAndMigratesFromOldFiles()
     {
         Assert.Equal(new ThemeChoice(), ToolboxLayout.Default.Theme);
-        // Un toolbox.json de la v4.7 no tiene "theme": pasa a Universo (la paleta sobria), sin tocar lo demás.
+        // Un toolbox.json sin "theme" pasa a Universo (la paleta sobria), sin tocar lo demás.
         var old = ToolboxLayout.Parse("""{"cards":[{"id":"options","visible":true}],"liveGesture":false,"glass":true,"maximized":true,"alwaysShowIcon":true}""");
         Assert.Equal("universe", old.Theme.ThemeId);
         Assert.Equal(ThemeCatalog.AccentAuto, old.Theme.AccentId);

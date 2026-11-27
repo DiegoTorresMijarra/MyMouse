@@ -331,7 +331,7 @@ class SettingsActivity : Activity() {
     private fun updateTheme(choice: ThemeChoice) {
         if (choice.normalized() == settings.theme) return
         val next = choice.normalized()
-        // El tema, el acento o las estrellas cambian: se apunta cuándo, para la sincronización con el PC (v6.1). La animación no viaja.
+        // El tema, el acento o las estrellas cambian: se apunta cuándo, para la sincronización con el PC. La animación no viaja.
         val stamp = if (SyncedTheme.of(next, 0).sameLook(SyncedTheme.of(settings.theme, 0))) settings.themeChangedAt else System.currentTimeMillis()
         settings = settings.copy(theme = next, themeChangedAt = stamp)
         GlassTheme.applyTheme(settings.theme)

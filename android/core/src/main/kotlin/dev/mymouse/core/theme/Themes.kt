@@ -40,7 +40,7 @@ data class ThemeChoice(
     val stars: Boolean = true,
     /** "Animación de estrellas" en las pantallas que no son el trackpad. */
     val twinkle: Boolean = true,
-    /** La animación en el trackpad: desactivada por defecto, como en la v4.7. */
+    /** La animación en el trackpad: desactivada por defecto. */
     val twinkleTrackpad: Boolean = false,
 ) {
     /** El tema elegido; un id desconocido da el de por defecto. */

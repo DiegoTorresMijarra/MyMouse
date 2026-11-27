@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Lo que el motor emite para el gesto en vivo del PC (protocolo v5). */
+/** Lo que el motor emite para el gesto en vivo del PC. */
 class StrokeStreamingTest {
     private val config = TrackpadConfig(acceleration = 0f)
     private val engine = TrackpadEngine(config, Recognizer(Recognizer.catalogTemplates(), ShapeCatalog.IDS.toSet())).also {

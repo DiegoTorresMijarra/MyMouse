@@ -122,7 +122,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
     override val toolboxUnavailableText = "La toolbox del PC solo funciona por USB"
 
-    /** Registro de depuración (spec v4.5 §4): los últimos 30 eventos, para la sección "Diagnóstico". */
+    /** Registro de depuración (docs/spec-v4.5-estilo.md §4): los últimos 30 eventos, para la sección "Diagnóstico". */
     val events = BluetoothEventLog()
     var eventListener: () -> Unit = {}
 
@@ -532,7 +532,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         if (device != null) replayState() else onWidgetLayout(Message.WidgetLayout(emptyList()))
     }
 
-    /** Panel de widgets en modo Bluetooth: multimedia y volumen fijos más los botones propios de `bt-widgets.json` (spec v5 §3). */
+    /** Panel de widgets en modo Bluetooth: multimedia y volumen fijos más los botones propios de `bt-widgets.json` (docs/spec-v5-bluetooth-completo.md §3). */
     private fun replayState() {
         if (host == null) return
         onConnectionChanged(true)
@@ -562,7 +562,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         if (device != null && reports.isNotEmpty()) sender.post { process(device, reports) }
     }
 
-    /** Forma reconocida: se busca su acción en `bt-gestures.json` y se teclea en el PC (spec v5 §2.3). */
+    /** Forma reconocida: se busca su acción en `bt-gestures.json` y se teclea en el PC (docs/spec-v5-bluetooth-completo.md §2.3). */
     private fun runGesture(device: BluetoothDevice, name: String) {
         val binding = gestureConfig.find(name)
         if (binding == null) {
@@ -711,7 +711,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         private const val QOS_TOKEN_RATE = 800
         private const val QOS_TOKEN_BUCKET = 9
         private const val QOS_LATENCY_US = 11_250
-        private const val RELEASE_DELAY_MS = 60_000L // spec v4.5 §4: no cortar el registro HID mientras Windows empareja
+        private const val RELEASE_DELAY_MS = 60_000L // docs/spec-v4.5-estilo.md §4: no cortar el registro HID mientras Windows empareja
         private const val ZOOM_RELEASE_MS = 150L // sin zoom durante este tiempo, se suelta el Ctrl del zoom fino
         private const val TEXT_BURST = 8 // hasta 8 informes (4 teclas) salen de golpe; el texto más largo, con hueco
         private const val TEXT_GAP_MS = 5L

@@ -3,10 +3,9 @@ using MyMouse.Protocol;
 
 // Cliente de prueba: simula al móvil para probar el host sin Android.
 // Uso: dotnet run --project src/MyMouse.TestClient [puerto]
-// Mueve el cursor en círculo, hace clic derecho (y clic izquierdo para cerrar el menú) hace scroll y zoom (Ctrl + rueda)
-// y, con protocolo v2, lista las formas configuradas y envía una forma sin asignar.
-// Con protocolo v3 imprime los widgets configurados y el estado de volumen y música, y prueba un toque en un widget inexistente.
-// Con protocolo v5 abre y cierra la toolbox, simula el gesto en vivo (trazo de un círculo sin reconocer) y envía una forma propia
+// Mueve el cursor en círculo, hace clic derecho (y clic izquierdo para cerrar el menú), scroll y zoom (Ctrl + rueda).
+// Lista las formas configuradas y envía una forma sin asignar. Imprime los widgets configurados y el estado de volumen y música,
+// y prueba un toque en un widget inexistente. Abre y cierra la toolbox, simula el gesto en vivo (trazo en espiral sin reconocer) y envía una forma propia
 // de prueba ("custom:test-client"). Con --formas se queda 60 s contestando a los SHAPE_ADD y SHAPE_DELETE que mande el PC
 // (para probar "+ Nueva forma" en el editor sin el móvil).
 
@@ -43,16 +42,16 @@ string Describe(Message m) => m switch
 await Send(new HelloMessage(ProtocolInfo.CurrentVersion));
 var ack = await reader.ReadAsync();
 Console.WriteLine($"Handshake: {ack}");
-if (ack is not HelloAckMessage helloAck)
+if (ack is not HelloAckMessage)
     return 1;
 
-if (helloAck.Version >= ProtocolInfo.GesturesVersion && await reader.ReadAsync() is GestureListMessage list)
+if (await reader.ReadAsync() is GestureListMessage list)
 {
     Console.WriteLine($"Formas configuradas en el PC ({list.Entries.Count}):");
     foreach (var e in list.Entries) Console.WriteLine($"  {(e.Pinned ? "*" : " ")} {e.Name,-12} {e.Help}");
 }
 
-if (helloAck.Version >= ProtocolInfo.WidgetsVersion && await reader.ReadAsync() is WidgetLayoutMessage layout)
+if (await reader.ReadAsync() is WidgetLayoutMessage layout)
 {
     Console.WriteLine($"Widgets configurados en el PC ({layout.Entries.Count}):");
     foreach (var e in layout.Entries) Console.WriteLine($"  {e.Id,2} {e.Kind,-7} {e.Icon,-4} {e.Label}");
@@ -90,54 +89,45 @@ Console.WriteLine("Zoom: acercar 2 pasos y alejar 2 pasos...");
 for (var i = 0; i < 2; i++) { await Send(new ZoomMessage(120)); await Task.Delay(400); }
 for (var i = 0; i < 2; i++) { await Send(new ZoomMessage(-120)); await Task.Delay(400); }
 
-if (helloAck.Version >= ProtocolInfo.GesturesVersion)
+// Una forma que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
+await Send(new GestureMessage("test-client"));
+Console.WriteLine($"Forma 'test-client': {await Expect<GestureResultMessage>()} (lo esperado es Unassigned y un aviso en la bandeja)");
+
+// Un widget que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
+await Send(new WidgetPressMessage(250));
+Console.WriteLine($"Widget 250: {await Expect<WidgetResultMessage>()} (lo esperado es Error)");
+
+// Una forma propia de prueba: el PC la dibuja en la tarjeta Gestos (y, la primera vez, no avisa; las siguientes, sí).
+var square = Enumerable.Range(0, 32).Select(i =>
 {
-    // Una forma que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
-    await Send(new GestureMessage("test-client"));
-    Console.WriteLine($"Forma 'test-client': {await Expect<GestureResultMessage>()} (lo esperado es Unassigned y un aviso en la bandeja)");
-}
+    var t = i / 31.0 * 4;
+    var (x, y) = t switch { < 1 => (t, 0.0), < 2 => (1.0, t - 1), < 3 => (3 - t, 1.0), _ => (0.0, 4 - t) };
+    return new StrokePoint((ushort)(x * 65535), (ushort)(y * 65535));
+}).ToList();
+await Send(new ShapeInfoMessage("custom:test-client", [square, square, square]));
+await Send(new ShapeListEndMessage(1));
 
-if (helloAck.Version >= ProtocolInfo.WidgetsVersion)
+Console.WriteLine("Toolbox: abrir (1,5 s) y cerrar...");
+await Send(new ToolboxMessage(true));
+await Task.Delay(1500);
+await Send(new ToolboxMessage(false));
+await Task.Delay(400);
+
+Console.WriteLine("Gesto en vivo: un trazo en espiral sin reconocer...");
+await Send(new GestureModeMessage(true, 3000));
+await Task.Delay(500);
+for (var i = 0; i < 60; i++)
 {
-    // Un widget que no existe: comprueba el viaje de ida y vuelta sin ejecutar nada en el PC.
-    await Send(new WidgetPressMessage(250));
-    Console.WriteLine($"Widget 250: {await Expect<WidgetResultMessage>()} (lo esperado es Error)");
+    var t = i / 59.0 * 3.2 * Math.PI;
+    var r = 0.15 + 0.35 * i / 59.0;
+    await Send(new StrokePointsMessage([new StrokePoint((ushort)((0.5 + r * Math.Cos(t)) * 65535), (ushort)((0.5 + r * Math.Sin(t)) * 65535))]));
+    await Task.Delay(16);
 }
+await Send(new StrokeEndMessage(StrokeResult.NotRecognized));
+await Send(new GestureModeMessage(false, 0));
+await Task.Delay(2000);
 
-if (helloAck.Version >= ProtocolInfo.ToolboxVersion)
-{
-    // Una forma propia de prueba: el PC la dibuja en la tarjeta Gestos (y, la primera vez, no avisa; las siguientes, sí).
-    var square = Enumerable.Range(0, 32).Select(i =>
-    {
-        var t = i / 31.0 * 4;
-        var (x, y) = t switch { < 1 => (t, 0.0), < 2 => (1.0, t - 1), < 3 => (3 - t, 1.0), _ => (0.0, 4 - t) };
-        return new StrokePoint((ushort)(x * 65535), (ushort)(y * 65535));
-    }).ToList();
-    await Send(new ShapeInfoMessage("custom:test-client", [square, square, square]));
-    await Send(new ShapeListEndMessage(1));
-
-    Console.WriteLine("Toolbox: abrir (1,5 s) y cerrar...");
-    await Send(new ToolboxMessage(true));
-    await Task.Delay(1500);
-    await Send(new ToolboxMessage(false));
-    await Task.Delay(400);
-
-    Console.WriteLine("Gesto en vivo: un trazo en espiral sin reconocer...");
-    await Send(new GestureModeMessage(true, 3000));
-    await Task.Delay(500);
-    for (var i = 0; i < 60; i++)
-    {
-        var t = i / 59.0 * 3.2 * Math.PI;
-        var r = 0.15 + 0.35 * i / 59.0;
-        await Send(new StrokePointsMessage([new StrokePoint((ushort)((0.5 + r * Math.Cos(t)) * 65535), (ushort)((0.5 + r * Math.Sin(t)) * 65535))]));
-        await Task.Delay(16);
-    }
-    await Send(new StrokeEndMessage(StrokeResult.NotRecognized));
-    await Send(new GestureModeMessage(false, 0));
-    await Task.Delay(2000);
-}
-
-if (waitForShapes && helloAck.Version >= ProtocolInfo.ToolboxVersion)
+if (waitForShapes)
 {
     Console.WriteLine("Esperando 60 s a SHAPE_ADD / SHAPE_DELETE del PC (abre el editor → + Nueva forma)...");
     var shapes = new Dictionary<string, ShapeInfoMessage> { ["custom:test-client"] = new("custom:test-client", []) };

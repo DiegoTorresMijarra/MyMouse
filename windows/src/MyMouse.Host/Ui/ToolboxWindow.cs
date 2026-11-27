@@ -320,7 +320,7 @@ internal sealed class ToolboxWindow : FloatingWindow
             _cards.Add(card);
         }
 
-        // El aviso de actualización (v5.1) va arriba de todo y no cuenta como tarjeta del diseño: se oculta solo si no hay nada que avisar.
+        // El aviso de actualización va arriba de todo y no cuenta como tarjeta del diseño: se oculta solo si no hay nada que avisar.
         var update = new UpdateCard(_app);
         update.Refresh();
         update.Resized = OnCardResized;

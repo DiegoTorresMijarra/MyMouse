@@ -3,17 +3,8 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC, 6 = versión de la app (APP_VERSION), 7 = modo teclado (KEY, KEYBOARD_*), 8 = tema sincronizado (THEME).</summary>
-    public const byte CurrentVersion = 8;
-
-    /// <summary>Primera versión con APP_VERSION (avisos de versión cruzados entre móvil y PC).</summary>
-    public const byte AppVersionVersion = 6;
-
-    /// <summary>Primera versión con el modo teclado: KEY, KEYBOARD_MODE, KEYBOARD_OPEN, KEYBOARD_LEDS y KEYBOARD_LAYOUT.</summary>
-    public const byte KeyboardVersion = 7;
-
-    /// <summary>Primera versión con THEME: el tema, el acento y las estrellas se sincronizan entre móvil y PC.</summary>
-    public const byte ThemeVersion = 8;
+    /// <summary>Versión más alta soportada. Si en el futuro hay versiones nuevas, cada una se documenta en protocol/PROTOCOL.md.</summary>
+    public const byte CurrentVersion = 1;
 
     /// <summary>Longitud máxima de los ids de tema y de acento de THEME, en bytes UTF-8.</summary>
     public const int MaxThemeIdBytes = 32;
@@ -23,18 +14,6 @@ public static class ProtocolInfo
 
     /// <summary>Longitud máxima del texto de versión de APP_VERSION, en bytes UTF-8.</summary>
     public const int MaxAppVersionBytes = 64;
-
-    /// <summary>Primera versión con los mensajes del modo gestos.</summary>
-    public const byte GesturesVersion = 2;
-
-    /// <summary>Primera versión con los mensajes del panel de widgets.</summary>
-    public const byte WidgetsVersion = 3;
-
-    /// <summary>Primera versión con SYSTEM_GESTURE (gestos de 3 dedos de Windows).</summary>
-    public const byte SystemGestureVersion = 4;
-
-    /// <summary>Primera versión con TOOLBOX, el gesto en vivo (GESTURE_MODE, STROKE_*) y la sincronización de formas (SHAPE_*).</summary>
-    public const byte ToolboxVersion = 5;
 
     /// <summary>Puntos a los que el móvil remuestrea cada muestra de una forma en SHAPE_INFO.</summary>
     public const int ShapeSamplePoints = 32;
@@ -225,7 +204,7 @@ public enum SystemGestureCommand : byte
     AppSwitchEnd = 5,
 }
 
-/// <summary>Gesto de 3 dedos del móvil: vista de tareas, escritorio o cambio de app (protocolo v4).</summary>
+/// <summary>Gesto de 3 dedos del móvil: vista de tareas, escritorio o cambio de app.</summary>
 public sealed record SystemGestureMessage(SystemGestureCommand Command) : Message
 {
     public override MessageType Type => MessageType.SystemGesture;
@@ -262,7 +241,7 @@ public sealed record WidgetResultMessage(byte Id, GestureStatus Status) : Messag
     public override MessageType Type => MessageType.WidgetResult;
 }
 
-/// <summary>Punto normalizado 0–65535 (trazos y muestras de formas del protocolo v5).</summary>
+/// <summary>Punto normalizado 0–65535 (trazos y muestras de formas).</summary>
 public readonly record struct StrokePoint(ushort X, ushort Y);
 
 /// <summary>Cómo terminó un trazo del modo gestos (STROKE_END).</summary>
@@ -285,7 +264,7 @@ public enum ShapeStatus : byte
     NotFound = 5,
 }
 
-/// <summary>Mostrar u ocultar la toolbox del PC: 4 dedos arriba / abajo en el móvil (protocolo v5).</summary>
+/// <summary>Mostrar u ocultar la toolbox del PC: 4 dedos arriba / abajo en el móvil.</summary>
 public sealed record ToolboxMessage(bool Show) : Message
 {
     public override MessageType Type => MessageType.Toolbox;
@@ -353,38 +332,38 @@ public sealed record ShapeDeleteMessage(string Name) : Message
     public override MessageType Type => MessageType.ShapeDelete;
 }
 
-/// <summary>Versión de la app del móvil (0x14, móvil a PC; protocolo v6), p. ej. "5.0".</summary>
+/// <summary>Versión de la app del móvil (0x14, móvil a PC), p. ej. "5.0".</summary>
 public sealed record AppVersionMessage(string Version) : Message
 {
     public override MessageType Type => MessageType.AppVersion;
 }
 
-/// <summary>Versión de la app del PC (0x8E, PC a móvil; protocolo v6).</summary>
+/// <summary>Versión de la app del PC (0x8E, PC a móvil).</summary>
 public sealed record HostAppVersionMessage(string Version) : Message
 {
     public override MessageType Type => MessageType.AppVersionHost;
 }
 
-/// <summary>Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil a PC (0x15; protocolo v7).</summary>
+/// <summary>Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil a PC (0x15).</summary>
 public sealed record KeyMessage(byte Usage, bool Down) : Message
 {
     public override MessageType Type => MessageType.Key;
 }
 
-/// <summary>El móvil entra (true) o sale (false) del modo teclado, móvil a PC (0x16; protocolo v7).</summary>
+/// <summary>El móvil entra (true) o sale (false) del modo teclado, móvil a PC (0x16).</summary>
 public sealed record KeyboardModeMessage(bool On) : Message
 {
     public override MessageType Type => MessageType.KeyboardMode;
 }
 
-/// <summary>El widget Teclado pide abrir el teclado del móvil, PC a móvil (0x8F; protocolo v7).</summary>
+/// <summary>El widget Teclado pide abrir el teclado del móvil, PC a móvil (0x8F).</summary>
 public sealed record KeyboardOpenMessage : Message
 {
     public static readonly KeyboardOpenMessage Instance = new();
     public override MessageType Type => MessageType.KeyboardOpen;
 }
 
-/// <summary>Luces del teclado del PC, PC a móvil (0x90; protocolo v7). Bits: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl.</summary>
+/// <summary>Luces del teclado del PC, PC a móvil (0x90). Bits: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl.</summary>
 public sealed record KeyboardLedsMessage(byte Bits) : Message
 {
     public const byte Caps = 1;
@@ -394,14 +373,14 @@ public sealed record KeyboardLedsMessage(byte Bits) : Message
     public override MessageType Type => MessageType.KeyboardLeds;
 }
 
-/// <summary>Distribución activa del PC, PC a móvil (0x91; protocolo v7): "es" o "us".</summary>
+/// <summary>Distribución activa del PC, PC a móvil (0x91): "es" o "us".</summary>
 public sealed record KeyboardLayoutMessage(string Id) : Message
 {
     public override MessageType Type => MessageType.KeyboardLayout;
 }
 
 /// <summary>
-/// Tema del móvil (0x17, móvil a PC) o del PC (0x92, PC a móvil; protocolo v8): ids de tema y de acento, estrellas y cuándo se cambió
+/// Tema del móvil (0x17, móvil a PC) o del PC (0x92, PC a móvil): ids de tema y de acento, estrellas y cuándo se cambió
 /// por última vez (ms desde 1970, UTC). Gana el cambio más reciente (docs/spec-v6.1-tema-sincronizado.md).
 /// </summary>
 public sealed record ThemeMessage(string ThemeId, string AccentId, bool Stars, long ChangedAtMs, bool FromHost = false) : Message

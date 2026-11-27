@@ -10,7 +10,7 @@ namespace MyMouse.Host.Ui;
 /// <summary>
 /// "Tema…" en los Ajustes de la toolbox (docs/spec-v4.8-temas.md §3): rejilla de 4 columnas con muestras de 72 × 96 que dibujan el
 /// fondo real en pequeño, el acento (Automático y 7 colores) y las casillas de estrellas. Cada cambio se aplica al momento a la
-/// toolbox, al gesto en vivo y al editor, y se guarda en <c>toolbox.json</c>: el tema del PC es independiente del del móvil.
+/// toolbox, al gesto en vivo y al editor, y se guarda en <c>toolbox.json</c>. Por cable se sincroniza con el móvil (gana el último cambio).
 /// </summary>
 internal sealed class ThemeWindow : Window
 {

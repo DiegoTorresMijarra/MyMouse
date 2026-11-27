@@ -11,7 +11,7 @@ import dev.mymouse.core.shapes.Recognizer
  * 3. Un dedo dibuja; al levantarlo se reconoce la forma → [OutputAction.Gesture] o [OutputAction.GestureRejected].
  * 4. Dos o más dedos durante el modo gestos lo cancelan (incluido volver a apoyar 4 dedos).
  *
- * Además (protocolo v5, docs/spec-v4-toolbox.md §5) emite lo que necesita el PC para mostrar el gesto en vivo:
+ * Además (docs/spec-v4-toolbox.md §5) emite lo que necesita el PC para mostrar el gesto en vivo:
  * [OutputAction.StrokePoints] (lotes de como mucho 16 ms, si se ha dado el tamaño del área con [setArea]) y
  * [OutputAction.StrokeEnd] al terminar el trazo, antes del resultado.
  */

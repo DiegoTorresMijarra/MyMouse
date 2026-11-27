@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 namespace MyMouse.HostCore.Updates;
 
 /// <summary>
-/// Versión de MyMouse (docs/spec-v5.1-actualizaciones.md §3): <c>X.Y</c> o <c>X.Y.Z</c>. Las releases usan <c>5.0</c>, <c>5.0.1</c>, <c>5.1</c>
-/// (etiqueta <c>v5.1</c>) y las compilaciones de rama <c>0.0-dev.N</c>, que son versiones "dev": no avisan nunca. Comparar versiones
+/// Versión de MyMouse (docs/spec-v5.1-actualizaciones.md §3): <c>X.Y</c> o <c>X.Y.Z</c>. Las releases usan <c>7.0</c>, <c>7.0.1</c>, <c>7.1</c>
+/// (etiqueta <c>v7.1</c>) y las compilaciones de rama <c>0.0-dev.N</c>, que son versiones "dev": no avisan nunca. Comparar versiones
 /// es comparar (mayor, menor, parche) con el parche ausente como 0, de modo que <c>5.0</c> y <c>5.0.0</c> son iguales.
 /// </summary>
 public readonly partial record struct AppVersion(int Major, int Minor, int Patch, bool IsDev) : IComparable<AppVersion>

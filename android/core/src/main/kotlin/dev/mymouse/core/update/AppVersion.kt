@@ -1,7 +1,7 @@
 package dev.mymouse.core.update
 
 /**
- * Versión de MyMouse (docs/spec-v5.1-actualizaciones.md §3): `X.Y` o `X.Y.Z`. Las releases usan `5.0`, `5.0.1`, `5.1` (etiqueta `v5.1`) y las
+ * Versión de MyMouse (docs/spec-v5.1-actualizaciones.md §3): `X.Y` o `X.Y.Z`. Las releases usan `7.0`, `7.0.1`, `7.1` (etiqueta `v7.1`) y las
  * compilaciones de rama `0.0-dev.N`, que son versiones "dev": no avisan nunca. Se comparan los números, con el parche ausente como 0
  * (`5.0` == `5.0.0`); por eso es una clase normal y no una `data class`: la marca [isDev] no entra en la igualdad.
  */

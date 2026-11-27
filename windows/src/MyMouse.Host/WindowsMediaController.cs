@@ -7,7 +7,7 @@ namespace MyMouse.Host;
 
 /// <summary>
 /// Música del sistema: título, artista y estado con las sesiones multimedia de Windows (WinRT) y las órdenes como
-/// teclas multimedia, que funcionan aunque la API de sesiones falle (spec §5). Si la API no está disponible, se apunta
+/// teclas multimedia, que funcionan aunque la API de sesiones falle (docs/spec-v2-widgets.md §5). Si la API no está disponible, se apunta
 /// una vez en el log y el estado queda en "nada en reproducción".
 /// </summary>
 internal sealed class WindowsMediaController : IMediaController, IDisposable

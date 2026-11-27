@@ -7,7 +7,7 @@ import dev.mymouse.core.protocol.StrokePoint
 import kotlin.math.roundToInt
 
 /**
- * Sincronización de formas con el PC (protocolo v5, docs/spec-v4-toolbox.md §4.2 y §5). El móvil es el dueño de las
+ * Sincronización de formas con el PC (docs/spec-v4-toolbox.md §4.2 y §5). El móvil es el dueño de las
  * formas: envía las propias y aplica lo que pide el PC.
  */
 object ShapeSync {

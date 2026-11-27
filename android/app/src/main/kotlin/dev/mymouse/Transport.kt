@@ -19,14 +19,14 @@ interface Transport {
     var onMediaState: (Message.MediaState) -> Unit
     var onWidgetResult: (Message.WidgetResult) -> Unit
 
-    /** El PC pide añadir o borrar una forma (protocolo v5). Se llaman desde el hilo de lectura. */
+    /** El PC pide añadir o borrar una forma. Se llaman desde el hilo de lectura. */
     var onShapeAdd: (Message.ShapeAdd) -> Unit
     var onShapeDelete: (Message.ShapeDelete) -> Unit
 
-    /** Versión de MyMouse del PC (`APP_VERSION`, protocolo v6), o null al perder la conexión. Solo por USB. Se llama desde el hilo de lectura. */
+    /** Versión de MyMouse del PC (`APP_VERSION`), o null al perder la conexión. Solo por USB. Se llama desde el hilo de lectura. */
     var onHostAppVersion: (String?) -> Unit
 
-    /** El PC pide abrir el teclado (`KEYBOARD_OPEN`, protocolo v7; o el widget Teclado por Bluetooth). Puede llamarse desde otro hilo. */
+    /** El PC pide abrir el teclado (`KEYBOARD_OPEN`; o el widget Teclado por Bluetooth). Puede llamarse desde otro hilo. */
     var onKeyboardOpen: () -> Unit
 
     /** Luces del teclado del PC (`KEYBOARD_LEDS`: 1 = Mayús, 2 = Num, 4 = Despl.) o del informe de salida de Bluetooth. Desde otro hilo. */
@@ -35,10 +35,10 @@ interface Transport {
     /** Distribución activa del PC (`KEYBOARD_LAYOUT`: `es` o `us`), solo por USB. Desde otro hilo. */
     var onKeyboardLayout: (String) -> Unit
 
-    /** Tema del móvil que se envía al PC nada más conectar (`THEME`, protocolo v8). Solo por USB. Se llama desde el hilo de conexión. */
+    /** Tema del móvil que se envía al PC nada más conectar (`THEME`). Solo por USB. Se llama desde el hilo de conexión. */
     var localTheme: () -> SyncedTheme?
 
-    /** Tema del PC (`THEME`, protocolo v8). Solo por USB. Se llama desde el hilo de lectura. */
+    /** Tema del PC (`THEME`). Solo por USB. Se llama desde el hilo de lectura. */
     var onHostTheme: (SyncedTheme) -> Unit
 
     /** ¿Admite el modo gestos? (Las acciones de las formas viven en el PC.) */
@@ -75,7 +75,7 @@ interface Transport {
     /** Orden del panel de widgets (`WIDGET_PRESS`, `VOLUME_SET`, `MEDIA_COMMAND`, `VOLUME_MUTE`). */
     fun sendWidget(message: Message)
 
-    /** Pulsar o soltar una tecla física (`KEY`, protocolo v7; por Bluetooth, el informe de teclado). Se descarta sin conexión o sin [supportsKeyboard]. */
+    /** Pulsar o soltar una tecla física (`KEY`; por Bluetooth, el informe de teclado). Se descarta sin conexión o sin [supportsKeyboard]. */
     fun sendKey(event: KeyEvent)
 
     /** El móvil entra o sale del modo teclado (`KEYBOARD_MODE`). Por Bluetooth, al salir se envía el informe vacío del teclado. */
@@ -84,6 +84,6 @@ interface Transport {
     /** Lista de formas propias (`SHAPE_INFO`… `SHAPE_LIST_END`) o respuestas `SHAPE_RESULT`. Se descartan si [supportsToolbox] es false. */
     fun sendShapes(messages: List<Message>)
 
-    /** Se cambió el tema en el móvil: se manda al PC (`THEME`, v8). Se descarta sin conexión o con un PC anterior, y por Bluetooth. */
+    /** Se cambió el tema en el móvil: se manda al PC (`THEME`). Se descarta sin conexión y por Bluetooth. */
     fun sendTheme(theme: SyncedTheme)
 }

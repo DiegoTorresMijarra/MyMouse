@@ -5,12 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Vibración breve al activar el modo gestos. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Modo Bluetooth (v3): el móvil como ratón y teclado Bluetooth. -->
+    <!-- Modo Bluetooth: el móvil como ratón y teclado Bluetooth. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    <!-- Actualizaciones (v5.1): abrir el instalador de paquetes con el APK descargado de la release. -->
+    <!-- Actualizaciones: abrir el instalador de paquetes con el APK descargado de la release. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application

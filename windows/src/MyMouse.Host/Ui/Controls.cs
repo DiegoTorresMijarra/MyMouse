@@ -30,7 +30,7 @@ internal sealed class ShapeThumb : FrameworkElement
 
     public bool ShowStart { get; set; } = true;
 
-    /// <summary>Color del punto de inicio: verde por defecto; acento en las baldosas de la v4.5.</summary>
+    /// <summary>Color del punto de inicio: verde por defecto; acento en las baldosas.</summary>
     public Brush StartBrush { get; set; } = Theme.Green;
 
     /// <summary>Margen interior al encajar la forma.</summary>

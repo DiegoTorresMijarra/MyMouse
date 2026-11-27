@@ -23,12 +23,11 @@ class ThemesTest {
         val migrated = ThemeChoice(themeId = "no-existe", accentId = "no-existe").normalized()
         assertEquals("universe", migrated.themeId)
         assertEquals(Themes.ACCENT_AUTO, migrated.accentId)
-        // La paleta sobria de la v4.8: sin el violeta intenso de la v4.7.
+        // Universo es la paleta sobria: sin el violeta intenso de Nebulosa.
         val universe = Themes.resolve(null)
         assertEquals(listOf(0x05070D, 0x0A0F1C, 0x0E1424), universe.base)
         assertEquals(2, universe.nebulas.size)
         assertTrue(universe.nebulas.none { it.color == 0x7C3AED || it.color == 0xDB2777 })
-        // La v4.7 sigue disponible como "Nebulosa".
         assertEquals(listOf(0x070616, 0x120D2E, 0x1B0F36), Themes.byId("nebula")!!.base)
     }
 

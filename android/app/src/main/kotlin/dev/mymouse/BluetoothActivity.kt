@@ -175,7 +175,7 @@ class BluetoothActivity : Activity() {
         diagBody.addView(GlassTheme.text(this, BluetoothDiagnostics.fineScrollLine(facts), 13f, GlassTheme.TEXT_SECONDARY).apply {
             setPadding(0, (8 * density).toInt(), 0, 0)
         })
-        // Luces del teclado (modo teclado, v6): si no llegan, el teclado las supone y aquí se sugiere volver a emparejar.
+        // Luces del teclado (modo teclado): si no llegan, el teclado las supone y aquí se sugiere volver a emparejar.
         diagBody.addView(GlassTheme.text(
             this, BluetoothDiagnostics.keyboardLedsLine(facts), 13f,
             if (facts.keyboardLedsReceived) GlassTheme.TEXT_SECONDARY else GlassTheme.AMBER,

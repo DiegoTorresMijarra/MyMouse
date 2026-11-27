@@ -149,7 +149,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task Keys_AreInjectedAsPressAndRelease()
     {
-        var (reason, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0xE1, true), new KeyMessage(0x04, true), new KeyMessage(0x04, false), new KeyMessage(0xE1, false)));
+        var (reason, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0xE1, true), new KeyMessage(0x04, true), new KeyMessage(0x04, false), new KeyMessage(0xE1, false)));
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
         Assert.Equal(["key E1 down", "key 04 down", "key 04 up", "key E1 up"], injector.Calls);
@@ -158,7 +158,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task RepeatedPress_IsInjectedAgainWithoutRelease()
     {
-        var (_, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0x2A, true), new KeyMessage(0x2A, true), new KeyMessage(0x2A, true), new KeyMessage(0x2A, false)));
+        var (_, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0x2A, true), new KeyMessage(0x2A, true), new KeyMessage(0x2A, true), new KeyMessage(0x2A, false)));
 
         Assert.Equal(["key 2A down", "key 2A down", "key 2A down", "key 2A up"], injector.Calls);
     }
@@ -166,7 +166,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task UnknownUsage_IsIgnoredWithoutBreakingTheFlow()
     {
-        var (reason, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0x48, true), new KeyMessage(0xFF, true), new KeyMessage(0x04, true), new KeyMessage(0x04, false)));
+        var (reason, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0x48, true), new KeyMessage(0xFF, true), new KeyMessage(0x04, true), new KeyMessage(0x04, false)));
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
         Assert.Equal(["key 04 down", "key 04 up"], injector.Calls);
@@ -175,7 +175,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task ReleaseOfAKeyThatIsNotDown_IsIgnored()
     {
-        var (_, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0x04, false)));
+        var (_, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0x04, false)));
 
         Assert.Empty(injector.Calls);
     }
@@ -183,7 +183,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task KeysStillDown_AreReleasedWhenTheSessionEnds()
     {
-        var (_, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0xE0, true), new KeyMessage(0xE1, true), new KeyMessage(0x06, true)));
+        var (_, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0xE0, true), new KeyMessage(0xE1, true), new KeyMessage(0x06, true)));
 
         // Las normales primero y los modificadores al final.
         Assert.Equal(["key E0 down", "key E1 down", "key 06 down", "key 06 up", "key E0 up", "key E1 up"], injector.Calls);
@@ -192,7 +192,7 @@ public class KeyboardSessionTests
     [Fact]
     public async Task KeyboardModeOff_ReleasesPressedKeys()
     {
-        var (_, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyboardModeMessage(true), new KeyMessage(0x04, true), new KeyboardModeMessage(false), new KeyMessage(0x05, true), new KeyMessage(0x05, false)));
+        var (_, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyboardModeMessage(true), new KeyMessage(0x04, true), new KeyboardModeMessage(false), new KeyMessage(0x05, true), new KeyMessage(0x05, false)));
 
         Assert.Equal(["key 04 down", "key 04 up", "key 05 down", "key 05 up"], injector.Calls);
     }
@@ -200,23 +200,9 @@ public class KeyboardSessionTests
     [Fact]
     public async Task WhenPaused_KeysAreNotInjected()
     {
-        var (reason, injector, _) = await Run(Bytes(new HelloMessage(7), new KeyMessage(0x04, true), new KeyMessage(0x04, false)), paused: true);
+        var (reason, injector, _) = await Run(Bytes(new HelloMessage(1), new KeyMessage(0x04, true), new KeyMessage(0x04, false)), paused: true);
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
-        Assert.Empty(injector.Calls);
-    }
-
-    [Theory]
-    [InlineData(6)]
-    [InlineData(5)]
-    [InlineData(1)]
-    public async Task KeyboardMessagesBeforeV7_AreProtocolErrors(byte version)
-    {
-        var (r1, injector, _) = await Run(Bytes(new HelloMessage(version), new KeyMessage(0x04, true)));
-        var (r2, _, _) = await Run(Bytes(new HelloMessage(version), new KeyboardModeMessage(true)));
-
-        Assert.Equal(SessionEndReason.ProtocolError, r1);
-        Assert.Equal(SessionEndReason.ProtocolError, r2);
         Assert.Empty(injector.Calls);
     }
 
@@ -225,18 +211,9 @@ public class KeyboardSessionTests
     {
         foreach (var m in new Message[] { KeyboardOpenMessage.Instance, new KeyboardLedsMessage(1), new KeyboardLayoutMessage("es") })
         {
-            var (reason, _, _) = await Run(Bytes(new HelloMessage(7), m));
+            var (reason, _, _) = await Run(Bytes(new HelloMessage(1), m));
             Assert.Equal(SessionEndReason.ProtocolError, reason);
         }
-    }
-
-    [Fact]
-    public async Task AnOlderClient_StillWorks()
-    {
-        var (reason, _, output) = await Run(Bytes(new HelloMessage(6)));
-
-        Assert.Equal(SessionEndReason.ClientClosed, reason);
-        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(6)), output);
     }
 
     [Fact]
@@ -250,9 +227,9 @@ public class KeyboardSessionTests
         var session = new ClientSession(input.Server, input.Server, injector, phone: hub);
         var run = session.RunAsync(CancellationToken.None);
 
-        await WriteAsync(written, new HelloMessage(7), new KeyboardModeMessage(true));
+        await WriteAsync(written, new HelloMessage(1), new KeyboardModeMessage(true));
         await WaitFor(() => hub.KeyboardMode);
-        Assert.True(hub.SupportsKeyboard);
+        Assert.True(hub.Connected);
         await WriteAsync(written, new KeyboardModeMessage(false));
         await WaitFor(() => !hub.KeyboardMode);
         Assert.Equal([true, false], changes);
@@ -263,7 +240,7 @@ public class KeyboardSessionTests
         await run;
         // Al terminar la sesión no queda ningún móvil.
         Assert.False(hub.KeyboardMode);
-        Assert.False(hub.SupportsKeyboard);
+        Assert.False(hub.Connected);
     }
 
     [Fact]
@@ -280,7 +257,7 @@ public class KeyboardSessionTests
             while (await reader.ReadAsync() is { } m) lock (sent) sent.Add(m);
         });
 
-        await WriteAsync(writer, new HelloMessage(7), new KeyboardModeMessage(true));
+        await WriteAsync(writer, new HelloMessage(1), new KeyboardModeMessage(true));
         await WaitFor(() => Snapshot(sent).Count(m => m is KeyboardLedsMessage or KeyboardLayoutMessage) >= 2);
         await Task.Delay(120); // varios ciclos sin cambios: no se repite nada
         Assert.Equal([new KeyboardLedsMessage(1), new KeyboardLayoutMessage("es")], Snapshot(sent).Where(m => m is KeyboardLedsMessage or KeyboardLayoutMessage));

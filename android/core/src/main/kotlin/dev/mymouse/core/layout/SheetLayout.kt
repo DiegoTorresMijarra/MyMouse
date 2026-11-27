@@ -19,7 +19,7 @@ data class Placement(val left: Float, val top: Float, val scale: Float, val widt
 
 /**
  * Disposición de las hojas que se pintan sobre el trackpad (docs/spec-v4.7-universo.md §4): ninguna se solapa con otra y, si no
- * caben a tamaño natural, se encogen enteras (sin recortar texto), como la chuleta desde la v4.6. Lógica pura con tests.
+ * caben a tamaño natural, se encogen enteras (sin recortar texto), como la chuleta. Lógica pura con tests.
  */
 object SheetLayout {
     /**

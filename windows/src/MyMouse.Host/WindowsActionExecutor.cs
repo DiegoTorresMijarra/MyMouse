@@ -83,7 +83,7 @@ internal sealed class WindowsActionExecutor(Action togglePause, Action openPhone
         Process.Start(info);
     }
 
-    /// <summary>Trae al frente una ventana del programa si ya está abierto. Windows puede impedirlo (spec §7).</summary>
+    /// <summary>Trae al frente una ventana del programa si ya está abierto. Windows puede impedirlo (docs/spec-v1-gestos.md §7).</summary>
     private static bool TryFocus(string target)
     {
         if (target.Contains("://", StringComparison.Ordinal) || target.EndsWith(':')) return false;

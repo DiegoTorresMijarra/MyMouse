@@ -11,7 +11,7 @@ import dev.mymouse.core.protocol.GestureListEntry
 import dev.mymouse.core.shapes.P
 
 /**
- * Chuleta del modo gestos (docs/spec-v1-gestos.md §6): miniatura de cada forma + texto de ayuda del PC.
+ * Chuleta del modo gestos (docs/spec-v1-gestos.md §6): miniatura de cada forma + texto de ayuda (del PC por cable; de las acciones por Bluetooth del móvil).
  * Primero "Tus formas" (las fijadas en el PC), después el resto.
  */
 class GestureSheet(private val density: Float) {

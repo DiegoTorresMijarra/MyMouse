@@ -63,7 +63,7 @@ WizardStyle=modern
 ; Si MyMouse está en marcha (vive en la bandeja), se espera a que se cierre antes de sustituir el exe.
 AppMutex=MyMouse.Host
 CloseApplications=yes
-; Actualización en silencio (v5.1): el propio MyMouse lanza "MyMouse-Setup-<v>.exe /SILENT /CLOSEAPPLICATIONS /RELAUNCH=1" y se cierra.
+; Actualización en silencio: el propio MyMouse lanza "MyMouse-Setup-<v>.exe /SILENT /CLOSEAPPLICATIONS /RELAUNCH=1" y se cierra.
 ; No se confía en RestartApplications: el Restart Manager de Windows solo reinicia las apps que se registraron con
 ; RegisterApplicationRestart, y MyMouse no lo hace. El relanzado lo hace la entrada [Run] de abajo, que solo actúa con /RELAUNCH=1.
 RestartApplications=no

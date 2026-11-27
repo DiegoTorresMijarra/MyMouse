@@ -115,19 +115,12 @@ Existen apps similares (Remote Mouse, Unified Remote, KDE Connect…). Su difere
 
 ## Decisiones de la ronda técnica
 
-### Dispositivo de referencia: Huawei P10 (VTR-L09)
-- Salió con Android 7 (EMUI 5.1). Según la prensa de 2019, en Europa recibió **Android 9 Pie (EMUI 9.0.1)**. **Hay que confirmarlo** en *Ajustes → Sistema → Acerca del teléfono*.
-- Pantalla **IPS LCD**: no hay riesgo de marcas como en OLED. El fondo negro sigue siendo útil para atenuarla, pero no es crítico.
-- Si tiene Android 9, la API `BluetoothHidDevice` existe, aunque **EMUI podría tenerla desactivada**. Prueba rápida: instalar una app de "teclado/ratón Bluetooth" de la Play Store y ver si se empareja con Windows.
-- Particularidades de Huawei:
-  - El driver ADB para Windows suele venir con **HiSuite**; el driver USB genérico de Google no siempre reconoce los Huawei.
-  - En *Opciones de desarrollador* existe **"Permitir depuración ADB en modo solo carga"**: actívala para no tener que elegir el modo USB cada vez.
-  - EMUI cierra apps en segundo plano de forma agresiva. Hay que poner MyMouse en *Batería → Inicio de aplicaciones → Gestión manual*. Como la app estará en primer plano, no debería afectar mucho.
-- Batería de unos 9 años: **revisar si está hinchada** (la tapa trasera se despega o se nota una curvatura) antes de dejar el móvil enchufado permanentemente.
+### Dispositivo de prueba
+- El primer dispositivo de referencia fue un Huawei P10. Las pruebas actuales se hacen con un **Xiaomi (HyperOS)**.
+- En Xiaomi, el sistema usa los gestos de 3 dedos para la captura de pantalla: hay que desactivarlos en *Ajustes → Ajustes adicionales → Atajos de gestos* para usar los gestos de Windows con 3 dedos.
+- Algunos fabricantes cierran apps en segundo plano de forma agresiva. Como MyMouse está en primer plano mientras se usa, no suele afectar.
 
 ### Stack
-- App Android: **Kotlin**, `minSdk 26` (Android 8), probada en el P10.
-- Programa Windows: **C# / .NET 10 (LTS)**, app de bandeja con WinForms y `SendInput`.
-- Transporte v0: **ADB + `adb reverse`**.
-
-Plan de trabajo: [03-plan-v0.md](03-plan-v0.md).
+- App Android: **Kotlin**, `minSdk 26` (Android 8).
+- Programa Windows: **C# / .NET 10 (LTS)**, app de bandeja con WPF y `SendInput`.
+- Transporte: **ADB + `adb reverse`** por cable, o **Bluetooth HID** sin programa en el PC.

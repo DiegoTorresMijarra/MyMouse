@@ -31,17 +31,17 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
 
     override val supportsGestures = true
 
-    override val supportsSystemGestures get() = protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION
+    override val supportsSystemGestures get() = connected
 
-    override val supportsToolbox get() = protocolVersion >= Protocol.TOOLBOX_VERSION
+    override val supportsToolbox get() = connected
 
-    override val supportsKeyboard get() = protocolVersion >= Protocol.KEYBOARD_VERSION
+    override val supportsKeyboard get() = connected
 
     override val hostRepeatsKeys = false
 
-    override val keyboardUnavailableText get() = if (protocolVersion == 0) "Sin conexión con el PC" else "Actualiza MyMouse en el PC (modo teclado)"
+    override val keyboardUnavailableText get() = "Sin conexión con el PC"
 
-    override val toolboxUnavailableText get() = if (protocolVersion == 0) "Sin conexión con el PC" else "Actualiza MyMouse en el PC"
+    override val toolboxUnavailableText get() = "Sin conexión con el PC"
 
     override var onConnectionChanged: (Boolean) -> Unit = {}
 
@@ -51,31 +51,27 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     /** Respuesta del PC a una forma enviada. Se llama desde el hilo de lectura. */
     override var onGestureResult: (GestureStatus) -> Unit = {}
 
-    /** Widgets del PC (protocolo v3). Se llaman desde el hilo de lectura. */
+    /** Widgets del PC. Se llaman desde el hilo de lectura. */
     override var onWidgetLayout: (Message.WidgetLayout) -> Unit = {}
     override var onVolumeState: (Message.VolumeState) -> Unit = {}
     override var onMediaState: (Message.MediaState) -> Unit = {}
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
 
-    /** Peticiones del PC para añadir o borrar formas (protocolo v5). Se llaman desde el hilo de lectura. */
+    /** Peticiones del PC para añadir o borrar formas. Se llaman desde el hilo de lectura. */
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
 
-    /** Modo teclado (protocolo v7). Se llaman desde el hilo de lectura. */
+    /** Modo teclado. Se llaman desde el hilo de lectura. */
     override var onKeyboardOpen: () -> Unit = {}
     override var onKeyboardLeds: (Int) -> Unit = {}
     override var onKeyboardLayout: (String) -> Unit = {}
 
-    /** Tema sincronizado (protocolo v8). */
+    /** Tema sincronizado. */
     override var localTheme: () -> SyncedTheme? = { null }
     override var onHostTheme: (SyncedTheme) -> Unit = {}
 
-    /** Versión de MyMouse del PC (protocolo v6). `null` al desconectar. */
+    /** Versión de MyMouse del PC (`APP_VERSION`). `null` al desconectar. */
     override var onHostAppVersion: (String?) -> Unit = {}
-
-    /** Versión acordada con el host (0 sin conexión). Con 1, el PC no entiende el modo gestos. */
-    @Volatile var protocolVersion = 0
-        private set
 
     private val lock = ReentrantLock()
     private val notEmpty = lock.newCondition()
@@ -111,14 +107,11 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
         }
     }
 
-    /**
-     * Envía una orden del panel de widgets. Solo con versión ≥ 3: un host anterior no la entiende y cerraría la conexión.
-     * Dos `VOLUME_SET` seguidos en cola se fusionan: solo importa el último nivel.
-     */
+    /** Envía una orden del panel de widgets. Dos `VOLUME_SET` seguidos en cola se fusionan: solo importa el último nivel. */
     override fun sendWidget(message: Message) {
         require(message is Message.WidgetPress || message is Message.VolumeSet ||
             message is Message.MediaControl || message is Message.VolumeMute) { "No es una orden de widget: $message" }
-        if (!connected || protocolVersion < Protocol.WIDGETS_VERSION) return
+        if (!connected) return
         lock.withLock {
             val last = queue.lastOrNull()
             if (message is Message.VolumeSet && last is Message.VolumeSet) {
@@ -130,12 +123,9 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
         }
     }
 
-    /**
-     * Una tecla (`KEY`). Solo con versión ≥ 7: un host anterior cerraría la conexión. Nunca se fusionan ni se reordenan: el orden de
-     * pulsar y soltar importa, y la repetición son `KEY down` repetidos.
-     */
+    /** Una tecla (`KEY`). Nunca se fusionan ni se reordenan: el orden de pulsar y soltar importa, y la repetición son `KEY down` repetidos. */
     override fun sendKey(event: KeyEvent) {
-        if (!connected || protocolVersion < Protocol.KEYBOARD_VERSION) return
+        if (!connected) return
         lock.withLock {
             queue.addLast(Message.Key(event.usage, event.down))
             notEmpty.signal()
@@ -143,16 +133,16 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     }
 
     override fun setKeyboardMode(on: Boolean) {
-        if (!connected || protocolVersion < Protocol.KEYBOARD_VERSION) return
+        if (!connected) return
         lock.withLock {
             queue.addLast(Message.KeyboardMode(on))
             notEmpty.signal()
         }
     }
 
-    /** Lista de formas o respuestas de formas para el PC. Solo con versión ≥ 5: un host anterior cerraría la conexión. */
+    /** Lista de formas o respuestas de formas para el PC. */
     override fun sendShapes(messages: List<Message>) {
-        if (!connected || protocolVersion < Protocol.TOOLBOX_VERSION) return
+        if (!connected) return
         lock.withLock {
             queue.addAll(messages)
             notEmpty.signal()
@@ -160,7 +150,7 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     }
 
     override fun sendTheme(theme: SyncedTheme) {
-        if (!connected || protocolVersion < Protocol.THEME_VERSION) return
+        if (!connected) return
         lock.withLock {
             queue.addLast(theme.toMessage())
             notEmpty.signal()
@@ -183,22 +173,12 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
                     queue.addLast(Message.Scroll(action.vertical, action.horizontal))
                 }
             is OutputAction.Button -> queue.addLast(Message.Button(action.button, action.pressed))
-            is OutputAction.Gesture ->
-                if (protocolVersion >= Protocol.GESTURES_VERSION) queue.addLast(Message.Gesture(action.name))
-            // Un host anterior a la v4 no entiende SYSTEM_GESTURE y cerraría la conexión: sin él, los gestos no hacen nada.
-            is OutputAction.SystemGesture ->
-                if (protocolVersion >= Protocol.SYSTEM_GESTURE_VERSION) queue.addLast(Message.SystemGesture(action.command))
-            // Toolbox del PC y gesto en vivo (v5): un host anterior no los entiende y cerraría la conexión.
-            is OutputAction.FourFingerSwipe ->
-                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.Toolbox(action.up))
-            is OutputAction.GestureMode ->
-                if (protocolVersion >= Protocol.TOOLBOX_VERSION) {
-                    queue.addLast(Message.GestureMode(action.active, action.startTimeoutMs))
-                }
-            is OutputAction.StrokePoints ->
-                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.StrokePoints(action.points))
-            is OutputAction.StrokeEnd ->
-                if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.StrokeEnd(action.result))
+            is OutputAction.Gesture -> queue.addLast(Message.Gesture(action.name))
+            is OutputAction.SystemGesture -> queue.addLast(Message.SystemGesture(action.command))
+            is OutputAction.FourFingerSwipe -> queue.addLast(Message.Toolbox(action.up))
+            is OutputAction.GestureMode -> queue.addLast(Message.GestureMode(action.active, action.startTimeoutMs))
+            is OutputAction.StrokePoints -> queue.addLast(Message.StrokePoints(action.points))
+            is OutputAction.StrokeEnd -> queue.addLast(Message.StrokeEnd(action.result))
             // Solo feedback local.
             is OutputAction.GestureRejected, is OutputAction.WidgetPanel, is OutputAction.FourFingerDoubleTap -> Unit
             is OutputAction.Zoom ->
@@ -246,18 +226,15 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
         s.soTimeout = Protocol.HANDSHAKE_TIMEOUT_MS.toInt()
         val ack = reader.read()
         if (ack !is Message.HelloAck || ack.version !in 1..Protocol.VERSION) throw IOException("Handshake inválido: $ack")
-        protocolVersion = ack.version
 
         s.soTimeout = Protocol.IDLE_TIMEOUT_MS.toInt()
-        // Versión de la app (v6), una sola vez justo tras el handshake, para los avisos cruzados. Un host anterior la cerraría como error.
-        if (protocolVersion >= Protocol.APP_VERSION_VERSION && appVersion.isNotEmpty()) {
+        // Versión de la app, una sola vez justo tras el handshake, para los avisos de versión cruzados.
+        if (appVersion.isNotEmpty()) {
             out.write(MessageCodec.encode(Message.AppVersion(appVersion.take(Protocol.MAX_APP_VERSION_BYTES))))
             out.flush()
         }
-        // El tema del móvil (v8): el PC manda el suyo y cada lado se queda con el cambio más reciente.
-        if (protocolVersion >= Protocol.THEME_VERSION) {
-            localTheme()?.let { out.write(MessageCodec.encode(it.toMessage())); out.flush() }
-        }
+        // El tema del móvil: el PC manda el suyo y cada lado se queda con el cambio más reciente.
+        localTheme()?.let { out.write(MessageCodec.encode(it.toMessage())); out.flush() }
         val readerThread = thread(name = "MyMouse-reader", isDaemon = true) { readLoop(s, reader) }
         setConnected(true)
         Log.i(TAG, "Conectado al host")
@@ -318,7 +295,6 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     }
 
     private fun setConnected(value: Boolean) {
-        if (!value) protocolVersion = 0
         if (connected == value) return
         connected = value
         onConnectionChanged(value)

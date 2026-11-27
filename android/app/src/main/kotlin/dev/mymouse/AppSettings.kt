@@ -25,7 +25,7 @@ data class AppSettings(
     val autoRelock: Boolean = false,
     /** Modo depuración: minipantalla con los dedos y las acciones enviadas. */
     val debug: Boolean = false,
-    /** Dedos que activan el modo gestos: 4, o 0 (desactivado). Un 3 guardado antes de la v3.1 pasa a 4. */
+    /** Dedos que activan el modo gestos: 4, o 0 (desactivado). */
     val gestureFingers: Int = 4,
     /** Gestos de Windows con 3 dedos: vista de tareas, escritorio y cambio de app (docs/spec-v3.1-ajustes.md §1). */
     val windowsGestures: Boolean = true,
@@ -48,7 +48,7 @@ data class AppSettings(
     val btFineScroll: Boolean = true,
     /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. Por cable se sincroniza con el PC (v6.1). */
     val theme: ThemeChoice = ThemeChoice(),
-    /** Cuándo se eligió el tema, el acento o las estrellas por última vez (ms desde 1970, UTC; 0 = nunca). Gana el más reciente (v6.1). */
+    /** Cuándo se eligió el tema, el acento o las estrellas por última vez (ms desde 1970, UTC; 0 = nunca). Al sincronizar con el PC, gana el más reciente. */
     val themeChangedAt: Long = 0,
     /** Modo teclado (docs/spec-v6-teclado.md §6): distribución que se dibuja ("Automática" = la del PC por cable, el ajuste de texto por Bluetooth). */
     val kbLayout: KeyboardLayoutSetting = KeyboardLayoutSetting.AUTO,
@@ -142,12 +142,11 @@ data class AppSettings(
                 dimAfterSeconds = p.getInt("dimAfterSeconds", d.dimAfterSeconds),
                 orientation = p.getString("orientation", null)
                     ?.let { name -> Orientation.entries.firstOrNull { it.name == name } }
-                    // v0.4 guardaba solo "landscape" (true = horizontal, false = vertical fijo, que era el defecto).
-                    ?: if (p.getBoolean("landscape", false)) Orientation.LANDSCAPE else d.orientation,
+                    ?: d.orientation,
                 pinApp = p.getBoolean("pinApp", d.pinApp),
                 autoRelock = p.getBoolean("autoRelock", d.autoRelock),
                 debug = p.getBoolean("debug", d.debug),
-                // Con 3 dedos los gestos son los de Windows: un 3 guardado de la v3.0 pasa a 4.
+                // Con 3 dedos los gestos son los de Windows: cualquier valor distinto de 0 es 4.
                 gestureFingers = when (p.getInt("gestureFingers", d.gestureFingers)) {
                     0 -> 0
                     else -> 4

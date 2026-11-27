@@ -6,7 +6,7 @@ using MyMouse.HostCore.Theming;
 
 namespace MyMouse.Host.Ui;
 
-/// <summary>Tema oscuro de la v4 (docs/spec-v4-toolbox.md §2.2): colores, tipografía y las plantillas de los controles.</summary>
+/// <summary>Tema oscuro (docs/spec-v4-toolbox.md §2.2): colores, tipografía y las plantillas de los controles.</summary>
 internal static class Theme
 {
     public static SolidColorBrush Brush(string hex)
@@ -52,7 +52,7 @@ internal static class Theme
 
     static Theme() => Set(new ThemeChoice());
 
-    // ---- Tokens "glass" (docs/spec-v4.7-universo.md §3.1; sustituyen a los de la v4.5): un único sitio en Windows ----
+    // ---- Tokens "glass" (docs/spec-v4.7-universo.md §3.1): un único sitio en Windows ----
 
     /// <summary>Fondo sólido de los diálogos y base del universo: el color medio de la base del tema.</summary>
     public static SolidColorBrush Bg { get; } = Mutable(Colors.Black);
@@ -254,7 +254,7 @@ internal static class Theme
         }
     }
 
-    // ---- Controles con el estilo de la v4 ----
+    // ---- Controles ----
 
     public static Button FlatButton(object content, Brush? background = null, Brush? foreground = null, double fontSize = 13,
         Thickness? padding = null)

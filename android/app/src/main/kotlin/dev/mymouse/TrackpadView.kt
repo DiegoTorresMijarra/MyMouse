@@ -129,11 +129,11 @@ class TrackpadView(
         invalidate()
     }
 
-    /** ¿Hay toolbox en el PC? Si no (host anterior a la v5 o Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableText]. */
+    /** ¿Hay toolbox en el PC? Si no (sin conexión o por Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableText]. */
     var toolboxAvailable: () -> Boolean = { true }
-    var toolboxUnavailableText: () -> String = { "Actualiza MyMouse en el PC" }
+    var toolboxUnavailableText: () -> String = { "Sin conexión con el PC" }
 
-    /** ¿Entiende el destino los gestos de 3 dedos de Windows? Si no (host anterior a la v4), solo se anotan en depuración. */
+    /** ¿Puede el destino hacer los gestos de 3 dedos de Windows? Si no (sin conexión), solo se anotan en depuración. */
     var systemGesturesAvailable: () -> Boolean = { true }
 
     /** Envía al PC y, si el modo depuración está activo, lo anota. */

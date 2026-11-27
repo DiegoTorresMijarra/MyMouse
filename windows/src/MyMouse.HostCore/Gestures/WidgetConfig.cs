@@ -10,7 +10,7 @@ public abstract record WidgetDefinition
     public abstract WidgetKind Kind { get; }
 }
 
-/// <summary>Botón de un toque: ejecuta una acción (las mismas que las formas de la v1).</summary>
+/// <summary>Botón de un toque: ejecuta una acción (las mismas que las formas).</summary>
 public sealed record ButtonWidget(string Label, string Icon, GestureAction Action) : WidgetDefinition
 {
     public override WidgetKind Kind => WidgetKind.Button;

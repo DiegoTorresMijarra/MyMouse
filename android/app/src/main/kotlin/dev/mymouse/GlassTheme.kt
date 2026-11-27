@@ -39,7 +39,7 @@ import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.theme.Themes
 
 /**
- * La capa de estilo "glass" de la v4.5 (docs/spec-v4.5-estilo.md §1 y §3): los tokens en un único sitio, más los dibujables y las
+ * La capa de estilo "glass" (docs/spec-v4.5-estilo.md §1 y §3): los tokens en un único sitio, más los dibujables y las
  * vistas pequeñas que se repiten en todas las pantallas. Sin Material Components ni Compose: solo vistas de la plataforma.
  */
 object GlassTheme {
@@ -131,7 +131,7 @@ object GlassTheme {
 
     /**
      * El fondo "universo" del tema elegido (degradado, nebulosas y estrellas). [trackpad]: es el del trackpad, donde las estrellas
-     * solo parpadean si se ha activado (por defecto no, como en la v4.7); en el resto de pantallas, si está activada la animación.
+     * solo parpadean si se ha activado (por defecto no); en el resto de pantallas, si está activada la animación.
      */
     fun universe(context: Context, trackpad: Boolean = false): Drawable =
         UniverseDrawable(context.resources.displayMetrics.density, choice.theme, choice.showStars, choice.twinkles(trackpad))

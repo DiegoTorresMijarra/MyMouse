@@ -51,7 +51,7 @@ class RecognizerTest {
                 if ((result as? Recognizer.Result.Match)?.name != shape.id) failures += "${shape.id} → $result"
             }
         }
-        // Objetivo de la v1: ≥ 90 % de aciertos. Con trazos sintéticos se exige más.
+        // Objetivo: ≥ 90 % de aciertos. Con trazos sintéticos se exige más.
         val total = ShapeCatalog.ALL.size * 20
         val summary = failures.groupingBy { it.substringBefore(" →") + " → " + (Regex("name=(\\w[\\w-]*)|best=(\\w[\\w-]*)|reason=([^,]*)").find(it.substringAfter("→"))?.value ?: "?") }.eachCount()
         assertTrue(failures.size <= total * 0.03, "Fallos (${failures.size}/$total): $summary")

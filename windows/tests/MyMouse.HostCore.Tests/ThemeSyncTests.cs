@@ -5,7 +5,7 @@ using MyMouse.Protocol;
 
 namespace MyMouse.HostCore.Tests;
 
-/// <summary>Tema sincronizado (protocolo v8, docs/spec-v6.1-tema-sincronizado.md). Mismos casos que ThemeSyncTest en el móvil.</summary>
+/// <summary>Tema sincronizado (docs/spec-v6.1-tema-sincronizado.md). Mismos casos que ThemeSyncTest en el móvil.</summary>
 public class ThemeSyncTests
 {
     private static readonly SyncedTheme Universe = new("universe", "auto", true, 1000);
@@ -42,7 +42,7 @@ public class ThemeSyncTests
         var parsed = ToolboxLayout.Parse(layout.WithGlass(false).ToJson());
         Assert.Equal(1_764_000_000_000, parsed.ThemeChangedAtMs);
         Assert.Equal("ocean", parsed.Theme.ThemeId);
-        Assert.Equal(0, ToolboxLayout.Parse("""{ "theme": { "id": "ocean" } }""").ThemeChangedAtMs); // anterior a la v6.1
+        Assert.Equal(0, ToolboxLayout.Parse("""{ "theme": { "id": "ocean" } }""").ThemeChangedAtMs); // sin instante guardado
     }
 
     private static byte[] Bytes(params Message[] messages) => messages.SelectMany(MessageCodec.Encode).ToArray();
@@ -65,7 +65,7 @@ public class ThemeSyncTests
     [Fact]
     public async Task V8_SendsThePcTheme_AndAdoptsANewerPhoneTheme()
     {
-        var (reason, sent, adopted) = await Run(Universe, new HelloMessage(8), new ThemeMessage("ocean", "green", false, 2000));
+        var (reason, sent, adopted) = await Run(Universe, new HelloMessage(1), new ThemeMessage("ocean", "green", false, 2000));
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
         Assert.Contains(new ThemeMessage("universe", "auto", true, 1000, FromHost: true), sent);
@@ -75,29 +75,14 @@ public class ThemeSyncTests
     [Fact]
     public async Task V8_KeepsANewerPcTheme()
     {
-        var (_, _, adopted) = await Run(Universe, new HelloMessage(8), new ThemeMessage("ocean", "green", false, 10));
-        Assert.Empty(adopted);
-    }
-
-    [Fact]
-    public async Task V7_NoTheme()
-    {
-        var (_, sent, _) = await Run(Universe, new HelloMessage(7));
-        Assert.DoesNotContain(sent, m => m is ThemeMessage);
-    }
-
-    [Fact]
-    public async Task ThemeWithV7_IsAProtocolError()
-    {
-        var (reason, _, adopted) = await Run(Universe, new HelloMessage(7), new ThemeMessage("ocean", "auto", true, 1));
-        Assert.Equal(SessionEndReason.ProtocolError, reason);
+        var (_, _, adopted) = await Run(Universe, new HelloMessage(1), new ThemeMessage("ocean", "green", false, 10));
         Assert.Empty(adopted);
     }
 
     [Fact]
     public async Task HostThemeFromThePhone_IsAProtocolError()
     {
-        var (reason, _, _) = await Run(Universe, new HelloMessage(8), new ThemeMessage("ocean", "auto", true, 1, FromHost: true));
+        var (reason, _, _) = await Run(Universe, new HelloMessage(1), new ThemeMessage("ocean", "auto", true, 1, FromHost: true));
         Assert.Equal(SessionEndReason.ProtocolError, reason);
     }
 

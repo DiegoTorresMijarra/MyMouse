@@ -101,7 +101,7 @@ internal sealed class HostApp : IDisposable
         Volume.Changed += () => Post(() => StateChanged?.Invoke());
         Media.Changed += () => Post(() => StateChanged?.Invoke());
 
-        // Actualizaciones (v5.1): los avisos van a la toolbox y a la bandeja; el globo, una vez por versión.
+        // Actualizaciones: los avisos van a la toolbox y a la bandeja; el globo, una vez por versión.
         Updates = new UpdateController(
             text => Post(() => Notify(text, () => Toolbox.Open(fromPhone: false))),
             () => Post(Quit));
@@ -114,7 +114,7 @@ internal sealed class HostApp : IDisposable
         Shapes = new ShapeSyncService(Phone, Path.Combine(HostConfig.Directory, "shapes-cache.json"));
         Shapes.Changed += () => Post(() => StateChanged?.Invoke());
         Shapes.NewShape += shape => Post(() => OnNewShape(shape.Name));
-        // Tema sincronizado con el móvil (v8): gana el cambio más reciente. El instante del adoptado se guarda tal cual, así no se reenvía.
+        // Tema sincronizado con el móvil: gana el cambio más reciente. El instante del adoptado se guarda tal cual, así no se reenvía.
         _themeSync = new ThemeSyncService(Phone, () =>
         {
             var layout = _layout;
@@ -139,11 +139,11 @@ internal sealed class HostApp : IDisposable
         Phone.Received += message => Post(() => OnPhoneMessage(message));
         Phone.Changed += () => Post(() =>
         {
-            if (!Phone.SupportsToolbox) Live.Hide();
-            Updates.Manager.SetPhoneVersion(Phone.PhoneAppVersion); // avisos cruzados (v5.1); dispara su propio Changed
+            if (!Phone.Connected) Live.Hide();
+            Updates.Manager.SetPhoneVersion(Phone.PhoneAppVersion); // avisos de versión cruzados; dispara su propio Changed
             UpdateStatus(); // "Modo teclado" en la línea de estado, o fuera si el móvil se desconecta
         });
-        // Modo teclado (v6): una tarjeta corta como la del gesto en vivo, que respeta "Mostrar gesto en vivo".
+        // Modo teclado: una tarjeta corta como la del gesto en vivo, que respeta "Mostrar gesto en vivo".
         Phone.KeyboardModeChanged += on => Post(() =>
         {
             if (!Layout.ShowLiveGesture) return;
@@ -186,7 +186,7 @@ internal sealed class HostApp : IDisposable
 
         UpdateStatus();
         Updates.Start();
-        if (_layout.AlwaysShowIcon) ApplyIconPromotion(true); // se activa solo la primera vez que arranca la v4.7
+        if (_layout.AlwaysShowIcon) ApplyIconPromotion(true);
         _ = RunLoggedAsync("servidor", () => server.RunAsync(_cts.Token));
         _ = RunLoggedAsync("adb", () => _adb.RunAsync(_cts.Token));
     }
@@ -237,7 +237,7 @@ internal sealed class HostApp : IDisposable
             if (!value.ShowLiveGesture) Live.Hide();
             Theme.GlassEffect = value.GlassEffect;
             if (old.Theme != value.Theme) Theme.Set(value.Theme); // acento y fondos de todas las ventanas, al momento
-            if (old.ThemeChangedAtMs != value.ThemeChangedAtMs && !_adoptingTheme) _themeSync.LocalChanged(); // al móvil (v8)
+            if (old.ThemeChangedAtMs != value.ThemeChangedAtMs && !_adoptingTheme) _themeSync.LocalChanged(); // al móvil
             if (old.AlwaysShowIcon != value.AlwaysShowIcon) ApplyIconPromotion(value.AlwaysShowIcon, userAction: true);
             _toolbox?.Rebuild();
             StateChanged?.Invoke();
@@ -334,8 +334,8 @@ internal sealed class HostApp : IDisposable
     /// <summary>Acción "Abrir teclado del móvil" (widget o gesto): pide al móvil que abra su teclado (<c>KEYBOARD_OPEN</c>).</summary>
     private void OpenPhoneKeyboard()
     {
-        if (!Phone.SupportsKeyboard)
-            throw new InvalidOperationException("El móvil no está conectado por USB o su MyMouse es anterior a la v6.0 (sin modo teclado).");
+        if (!Phone.Connected)
+            throw new InvalidOperationException("El móvil no está conectado por USB.");
         _ = Phone.SendAsync(KeyboardOpenMessage.Instance);
     }
 

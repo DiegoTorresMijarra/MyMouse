@@ -4,28 +4,10 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app, 7 = modo teclado, 8 = tema sincronizado. */
-    const val VERSION = 8
-    const val GESTURES_VERSION = 2
+    /** Versión más alta que conoce el móvil. Si en el futuro hay versiones nuevas, cada una se documenta en protocol/PROTOCOL.md. */
+    const val VERSION = 1
 
-    /** Primera versión con los mensajes del panel de widgets. */
-    const val WIDGETS_VERSION = 3
     const val MAX_WIDGETS = 32
-
-    /** Primera versión con `SYSTEM_GESTURE` (gestos de 3 dedos de Windows por USB). */
-    const val SYSTEM_GESTURE_VERSION = 4
-
-    /** Primera versión con la toolbox del PC: `TOOLBOX`, gesto en vivo (`GESTURE_MODE`, `STROKE_*`) y sincronización de formas (`SHAPE_*`). */
-    const val TOOLBOX_VERSION = 5
-
-    /** Primera versión con `APP_VERSION` (avisos de versión cruzados entre móvil y PC). */
-    const val APP_VERSION_VERSION = 6
-
-    /** Primera versión con el modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS` y `KEYBOARD_LAYOUT`. */
-    const val KEYBOARD_VERSION = 7
-
-    /** Primera versión con `THEME`: tema, acento y estrellas sincronizados entre móvil y PC. */
-    const val THEME_VERSION = 8
 
     /** Longitud máxima de los ids de tema y de acento de `THEME`, en bytes UTF-8. */
     const val MAX_THEME_ID_BYTES = 32
@@ -64,14 +46,14 @@ enum class WidgetKind(val code: Int) { BUTTON(0), MEDIA(1), VOLUME(2) }
 enum class MediaCommand(val code: Int) { PLAY_PAUSE(0), NEXT(1), PREVIOUS(2) }
 
 /**
- * Gesto de sistema de Windows (protocolo v4, `SYSTEM_GESTURE`). El cambio de app mantiene `Alt` pulsado
+ * Gesto de sistema de Windows (`SYSTEM_GESTURE`). El cambio de app mantiene `Alt` pulsado
  * entre [APP_SWITCH_START] y [APP_SWITCH_END].
  */
 enum class SystemGestureCommand(val code: Int) {
     TASK_VIEW(0), SHOW_DESKTOP(1), APP_SWITCH_START(2), APP_SWITCH_NEXT(3), APP_SWITCH_PREVIOUS(4), APP_SWITCH_END(5),
 }
 
-/** Punto normalizado 0–65535 (trazos y muestras de formas del protocolo v5). */
+/** Punto normalizado 0–65535 (trazos y muestras de formas). */
 data class StrokePoint(val x: Int, val y: Int) {
     init {
         require(x in 0..0xFFFF && y in 0..0xFFFF) { "Punto fuera de 0–65535: ($x, $y)" }
@@ -114,7 +96,7 @@ sealed interface Message {
         }
     }
 
-    /** Forma reconocida (protocolo v2). */
+    /** Forma reconocida. */
     data class Gesture(val name: String) : Message {
         init {
             require(name.toByteArray(Charsets.UTF_8).size in 1..Protocol.MAX_GESTURE_NAME_BYTES) { "Nombre de forma inválido: $name" }
@@ -126,14 +108,14 @@ sealed interface Message {
     /** Formas con acción en el PC, para la chuleta. [context]: app activa con reglas propias, o vacío. */
     data class GestureList(val context: String, val entries: List<GestureListEntry>) : Message
 
-    /** Toque en un widget de tipo botón (protocolo v3). */
+    /** Toque en un widget de tipo botón. */
     data class WidgetPress(val id: Int) : Message {
         init {
             require(id in 0..255)
         }
     }
 
-    /** Volumen pedido, 0–100 (protocolo v3). */
+    /** Volumen pedido, 0–100. */
     data class VolumeSet(val level: Int) : Message {
         init {
             require(level in 0..255)
@@ -142,22 +124,22 @@ sealed interface Message {
 
     data class MediaControl(val command: MediaCommand) : Message
 
-    /** Gesto de 3 dedos de Windows (protocolo v4). */
+    /** Gesto de 3 dedos de Windows. */
     data class SystemGesture(val command: SystemGestureCommand) : Message
 
     data class VolumeMute(val muted: Boolean) : Message
 
-    /** Mostrar u ocultar la toolbox del PC: 4 dedos arriba / abajo (protocolo v5). */
+    /** Mostrar u ocultar la toolbox del PC: 4 dedos arriba / abajo. */
     data class Toolbox(val show: Boolean) : Message
 
-    /** El modo gestos se activa o termina (protocolo v5). [startTimeoutMs]: tiempo para empezar a dibujar. */
+    /** El modo gestos se activa o termina. [startTimeoutMs]: tiempo para empezar a dibujar. */
     data class GestureMode(val active: Boolean, val startTimeoutMs: Int) : Message {
         init {
             require(startTimeoutMs in 0..0xFFFF)
         }
     }
 
-    /** Lote de puntos del trazo en curso, normalizados (protocolo v5). */
+    /** Lote de puntos del trazo en curso, normalizados. */
     data class StrokePoints(val points: List<StrokePoint>) : Message {
         init {
             require(points.size in 1..Protocol.MAX_POINTS_PER_BATCH)
@@ -166,7 +148,7 @@ sealed interface Message {
 
     data class StrokeEnd(val result: StrokeResult) : Message
 
-    /** Una forma propia del móvil, para que el PC la dibuje (protocolo v5). */
+    /** Una forma propia del móvil, para que el PC la dibuje. */
     data class ShapeInfo(val name: String, val samples: List<List<StrokePoint>>) : Message
 
     /** Fin de la lista de formas propias; [count] = cuántas se han enviado. */
@@ -195,34 +177,34 @@ sealed interface Message {
     /** Resultado de pulsar un widget. Mismos valores que [GestureStatus]. */
     data class WidgetResult(val id: Int, val status: GestureStatus) : Message
 
-    /** Versión de la app del móvil (0x14, móvil → PC; protocolo v6), p. ej. `5.0`. */
+    /** Versión de la app del móvil (0x14, móvil → PC), p. ej. `5.0`. */
     data class AppVersion(val version: String) : Message {
         init {
             require(version.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_APP_VERSION_BYTES) { "Versión demasiado larga" }
         }
     }
 
-    /** Versión de la app del PC (0x8E, PC → móvil; protocolo v6). */
+    /** Versión de la app del PC (0x8E, PC → móvil). */
     data class HostAppVersion(val version: String) : Message {
         init {
             require(version.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_APP_VERSION_BYTES) { "Versión demasiado larga" }
         }
     }
 
-    /** Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil → PC (0x15; protocolo v7). */
+    /** Pulsar o soltar una tecla física por su uso HID (página 0x07), móvil → PC (0x15). */
     data class Key(val usage: Int, val down: Boolean) : Message {
         init {
             require(usage in 0..255) { "Uso HID fuera de 0–255: $usage" }
         }
     }
 
-    /** El móvil entra (true) o sale (false) del modo teclado, móvil → PC (0x16; protocolo v7). */
+    /** El móvil entra (true) o sale (false) del modo teclado, móvil → PC (0x16). */
     data class KeyboardMode(val on: Boolean) : Message
 
-    /** El widget Teclado pide abrir el teclado del móvil, PC → móvil (0x8F; protocolo v7). */
+    /** El widget Teclado pide abrir el teclado del móvil, PC → móvil (0x8F). */
     data object KeyboardOpen : Message
 
-    /** Luces del teclado del PC, PC → móvil (0x90; protocolo v7). [bits]: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl. */
+    /** Luces del teclado del PC, PC → móvil (0x90). [bits]: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl. */
     data class KeyboardLeds(val bits: Int) : Message {
         init {
             require(bits in 0..255)
@@ -239,7 +221,7 @@ sealed interface Message {
         }
     }
 
-    /** Distribución activa del PC, PC → móvil (0x91; protocolo v7): `es` o `us`. */
+    /** Distribución activa del PC, PC → móvil (0x91): `es` o `us`. */
     data class KeyboardLayoutId(val id: String) : Message {
         init {
             require(id.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_LAYOUT_ID_BYTES) { "Id de distribución demasiado largo" }
@@ -247,7 +229,7 @@ sealed interface Message {
     }
 
     /**
-     * Tema del móvil (0x17, móvil → PC) o del PC (0x92, [fromHost]; protocolo v8): ids de tema y de acento, estrellas y cuándo se
+     * Tema del móvil (0x17, móvil → PC) o del PC (0x92, [fromHost]): ids de tema y de acento, estrellas y cuándo se
      * eligió por última vez (ms desde 1970, UTC). Gana el cambio más reciente (docs/spec-v6.1-tema-sincronizado.md).
      */
     data class Theme(val themeId: String, val accentId: String, val stars: Boolean, val changedAtMs: Long, val fromHost: Boolean = false) : Message {

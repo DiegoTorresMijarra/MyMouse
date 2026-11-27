@@ -145,7 +145,7 @@ class MainActivity : Activity() {
         connection.onKeyboardOpen = { handler.post { enterKeyboardMode() } } // widget Teclado (USB: KEYBOARD_OPEN; Bluetooth: botón propio)
         connection.onKeyboardLeds = { bits -> keyboardView.post { keyboardView.onHostLeds(bits) } }
         connection.onKeyboardLayout = { id -> keyboardView.post { keyboardView.hostLayoutId = id } }
-        // Tema sincronizado con el PC por cable (v6.1): se manda el de aquí al conectar y se adopta el del PC si es más reciente.
+        // Tema sincronizado con el PC por cable: se manda el de aquí al conectar y se adopta el del PC si es más reciente.
         connection.localTheme = { AppSettings.load(this).let { SyncedTheme.of(it.theme, it.themeChangedAt) } }
         connection.onHostTheme = { remote -> trackpad.post { adoptHostTheme(remote) } }
         connection.onConnectionChanged = { connected ->
@@ -163,7 +163,7 @@ class MainActivity : Activity() {
                     panel.clear()
                     applyMargins()
                 } else {
-                    syncShapes() // el PC (v5) recibe la lista de formas propias nada más conectar
+                    syncShapes() // el PC recibe la lista de formas propias nada más conectar
                 }
             }
         }
@@ -181,7 +181,7 @@ class MainActivity : Activity() {
                 WidgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
             }
         }
-        connection.onHostAppVersion = { version -> Updater.setPcVersion(version) } // avisos cruzados (v5.1)
+        connection.onHostAppVersion = { version -> Updater.setPcVersion(version) } // avisos de versión cruzados
         connection.onShapeAdd = { add -> handler.post { applyShapeRequest(add) } }
         connection.onShapeDelete = { delete -> handler.post { applyShapeRequest(delete) } }
         connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
@@ -297,7 +297,7 @@ class MainActivity : Activity() {
 
     private fun applySettings() {
         settings = AppSettings.load(this)
-        // Se cambió el tema aquí (en Ajustes): al PC por cable (v6.1). Lo adoptado del PC ya está en [sentTheme] y no se reenvía.
+        // Se cambió el tema aquí (en Ajustes): al PC por cable. Lo adoptado del PC ya está en [sentTheme] y no se reenvía.
         SyncedTheme.of(settings.theme, settings.themeChangedAt).let { now ->
             if (now != sentTheme) connection.sendTheme(now)
             sentTheme = now

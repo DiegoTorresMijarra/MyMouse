@@ -74,7 +74,7 @@ public static class ThemeCatalog
 
     public static ThemeDef? Find(string? id) => All.FirstOrDefault(t => t.Id == id);
 
-    /// <summary>El tema de <paramref name="id"/>; si no existe (o es null, como en un <c>toolbox.json</c> anterior a la v4.8), Universo.</summary>
+    /// <summary>El tema de <paramref name="id"/>; si no existe (o es null, como en un <c>toolbox.json</c> sin tema), Universo.</summary>
     public static ThemeDef Resolve(string? id) => Find(id) ?? Find(DefaultId)!;
 
     public static AccentOption? FindAccent(string? id) => Accents.FirstOrDefault(a => a.Id == id);

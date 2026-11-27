@@ -38,15 +38,15 @@ sealed interface OutputAction {
     data class Gesture(val name: String, val score: Float) : OutputAction
 
     /**
-     * El modo gestos empieza o termina. Se envía al PC (protocolo v5, `GESTURE_MODE`) y sirve de feedback local.
+     * El modo gestos empieza o termina. Se envía al PC (`GESTURE_MODE`) y sirve de feedback local.
      * [startTimeoutMs]: al empezar, tiempo que se espera a que se empiece a dibujar (lo rellena [TrackpadEngine]).
      */
     data class GestureMode(val active: Boolean, val startTimeoutMs: Int = 0) : OutputAction
 
-    /** Lote de puntos del trazo en curso, normalizados (protocolo v5, `STROKE_POINTS`): como mucho uno cada 16 ms. */
+    /** Lote de puntos del trazo en curso, normalizados (`STROKE_POINTS`): como mucho uno cada 16 ms. */
     data class StrokePoints(val points: List<StrokePoint>) : OutputAction
 
-    /** Fin del trazo (protocolo v5, `STROKE_END`). Precede a [Gesture] si se reconoció. */
+    /** Fin del trazo (`STROKE_END`). Precede a [Gesture] si se reconoció. */
     data class StrokeEnd(val result: StrokeResult) : OutputAction
 
     /** Doble toque con 4 dedos: abre el teclado (docs/spec-v6-teclado.md §3). Solo local, no se envía. */
@@ -60,7 +60,7 @@ sealed interface OutputAction {
     /** 4 dedos juntándose ([show] = true: mostrar el panel de widgets) o separándose (ocultarlo). */
     data class WidgetPanel(val show: Boolean) : OutputAction
 
-    /** Deslizar 4 dedos arriba ([up] = true) o abajo: mostrar u ocultar la toolbox del PC (protocolo v5, `TOOLBOX`). */
+    /** Deslizar 4 dedos arriba ([up] = true) o abajo: mostrar u ocultar la toolbox del PC (`TOOLBOX`). */
     data class FourFingerSwipe(val up: Boolean) : OutputAction
 }
 
@@ -84,7 +84,7 @@ data class TrackpadConfig(
     val pinchRatio: Float = 0.08f,
     /** Ya en scroll, cambio relativo de la distancia (desde que empezó) que lo convierte en zoom (25 %). */
     val scrollToZoomRatio: Float = 0.25f,
-    /** Velocidad del zoom: multiplicador sobre [ZOOM_UNITS_PER_LN] (×0,5 a ×4; el valor de la v3 equivale a ×1). */
+    /** Velocidad del zoom: multiplicador sobre [ZOOM_UNITS_PER_LN] (×0,5 a ×4). */
     val zoomSpeed: Float = 1.5f,
     /** Intervalo mínimo entre dos envíos de zoom; el resto se acumula. */
     val zoomIntervalMs: Long = 16,
@@ -118,7 +118,7 @@ data class TrackpadConfig(
     companion object {
         /**
          * Unidades de rueda por unidad de `ln(distancia / distancia inicial)` con [zoomSpeed] = 1.
-         * Equivale a la v3: 120 unidades por cada 40 px con los dedos a unos 200 px (ln 1,2 ≈ 0,18 → ~660).
+         * Equivale a 120 unidades por cada 40 px con los dedos a unos 200 px (ln 1,2 ≈ 0,18 → ~660).
          */
         const val ZOOM_UNITS_PER_LN = 660f
     }

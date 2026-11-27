@@ -85,7 +85,7 @@ public sealed class GestureConfig
     /// <summary>Widgets válidos, en el orden del fichero (su posición es el id del protocolo).</summary>
     public IReadOnlyList<WidgetDefinition> Widgets { get; }
 
-    /// <summary>¿El fichero trae la lista <c>"widgets"</c>, aunque esté vacía? Los de la v1 no la traen.</summary>
+    /// <summary>¿El fichero trae la lista <c>"widgets"</c>, aunque esté vacía? Si la trae, se escribe aunque no haya widgets.</summary>
     public bool HasWidgetsSection { get; }
 
     public GestureConfig(IReadOnlyList<GestureBinding> bindings, IReadOnlyList<string>? warnings = null,

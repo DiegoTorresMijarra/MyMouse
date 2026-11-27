@@ -85,7 +85,7 @@ class WidgetPanelView(
         relayout()
     }
 
-    /** El host dejó de estar disponible (o es anterior a la v2): sin widgets. */
+    /** El host dejó de estar disponible: sin widgets. */
     fun clear() = setEntries(emptyList())
 
     /** Cambio de volumen en el PC. Se ignora mientras el usuario arrastra la barra. */

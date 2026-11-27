@@ -32,7 +32,7 @@ class BtWidgetConfig(buttons: List<BtButton>) {
         return BtWidgetConfig(buttons.toMutableList().also { val b = it.removeAt(index); it.add(to, b) })
     }
 
-    /** Los widgets del panel: multimedia, volumen (Vol −, Vol +, Silencio, como en la v3) y después los botones propios. */
+    /** Los widgets del panel: multimedia, volumen (Vol −, Vol +, Silencio) y después los botones propios. */
     fun entries(): List<WidgetEntry> = buildList {
         add(WidgetEntry(ID_MEDIA, WidgetKind.MEDIA, "", ""))
         add(WidgetEntry(ID_VOLUME_DOWN, WidgetKind.BUTTON, "Vol −", "🔉"))
@@ -60,7 +60,7 @@ class BtWidgetConfig(buttons: List<BtButton>) {
         const val MAX_BUTTONS = 16
         const val MAX_LABEL = 20
 
-        /** Ids de los widgets fijos del panel (los mismos que en la v3) y del primer botón propio. */
+        /** Ids de los widgets fijos del panel y del primer botón propio. */
         const val ID_MEDIA = 0
         const val ID_VOLUME_DOWN = 1
         const val ID_VOLUME_UP = 2

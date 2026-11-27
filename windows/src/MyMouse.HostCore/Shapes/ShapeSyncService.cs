@@ -50,8 +50,8 @@ public sealed class ShapeSyncService : IDisposable
         get { lock (_lock) return [.. _shapes]; }
     }
 
-    /// <summary>¿Hay un móvil v5 conectado? Si no, no se pueden grabar ni borrar formas.</summary>
-    public bool CanEdit => _hub.SupportsToolbox;
+    /// <summary>¿Hay un móvil conectado? Si no, no se pueden grabar ni borrar formas.</summary>
+    public bool CanEdit => _hub.Connected;
 
     /// <summary>Cambió la lista de formas o la conexión.</summary>
     public event Action? Changed;
@@ -77,7 +77,7 @@ public sealed class ShapeSyncService : IDisposable
 
     private async Task<ShapeResultMessage?> RequestAsync(string name, Message request, CancellationToken cancellationToken)
     {
-        if (!_hub.SupportsToolbox) return null;
+        if (!_hub.Connected) return null;
         var tcs = new TaskCompletionSource<ShapeResultMessage?>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_lock)
         {
@@ -165,7 +165,7 @@ public sealed class ShapeSyncService : IDisposable
         lock (_lock)
         {
             _incoming = null; // una lista a medias de la conexión anterior no vale
-            if (_hub.SupportsToolbox)
+            if (_hub.Connected)
             {
                 orphaned = [];
             }

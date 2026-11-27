@@ -28,7 +28,7 @@ object KeyboardSettings {
 
     /**
      * La distribución que se dibuja. Explícita: la elegida. Automática: por cable, la del PC (`es-ES` → `es`, cualquier otra → `us`;
-     * mientras no llegue ninguna, la de Bluetooth/ajustes); por Bluetooth, el ajuste de distribución para escribir texto de la v5.
+     * mientras no llegue ninguna, la de Bluetooth/ajustes); por Bluetooth, el ajuste de distribución para escribir texto.
      */
     fun resolveLayout(setting: KeyboardLayoutSetting, bluetooth: Boolean, hostLayoutId: String?, textLayoutId: String): String = when (setting) {
         KeyboardLayoutSetting.ES -> "es"

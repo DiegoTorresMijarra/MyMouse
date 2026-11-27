@@ -44,7 +44,7 @@ object WidgetLayout {
         val volumeIconWidth: Float,
         val volumeValueWidth: Float,
         val gap: Float,
-        /** Pista de 4 dp, pulgar de 18 dp (radio 9) y pista mínima de 96 dp (v4.7); en píxeles. */
+        /** Pista de 4 dp, pulgar de 18 dp (radio 9) y pista mínima de 96 dp; en píxeles. */
         val volumeTrackHeight: Float = 4f,
         val volumeThumbRadius: Float = 9f,
         val volumeMinTrack: Float = 96f,

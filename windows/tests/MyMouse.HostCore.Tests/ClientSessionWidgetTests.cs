@@ -4,7 +4,7 @@ using MyMouse.Protocol;
 
 namespace MyMouse.HostCore.Tests;
 
-/// <summary>Widgets en la sesión: handshake v3, toques, volumen, música, pausa y compatibilidad con clientes v2.</summary>
+/// <summary>Widgets en la sesión: handshake, toques, volumen, música y pausa.</summary>
 public class ClientSessionWidgetTests
 {
     private sealed class NullInjector : IInputInjector
@@ -55,11 +55,11 @@ public class ClientSessionWidgetTests
     public async Task HelloV3_SendsLayoutAndInitialState()
     {
         _media.Info = new MediaInfo(true, "A", "B");
-        var (_, output, session) = await Run(Widgets(), false, new HelloMessage(3));
+        var (_, output, session) = await Run(Widgets(), false, new HelloMessage(1));
 
-        Assert.Equal(3, session.Version);
+        Assert.Equal(1, session.Version);
         Assert.Equal(Bytes(
-            new HelloAckMessage(3), Layout, new VolumeStateMessage(40, false), new MediaStateMessage(true, "A", "B")), output);
+            new HelloAckMessage(1), Layout, new VolumeStateMessage(40, false), new MediaStateMessage(true, "A", "B")), output);
     }
 
     [Fact]
@@ -68,12 +68,12 @@ public class ClientSessionWidgetTests
         var output = new MemoryStream();
         var gestures = new GestureService(_executor);
         gestures.SetConfig(GestureConfig.Parse("""{ "bindings": [ { "gesture": "z", "action": { "type": "keys", "keys": "Ctrl+Z" } } ] }"""));
-        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(3))), output, new NullInjector(),
+        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(1))), output, new NullInjector(),
             gestures: gestures, widgets: Widgets());
         await session.RunAsync(CancellationToken.None);
 
         Assert.Equal(Bytes(
-            new HelloAckMessage(3), gestures.CurrentList(), Layout, new VolumeStateMessage(40, false), MediaNothing), output.ToArray());
+            new HelloAckMessage(1), gestures.CurrentList(), Layout, new VolumeStateMessage(40, false), MediaNothing), output.ToArray());
     }
 
     private static readonly MediaStateMessage MediaNothing = new(false, "", "");
@@ -82,69 +82,16 @@ public class ClientSessionWidgetTests
     public async Task HelloV3_WithoutWidgets_SendsAnEmptyLayout()
     {
         var service = new WidgetService(_executor, _volume, _media);
-        var (_, output, _) = await Run(service, false, new HelloMessage(3));
+        var (_, output, _) = await Run(service, false, new HelloMessage(1));
 
-        Assert.Equal(Bytes(new HelloAckMessage(3), new WidgetLayoutMessage([])), output);
-    }
-
-    [Fact]
-    public async Task ClientV2_KeepsWorking_AndGetsNoWidgetMessages()
-    {
-        var (reason, output, session) = await Run(Widgets(), false, new HelloMessage(2), PingMessage.Instance);
-
-        Assert.Equal(SessionEndReason.ClientClosed, reason);
-        Assert.Equal(2, session.Version);
-        Assert.Equal(Bytes(new HelloAckMessage(2), PongMessage.Instance), output);
-    }
-
-    [Fact]
-    public async Task ClientV2_VolumeChangesAreNotSent()
-    {
-        var widgets = Widgets();
-        var output = new MemoryStream();
-        var input = new ScriptedInput();
-        var session = new ClientSession(input, output, new NullInjector(), widgets: widgets);
-        var run = session.RunAsync(CancellationToken.None);
-        input.Push(Bytes(new HelloMessage(2)));
-        await WaitFor(() => output.Length > 0);
-
-        _volume.Info = new VolumeInfo(70, false);
-        _volume.RaiseChanged();
-        widgets.SetWidgets([new VolumeWidget()]);
-        input.Push(Bytes(PingMessage.Instance));
-        input.Finish();
-        await run;
-
-        Assert.Equal(Bytes(new HelloAckMessage(2), PongMessage.Instance), output.ToArray());
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    public async Task WidgetMessagesWithV2_AreProtocolErrors(int which)
-    {
-        Message message = which switch
-        {
-            0 => new WidgetPressMessage(2),
-            1 => new VolumeSetMessage(50),
-            2 => new MediaCommandMessage(MediaCommand.Next),
-            _ => new VolumeMuteMessage(true),
-        };
-        var (reason, _, _) = await Run(Widgets(), false, new HelloMessage(2), message);
-
-        Assert.Equal(SessionEndReason.ProtocolError, reason);
-        Assert.Empty(_executor.Executed);
-        Assert.Empty(_volume.Calls);
-        Assert.Empty(_media.Sent);
+        Assert.Equal(Bytes(new HelloAckMessage(1), new WidgetLayoutMessage([])), output);
     }
 
     [Fact]
     public async Task WidgetPress_ExecutesAndAnswers()
     {
         var (_, output, _) = await Run(Widgets(), false,
-            new HelloMessage(3), new WidgetPressMessage(2), new WidgetPressMessage(0), new WidgetPressMessage(77));
+            new HelloMessage(1), new WidgetPressMessage(2), new WidgetPressMessage(0), new WidgetPressMessage(77));
 
         Assert.Equal(["Ctrl+C"], _executor.Executed.Select(a => a.DefaultHelp));
         Assert.EndsWith(Convert.ToHexString(Bytes(
@@ -157,7 +104,7 @@ public class ClientSessionWidgetTests
     public async Task WidgetPress_WhenTheActionFails_AnswersError()
     {
         _executor.Fail = true;
-        var (reason, output, _) = await Run(Widgets(), false, new HelloMessage(3), new WidgetPressMessage(2));
+        var (reason, output, _) = await Run(Widgets(), false, new HelloMessage(1), new WidgetPressMessage(2));
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
         Assert.EndsWith(Convert.ToHexString(MessageCodec.Encode(new WidgetResultMessage(2, GestureStatus.Error))), Convert.ToHexString(output));
@@ -166,13 +113,13 @@ public class ClientSessionWidgetTests
     [Fact]
     public async Task VolumeAndMediaCommands_AreApplied_WithoutAnswer()
     {
-        var (_, output, _) = await Run(Widgets(), false, new HelloMessage(3),
+        var (_, output, _) = await Run(Widgets(), false, new HelloMessage(1),
             new VolumeSetMessage(55), new VolumeSetMessage(200), new VolumeMuteMessage(true),
             new MediaCommandMessage(MediaCommand.PlayPause), new MediaCommandMessage(MediaCommand.Previous));
 
         Assert.Equal(["level 55", "level 100", "mute True"], _volume.Calls);
         Assert.Equal([MediaCommand.PlayPause, MediaCommand.Previous], _media.Sent);
-        Assert.Equal(Bytes(new HelloAckMessage(3), Layout, new VolumeStateMessage(40, false), MediaNothing), output);
+        Assert.Equal(Bytes(new HelloAckMessage(1), Layout, new VolumeStateMessage(40, false), MediaNothing), output);
     }
 
     [Fact]
@@ -180,7 +127,7 @@ public class ClientSessionWidgetTests
     {
         var service = new WidgetService(_executor, _volume, _media);
         service.SetWidgets([new MediaWidget()]);
-        var (reason, _, _) = await Run(service, false, new HelloMessage(3), new VolumeSetMessage(55), new VolumeMuteMessage(true));
+        var (reason, _, _) = await Run(service, false, new HelloMessage(1), new VolumeSetMessage(55), new VolumeMuteMessage(true));
 
         Assert.Equal(SessionEndReason.ClientClosed, reason);
         Assert.Empty(_volume.Calls);
@@ -189,7 +136,7 @@ public class ClientSessionWidgetTests
     [Fact]
     public async Task WhilePaused_NothingChanges_AndTheClientIsTold()
     {
-        var (_, output, _) = await Run(Widgets(), true, new HelloMessage(3),
+        var (_, output, _) = await Run(Widgets(), true, new HelloMessage(1),
             new WidgetPressMessage(2), new VolumeSetMessage(55), new VolumeMuteMessage(true), new MediaCommandMessage(MediaCommand.Next));
 
         Assert.Empty(_executor.Executed);
@@ -210,8 +157,8 @@ public class ClientSessionWidgetTests
         var input = new ScriptedInput();
         var session = new ClientSession(input, output, new NullInjector(), widgets: widgets);
         var run = session.RunAsync(CancellationToken.None);
-        input.Push(Bytes(new HelloMessage(3)));
-        var initial = Bytes(new HelloAckMessage(3), Layout, new VolumeStateMessage(40, false), MediaNothing);
+        input.Push(Bytes(new HelloMessage(1)));
+        var initial = Bytes(new HelloAckMessage(1), Layout, new VolumeStateMessage(40, false), MediaNothing);
         await WaitFor(() => output.Length >= initial.Length);
 
         _volume.Info = new VolumeInfo(71, true);
@@ -241,7 +188,7 @@ public class ClientSessionWidgetTests
     public async Task AfterTheSessionEnds_ItNoLongerListensToTheService()
     {
         var widgets = Widgets();
-        var (_, output, _) = await Run(widgets, false, new HelloMessage(3));
+        var (_, output, _) = await Run(widgets, false, new HelloMessage(1));
         var length = output.Length;
 
         _volume.Info = new VolumeInfo(99, false);

@@ -47,7 +47,7 @@ object Updater {
     private var checking = false
     private var foreground: WeakReference<Activity>? = null
 
-    /** Versión del PC por USB (`APP_VERSION` 0x8E), o null sin PC conectado o con uno anterior a la v6. */
+    /** Versión del PC por USB (`APP_VERSION` 0x8E), o null sin PC conectado. */
     var pcVersion: String? = null
         private set
 

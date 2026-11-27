@@ -12,10 +12,10 @@ import kotlin.test.assertTrue
 class HidDescriptorTest {
     private fun ints(bytes: ByteArray) = bytes.map { it.toInt() and 0xFF }
 
-    /** Los bytes del descriptor de la v4 (sin scroll fino): el ajuste "Scroll fino por Bluetooth" apagado debe registrar exactamente este. */
+    /** Los bytes del descriptor sin scroll fino: el ajuste "Scroll fino por Bluetooth" apagado debe registrar exactamente este. */
     private val v4Hex = "05010902A10185010901A1000509190129051500250195057501810295017503810105010930093109381581257F750895038106050C0A38021581257F750895018106C0C005010906A1018502050719E029E71500250175019508810295017508810195067508150025650507190029658100C0050C0901A1018503150026FF0319002AFF03751095018100C0"
 
-    /** El informe de salida de LEDs que la v6 añade al teclado (justo antes de cerrar su colección). */
+    /** El informe de salida de LEDs del teclado (justo antes de cerrar su colección). */
     private val ledHex = "050819012905950575019102950175039101"
 
     @Test

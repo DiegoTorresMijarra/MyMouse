@@ -13,7 +13,7 @@ public sealed record MediaInfo(bool Playing, string Title, string Artist)
 
 /// <summary>
 /// Volumen del sistema. En Windows: Core Audio (<c>IAudioEndpointVolume</c>). Ningún miembro lanza: si la API falla,
-/// se apunta en el log y el estado queda en 0 / sin silenciar (spec §5).
+/// se apunta en el log y el estado queda en 0 / sin silenciar (docs/spec-v2-widgets.md §5).
 /// </summary>
 public interface IVolumeController
 {

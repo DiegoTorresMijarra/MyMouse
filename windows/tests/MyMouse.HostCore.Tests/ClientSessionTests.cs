@@ -84,24 +84,24 @@ public class ClientSessionTests
     }
 
     [Fact]
-    public async Task HelloV2_AcksV2AndSendsGestureList()
+    public async Task Hello_AcksAndSendsGestureList()
     {
         var gestures = new FakeGestures();
         var output = new MemoryStream();
-        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(2))), output, new FakeInjector(), gestures: gestures);
+        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(1))), output, new FakeInjector(), gestures: gestures);
         await session.RunAsync(CancellationToken.None);
 
-        Assert.Equal(2, session.Version);
-        Assert.Equal(Bytes(new HelloAckMessage(2), gestures.List), output.ToArray());
+        Assert.Equal(1, session.Version);
+        Assert.Equal(Bytes(new HelloAckMessage(1), gestures.List), output.ToArray());
     }
 
-    // ---- Gestos de Windows (protocolo v4) ----
+    // ---- Gestos de Windows ----
 
     [Fact]
     public async Task SystemGestures_AreInjected()
     {
         var (_, injector, _, _) = await Run(Bytes(
-            new HelloMessage(4),
+            new HelloMessage(1),
             new SystemGestureMessage(SystemGestureCommand.TaskView),
             new SystemGestureMessage(SystemGestureCommand.ShowDesktop),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
@@ -115,21 +115,11 @@ public class ClientSessionTests
     }
 
     [Fact]
-    public async Task SystemGesture_WithOlderProtocol_IsProtocolError()
-    {
-        var (reason, injector, _, session) = await Run(Bytes(new HelloMessage(3), new SystemGestureMessage(SystemGestureCommand.TaskView)));
-
-        Assert.Equal(SessionEndReason.ProtocolError, reason);
-        Assert.Equal(3, session.Version);
-        Assert.Empty(injector.Calls);
-    }
-
-    [Fact]
     public async Task AppSwitch_IsReleasedWhenTheSessionEndsMidSwitch()
     {
         // El cliente se va tras AppSwitchStart y AppSwitchNext: el host no puede dejar Alt pulsado.
         var (reason, injector, _, _) = await Run(Bytes(
-            new HelloMessage(4),
+            new HelloMessage(1),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchNext)));
 
@@ -141,9 +131,9 @@ public class ClientSessionTests
     public async Task AppSwitch_IsReleasedOnProtocolError()
     {
         var (reason, injector, _, _) = await Run(Bytes(
-            new HelloMessage(4),
+            new HelloMessage(1),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchStart),
-            new HelloMessage(4)));
+            new HelloMessage(1)));
 
         Assert.Equal(SessionEndReason.ProtocolError, reason);
         Assert.Equal(["system AppSwitchStart", "system AppSwitchEnd"], injector.Calls);
@@ -153,7 +143,7 @@ public class ClientSessionTests
     public async Task AppSwitch_StepsWithoutStartAreIgnoredAndEndIsNotRepeated()
     {
         var (_, injector, _, _) = await Run(Bytes(
-            new HelloMessage(4),
+            new HelloMessage(1),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchNext),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchPrevious),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchEnd),
@@ -168,7 +158,7 @@ public class ClientSessionTests
     public async Task SystemGestures_WhilePaused_AreIgnored()
     {
         var (_, injector, _, _) = await Run(Bytes(
-            new HelloMessage(4),
+            new HelloMessage(1),
             new SystemGestureMessage(SystemGestureCommand.TaskView),
             new SystemGestureMessage(SystemGestureCommand.AppSwitchStart)), paused: true);
 
@@ -185,7 +175,7 @@ public class ClientSessionTests
         var run = session.RunAsync(CancellationToken.None);
 
         void Write(params Message[] messages) => input.Write(Bytes(messages));
-        Write(new HelloMessage(4), new SystemGestureMessage(SystemGestureCommand.AppSwitchStart));
+        Write(new HelloMessage(1), new SystemGestureMessage(SystemGestureCommand.AppSwitchStart));
         await WaitFor(() => injector.Calls.Contains("system AppSwitchStart"));
 
         paused = true;
@@ -256,13 +246,13 @@ public class ClientSessionTests
     {
         var gestures = new FakeGestures();
         var output = new MemoryStream();
-        var input = Bytes(new HelloMessage(2), new GestureMessage("z"), new GestureMessage("circle"));
+        var input = Bytes(new HelloMessage(1), new GestureMessage("z"), new GestureMessage("circle"));
         var session = new ClientSession(new MemoryStream(input), output, new FakeInjector(), gestures: gestures);
         await session.RunAsync(CancellationToken.None);
 
         Assert.Equal(["z", "circle"], gestures.Executed);
         Assert.Equal(Bytes(
-            new HelloAckMessage(2), gestures.List,
+            new HelloAckMessage(1), gestures.List,
             new GestureResultMessage(GestureStatus.Executed),
             new GestureResultMessage(GestureStatus.Unassigned)), output.ToArray());
     }
@@ -272,20 +262,13 @@ public class ClientSessionTests
     {
         var gestures = new FakeGestures();
         var output = new MemoryStream();
-        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(2), new GestureMessage("z"))),
+        var session = new ClientSession(new MemoryStream(Bytes(new HelloMessage(1), new GestureMessage("z"))),
             output, new FakeInjector(), () => true, gestures: gestures);
         await session.RunAsync(CancellationToken.None);
 
         Assert.Empty(gestures.Executed);
         Assert.EndsWith(Convert.ToHexString(MessageCodec.Encode(new GestureResultMessage(GestureStatus.Error))),
             Convert.ToHexString(output.ToArray()));
-    }
-
-    [Fact]
-    public async Task Gesture_WithProtocolV1_IsProtocolError()
-    {
-        var (reason, _, _, _) = await Run(Bytes(new HelloMessage(1), new GestureMessage("z")));
-        Assert.Equal(SessionEndReason.ProtocolError, reason);
     }
 
     [Fact]

@@ -42,25 +42,24 @@ public sealed class ToolboxLayout
     public bool ShowLiveGesture { get; }
 
     /// <summary>
-    /// "Efecto cristal": tarjetas translúcidas sobre el universo (v4.7; antes, Acrylic del sistema). Desactivado, las tarjetas son
-    /// sólidas (del color de la base del tema, v4.8) sobre el mismo universo.
+    /// "Efecto cristal": tarjetas translúcidas sobre el universo. Desactivado, las tarjetas son sólidas (del color de la base del
+    /// tema) sobre el mismo universo.
     /// </summary>
     public bool GlassEffect { get; }
 
     /// <summary>
-    /// "Mostrar siempre el icono en la barra de tareas" (v4.7 §3.4): saca el icono de la bandeja oculta en Windows 11. Activado por
-    /// defecto, así que la primera vez que arranca la v4.7 se activa solo; si el usuario lo quita, se guarda y no se vuelve a poner.
+    /// "Mostrar siempre el icono en la barra de tareas" (docs/spec-v4.7-universo.md §3.4): saca el icono de la bandeja oculta en
+    /// Windows 11. Activado por defecto; si el usuario lo quita, se guarda y no se vuelve a poner.
     /// </summary>
     public bool AlwaysShowIcon { get; }
 
     /// <summary>
-    /// Tema, acento y estrellas de este PC (docs/spec-v4.8-temas.md). Se guarda en <c>toolbox.json</c>. Desde la v6.1 el tema, el
-    /// acento y las estrellas se sincronizan con el móvil por USB (la animación no).
-    /// Un <c>toolbox.json</c> sin tema (anterior a la v4.8) da Universo, con la paleta sobria.
+    /// Tema, acento y estrellas de este PC (docs/spec-v4.8-temas.md). Se guarda en <c>toolbox.json</c>. El tema, el acento y las
+    /// estrellas se sincronizan con el móvil por USB (la animación no). Un <c>toolbox.json</c> sin tema da Universo.
     /// </summary>
     public ThemeChoice Theme { get; }
 
-    /// <summary>Cuándo se eligió el tema por última vez (ms desde 1970, UTC); 0 = nunca (o anterior a la v6.1).</summary>
+    /// <summary>Cuándo se eligió el tema por última vez (ms desde 1970, UTC); 0 = nunca.</summary>
     public long ThemeChangedAtMs { get; }
 
     /// <summary>La toolbox se quedó maximizada (ventana de dos columnas) y se abre así.</summary>
@@ -102,7 +101,7 @@ public sealed class ToolboxLayout
 
     public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value, Theme, ThemeChangedAtMs);
 
-    /// <summary>Otro tema, elegido en <paramref name="changedAtMs"/> (ms desde 1970, UTC; protocolo v8: gana el cambio más reciente).</summary>
+    /// <summary>Otro tema, elegido en <paramref name="changedAtMs"/> (ms desde 1970, UTC; gana el cambio más reciente).</summary>
     public ToolboxLayout WithTheme(ThemeChoice theme, long changedAtMs) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, theme, changedAtMs);
 
     // ---- JSON ----

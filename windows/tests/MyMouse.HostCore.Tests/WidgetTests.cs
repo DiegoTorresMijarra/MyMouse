@@ -60,10 +60,10 @@ public class WidgetConfigTests
     [Fact]
     public void WithoutWidgetsSection_ThereIsNoPanel()
     {
-        var v1 = GestureConfig.Parse("""{ "bindings": [] }""");
-        Assert.Empty(v1.Widgets);
-        Assert.False(v1.HasWidgetsSection);
-        Assert.Empty(v1.Warnings);
+        var noWidgets = GestureConfig.Parse("""{ "bindings": [] }""");
+        Assert.Empty(noWidgets.Widgets);
+        Assert.False(noWidgets.HasWidgetsSection);
+        Assert.Empty(noWidgets.Warnings);
 
         var empty = GestureConfig.Parse("""{ "bindings": [], "widgets": [] }""");
         Assert.Empty(empty.Widgets);

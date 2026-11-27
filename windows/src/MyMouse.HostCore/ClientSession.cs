@@ -113,7 +113,7 @@ public sealed class ClientSession
                     await SendAsync(new HelloAckMessage(Version), cancellationToken).ConfigureAwait(false);
                     handshakeDone = true;
 
-                    if (_gestures is not null && Version >= ProtocolInfo.GesturesVersion)
+                    if (_gestures is not null)
                     {
                         await SendAsync(_gestures.CurrentList(), cancellationToken).ConfigureAwait(false);
                         var token = sessionCts.Token;
@@ -121,7 +121,7 @@ public sealed class ClientSession
                         _gestures.ListChanged += onListChanged;
                     }
 
-                    if (_widgets is not null && Version >= ProtocolInfo.WidgetsVersion)
+                    if (_widgets is not null)
                     {
                         // Se suscribe antes de enviar el estado inicial para no perder cambios: un aviso repetido es inocuo.
                         var token = sessionCts.Token;
@@ -134,16 +134,16 @@ public sealed class ClientSession
                         await SendWidgetsAsync(cancellationToken).ConfigureAwait(false);
                     }
 
-                    // La toolbox (v5) recibe lo que llega del móvil y puede escribirle (SHAPE_ADD, SHAPE_DELETE).
-                    if (_phone is not null && Version >= ProtocolInfo.ToolboxVersion)
+                    // La toolbox recibe lo que llega del móvil y puede escribirle (SHAPE_ADD, SHAPE_DELETE).
+                    if (_phone is not null)
                         phoneAttachment = _phone.Attach(Version, SendAsync);
 
-                    // La versión de la app (v6) para los avisos cruzados. Se envía una sola vez, justo tras el handshake.
-                    if (_phone is { HostAppVersion.Length: > 0 } && Version >= ProtocolInfo.AppVersionVersion)
+                    // La versión de la app para los avisos cruzados. Se envía una sola vez, justo tras el handshake.
+                    if (_phone is { HostAppVersion.Length: > 0 })
                         await SendAsync(new HostAppVersionMessage(_phone.HostAppVersion), cancellationToken).ConfigureAwait(false);
 
-                    // El tema del PC (v8): el móvil manda el suyo y cada lado se queda con el cambio más reciente.
-                    if (_phone?.LocalTheme is { } localTheme && Version >= ProtocolInfo.ThemeVersion)
+                    // El tema del PC: el móvil manda el suyo y cada lado se queda con el cambio más reciente.
+                    if (_phone?.LocalTheme is { } localTheme)
                         await SendAsync(localTheme(), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
@@ -221,8 +221,6 @@ public sealed class ClientSession
 
         if (message is GestureMessage gesture)
         {
-            if (Version < ProtocolInfo.GesturesVersion)
-                throw new ProtocolException("GESTURE con protocolo v1");
             var status = _isPaused() || _gestures is null ? GestureStatus.Error : _gestures.Execute(gesture.Name);
             await SendAsync(new GestureResultMessage(status), cancellationToken).ConfigureAwait(false);
             return;
@@ -231,33 +229,27 @@ public sealed class ClientSession
         if (message is ToolboxMessage or GestureModeMessage or StrokePointsMessage or StrokeEndMessage
             or ShapeInfoMessage or ShapeListEndMessage or ShapeResultMessage)
         {
-            // Entran en la versión 5. Se atienden aunque el PC esté en pausa: la toolbox sigue siendo útil.
-            if (Version < ProtocolInfo.ToolboxVersion)
-                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            // Se atienden aunque el PC esté en pausa: la toolbox sigue siendo útil.
             _phone?.Dispatch(message);
             return;
         }
 
         if (message is ThemeMessage theme)
         {
-            if (Version < ProtocolInfo.ThemeVersion || theme.FromHost)
-                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            if (theme.FromHost)
+                throw new ProtocolException($"{message.Type} no lo envía el móvil");
             _phone?.Dispatch(message);
             return;
         }
 
         if (message is AppVersionMessage appVersion)
         {
-            if (Version < ProtocolInfo.AppVersionVersion)
-                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
             _phone?.SetPhoneAppVersion(appVersion.Version);
             return;
         }
 
         if (message is KeyMessage or KeyboardModeMessage)
         {
-            if (Version < ProtocolInfo.KeyboardVersion)
-                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
             if (message is KeyboardModeMessage mode)
             {
                 // El modo teclado se atiende aunque el PC esté en pausa (solo se dejan de inyectar las teclas).
@@ -271,9 +263,6 @@ public sealed class ClientSession
             await HandleWidgetAsync(message, cancellationToken).ConfigureAwait(false);
             return;
         }
-
-        if (message is SystemGestureMessage && Version < ProtocolInfo.SystemGestureVersion)
-            throw new ProtocolException($"SYSTEM_GESTURE con protocolo v{Version}");
 
         if (_isPaused())
         {
@@ -311,9 +300,6 @@ public sealed class ClientSession
 
     private async ValueTask HandleWidgetAsync(Message message, CancellationToken cancellationToken)
     {
-        if (Version < ProtocolInfo.WidgetsVersion)
-            throw new ProtocolException($"{message.Type} con protocolo v{Version}");
-
         var paused = _isPaused();
         if (message is WidgetPressMessage press)
         {

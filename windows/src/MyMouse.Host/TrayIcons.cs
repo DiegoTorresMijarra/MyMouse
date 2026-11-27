@@ -12,7 +12,7 @@ namespace MyMouse.Host;
 /// </summary>
 internal static class TrayIcons
 {
-    /// <summary>Cada icono de estado con su variante con el punto azul de "hay una versión nueva" (v5.1).</summary>
+    /// <summary>Cada icono de estado con su variante con el punto azul de "hay una versión nueva".</summary>
     private static readonly Dictionary<Icon, Icon> UpdateVariants = [];
 
     public static readonly Icon NoDevice = Make(Color.FromArgb(0xE5, 0x53, 0x4B));  // rojo: sin móvil o sin adb

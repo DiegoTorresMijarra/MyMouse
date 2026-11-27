@@ -15,7 +15,7 @@ import dev.mymouse.core.shapes.ShapeCatalog
 
 /**
  * Formas del modo gestos (docs/spec-v1-gestos.md §2 y §5): activar las incluidas, grabar tu versión
- * de una incluida y crear formas propias. Las acciones de cada forma se configuran en el PC.
+ * de una incluida y crear formas propias. Las acciones de cada forma se configuran en el PC (cable) o en Acciones por Bluetooth.
  */
 class ShapesActivity : Activity() {
 

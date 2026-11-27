@@ -76,7 +76,7 @@ class KeyboardView(context: Context) : View(context) {
             relayout(animate = false)
         }
 
-    /** Ajuste de texto de Bluetooth (v5), que usa la distribución "Automática" por Bluetooth. */
+    /** Ajuste de texto de Bluetooth, que usa la distribución "Automática" por Bluetooth. */
     var textLayoutId = "es"
         set(value) {
             field = value
