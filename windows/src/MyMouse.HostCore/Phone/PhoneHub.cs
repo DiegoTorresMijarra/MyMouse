@@ -31,6 +31,9 @@ public sealed class PhoneHub
     /// <summary>Versión de MyMouse de este PC, que se envía al móvil tras el handshake (v6). Vacía = no se envía.</summary>
     public string HostAppVersion { get; set; } = "";
 
+    /// <summary>Tema de este PC, que se envía al móvil tras el handshake (v8). Null = no se envía. Lo pone <c>ThemeSyncService</c>.</summary>
+    public Func<ThemeMessage>? LocalTheme { get; set; }
+
     /// <summary>¿Está el móvil conectado en modo teclado (<c>KEYBOARD_MODE</c>, protocolo v7)?</summary>
     public bool KeyboardMode
     {

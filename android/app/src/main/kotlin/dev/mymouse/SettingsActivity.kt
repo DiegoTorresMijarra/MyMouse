@@ -17,6 +17,7 @@ import android.widget.Switch
 import android.widget.TextView
 import dev.mymouse.core.keyboard.KeySize
 import dev.mymouse.core.keyboard.KeyboardLayoutSetting
+import dev.mymouse.core.theme.SyncedTheme
 import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.theme.Themes
 import dev.mymouse.core.widgets.WidgetPanelSize
@@ -323,13 +324,16 @@ class SettingsActivity : Activity() {
         } else {
             list.addView(GlassTheme.note(this, "Este tema no lleva estrellas."))
         }
-        list.addView(GlassTheme.note(this, "Solo afecta a este móvil: el PC tiene su propio tema en los ajustes de la toolbox."))
+        list.addView(GlassTheme.note(this, "Por cable, el tema, el acento y las estrellas se sincronizan con el PC: gana el último cambio. La animación es solo de este móvil."))
     }
 
     /** Guarda y aplica la elección al momento: se recrea la pantalla para que todos los controles tomen el acento y el fondo nuevos. */
     private fun updateTheme(choice: ThemeChoice) {
         if (choice.normalized() == settings.theme) return
-        settings = settings.copy(theme = choice.normalized())
+        val next = choice.normalized()
+        // El tema, el acento o las estrellas cambian: se apunta cuándo, para la sincronización con el PC (v6.1). La animación no viaja.
+        val stamp = if (SyncedTheme.of(next, 0).sameLook(SyncedTheme.of(settings.theme, 0))) settings.themeChangedAt else System.currentTimeMillis()
+        settings = settings.copy(theme = next, themeChangedAt = stamp)
         GlassTheme.applyTheme(settings.theme)
         settings.save(this)
         rebuildWithCrossfade()

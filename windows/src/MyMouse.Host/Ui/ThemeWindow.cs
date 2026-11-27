@@ -41,7 +41,7 @@ internal sealed class ThemeWindow : Window
 
         var panel = new StackPanel { Margin = new Thickness(20) };
         panel.Children.Add(Theme.Label("Tema", 17, weight: FontWeights.SemiBold));
-        var hint = Theme.Label("Solo afecta a este PC: el móvil tiene su propio tema en sus Ajustes.", 12, Theme.Dim);
+        var hint = Theme.Label("Por cable se sincroniza con el móvil: gana el último cambio.", 12, Theme.Dim);
         hint.TextWrapping = TextWrapping.Wrap;
         hint.TextTrimming = TextTrimming.None;
         hint.Margin = new Thickness(0, 6, 0, 14);
@@ -65,7 +65,7 @@ internal sealed class ThemeWindow : Window
     private void Choose(ThemeChoice choice)
     {
         if (choice.Normalized() == _app.Layout.Theme) return;
-        _app.Layout = _app.Layout.WithTheme(choice); // aplica el tema, guarda toolbox.json y reconstruye la toolbox
+        _app.Layout = _app.Layout.WithTheme(choice, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); // aplica el tema, guarda toolbox.json y reconstruye la toolbox
         Rebuild();
     }
 

@@ -24,7 +24,8 @@ public static class MessageCodec
         MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState
             or MessageType.StrokePoints or MessageType.ShapeInfo or MessageType.ShapeResult
             or MessageType.ShapeAdd or MessageType.ShapeDelete
-            or MessageType.AppVersion or MessageType.AppVersionHost or MessageType.KeyboardLayout => null,
+            or MessageType.AppVersion or MessageType.AppVersionHost or MessageType.KeyboardLayout
+            or MessageType.Theme or MessageType.HostTheme => null,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
 
@@ -171,6 +172,8 @@ public static class MessageCodec
                 return [m.Bits];
             case KeyboardLayoutMessage m:
                 return EncodeLayoutId(m.Id);
+            case ThemeMessage m:
+                return EncodeTheme(m);
             case PingMessage or PongMessage or KeyboardOpenMessage:
                 return [];
             default:
@@ -226,6 +229,8 @@ public static class MessageCodec
             MessageType.KeyboardOpen => KeyboardOpenMessage.Instance,
             MessageType.KeyboardLeds => new KeyboardLedsMessage(payload[0]),
             MessageType.KeyboardLayout => new KeyboardLayoutMessage(DecodeLayoutId(payload)),
+            MessageType.Theme => DecodeTheme(payload, fromHost: false),
+            MessageType.HostTheme => DecodeTheme(payload, fromHost: true),
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
         };
     }
@@ -397,6 +402,38 @@ public static class MessageCodec
         if (Encoding.UTF8.GetByteCount(id) > ProtocolInfo.MaxLayoutIdBytes)
             throw new ProtocolException("Id de distribución demasiado largo en KEYBOARD_LAYOUT");
         return id;
+    }
+
+    private static byte[] EncodeTheme(ThemeMessage m)
+    {
+        if (Encoding.UTF8.GetByteCount(m.ThemeId) > ProtocolInfo.MaxThemeIdBytes || Encoding.UTF8.GetByteCount(m.AccentId) > ProtocolInfo.MaxThemeIdBytes)
+            throw new ArgumentException("Id de tema o de acento demasiado largo");
+        if (m.ChangedAtMs < 0) throw new ArgumentException("Instante de cambio negativo");
+        var ms = new MemoryStream();
+        WriteStr8(ms, m.ThemeId);
+        WriteStr8(ms, m.AccentId);
+        ms.WriteByte(m.Stars ? (byte)1 : (byte)0);
+        Span<byte> b = stackalloc byte[8];
+        BinaryPrimitives.WriteInt64LittleEndian(b, m.ChangedAtMs);
+        ms.Write(b);
+        return ms.ToArray();
+    }
+
+    private static ThemeMessage DecodeTheme(ReadOnlySpan<byte> payload, bool fromHost)
+    {
+        var name = fromHost ? "THEME (PC)" : "THEME";
+        var pos = 0;
+        var theme = ReadStr8(payload, ref pos);
+        var accent = ReadStr8(payload, ref pos);
+        var stars = ParseBool(ReadByte(payload, ref pos));
+        if (pos + 8 > payload.Length) throw new ProtocolException("Mensaje truncado");
+        var changedAt = BinaryPrimitives.ReadInt64LittleEndian(payload[pos..]);
+        pos += 8;
+        if (pos != payload.Length) throw new ProtocolException($"Bytes sobrantes en {name}");
+        if (Encoding.UTF8.GetByteCount(theme) > ProtocolInfo.MaxThemeIdBytes || Encoding.UTF8.GetByteCount(accent) > ProtocolInfo.MaxThemeIdBytes)
+            throw new ProtocolException($"Id de tema o de acento demasiado largo en {name}");
+        if (changedAt < 0) throw new ProtocolException($"Instante de cambio negativo en {name}");
+        return new ThemeMessage(theme, accent, stars, changedAt, fromHost);
     }
 
     private static ShapeDeleteMessage DecodeShapeDelete(ReadOnlySpan<byte> payload)

@@ -46,8 +46,10 @@ data class AppSettings(
     val btKeyboardLayout: String = "es",
     /** Scroll fino por Bluetooth (docs/spec-v5-bluetooth-completo.md §4). Apagado, se registra el descriptor HID antiguo. */
     val btFineScroll: Boolean = true,
-    /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. No se sincroniza con el PC. */
+    /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. Por cable se sincroniza con el PC (v6.1). */
     val theme: ThemeChoice = ThemeChoice(),
+    /** Cuándo se eligió el tema, el acento o las estrellas por última vez (ms desde 1970, UTC; 0 = nunca). Gana el más reciente (v6.1). */
+    val themeChangedAt: Long = 0,
     /** Modo teclado (docs/spec-v6-teclado.md §6): distribución que se dibuja ("Automática" = la del PC por cable, el ajuste de texto por Bluetooth). */
     val kbLayout: KeyboardLayoutSetting = KeyboardLayoutSetting.AUTO,
     val kbKeySize: KeySize = KeySize.MEDIUM,
@@ -105,6 +107,7 @@ data class AppSettings(
             .putBoolean("themeStars", theme.stars)
             .putBoolean("themeTwinkle", theme.twinkle)
             .putBoolean("themeTwinkleTrackpad", theme.twinkleTrackpad)
+            .putLong("themeChangedAt", themeChangedAt)
             .putString("kbLayout", kbLayout.id)
             .putString("kbKeySize", kbKeySize.id)
             .putBoolean("kbVibrate", kbVibrate)
@@ -171,6 +174,7 @@ data class AppSettings(
                     twinkle = p.getBoolean("themeTwinkle", d.theme.twinkle),
                     twinkleTrackpad = p.getBoolean("themeTwinkleTrackpad", d.theme.twinkleTrackpad),
                 ).normalized(),
+                themeChangedAt = p.getLong("themeChangedAt", d.themeChangedAt),
                 kbLayout = KeyboardLayoutSetting.fromId(p.getString("kbLayout", null)),
                 kbKeySize = KeySize.fromId(p.getString("kbKeySize", null)),
                 kbVibrate = p.getBoolean("kbVibrate", d.kbVibrate),

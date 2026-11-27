@@ -51,9 +51,9 @@ public class PhoneSessionTests
     [Fact]
     public async Task Handshake_NegotiatesTheHighestVersionThatBothKnow()
     {
-        var (_, output) = await Run(new PhoneHub(), Bytes(new HelloMessage(9)));
+        var (_, output) = await Run(new PhoneHub(), Bytes(new HelloMessage(10)));
         Assert.Equal(MessageCodec.Encode(new HelloAckMessage(ProtocolInfo.CurrentVersion)), output.Take(2).ToArray());
-        Assert.Equal(7, ProtocolInfo.CurrentVersion);
+        Assert.Equal(8, ProtocolInfo.CurrentVersion);
     }
 
     [Fact]

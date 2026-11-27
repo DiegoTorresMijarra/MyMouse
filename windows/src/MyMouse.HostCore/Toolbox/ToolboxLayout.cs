@@ -23,7 +23,7 @@ public sealed class ToolboxLayout
 {
     private readonly (ToolboxCard Card, bool Visible)[] _entries;
 
-    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false, bool alwaysShowIcon = true, ThemeChoice? theme = null)
+    private ToolboxLayout(IEnumerable<(ToolboxCard Card, bool Visible)> entries, bool showLiveGesture, bool glass = true, bool maximized = false, bool alwaysShowIcon = true, ThemeChoice? theme = null, long themeChangedAtMs = 0)
     {
         _entries = Normalize(entries);
         ShowLiveGesture = showLiveGesture;
@@ -31,6 +31,7 @@ public sealed class ToolboxLayout
         Maximized = maximized;
         AlwaysShowIcon = alwaysShowIcon;
         Theme = (theme ?? new ThemeChoice()).Normalized();
+        ThemeChangedAtMs = Math.Max(0, themeChangedAtMs);
     }
 
     public static ToolboxLayout Default { get; } = new(
@@ -53,10 +54,14 @@ public sealed class ToolboxLayout
     public bool AlwaysShowIcon { get; }
 
     /// <summary>
-    /// Tema, acento y estrellas de este PC (docs/spec-v4.8-temas.md). Se guarda en <c>toolbox.json</c> y no se sincroniza con el móvil.
+    /// Tema, acento y estrellas de este PC (docs/spec-v4.8-temas.md). Se guarda en <c>toolbox.json</c>. Desde la v6.1 el tema, el
+    /// acento y las estrellas se sincronizan con el móvil por USB (la animación no).
     /// Un <c>toolbox.json</c> sin tema (anterior a la v4.8) da Universo, con la paleta sobria.
     /// </summary>
     public ThemeChoice Theme { get; }
+
+    /// <summary>Cuándo se eligió el tema por última vez (ms desde 1970, UTC); 0 = nunca (o anterior a la v6.1).</summary>
+    public long ThemeChangedAtMs { get; }
 
     /// <summary>La toolbox se quedó maximizada (ventana de dos columnas) y se abre así.</summary>
     public bool Maximized { get; }
@@ -73,7 +78,7 @@ public sealed class ToolboxLayout
     public ToolboxLayout SetVisible(ToolboxCard card, bool visible) =>
         card == ToolboxCard.Options
             ? this
-            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme);
+            : new ToolboxLayout(_entries.Select(e => e.Card == card ? (e.Card, visible) : e), ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme, ThemeChangedAtMs);
 
     /// <summary>Mueve una tarjeta <paramref name="delta"/> puestos (−1 = arriba). Nada pasa por encima de las Opciones.</summary>
     public ToolboxLayout Move(ToolboxCard card, int delta)
@@ -86,18 +91,19 @@ public sealed class ToolboxLayout
         var item = list[from];
         list.RemoveAt(from);
         list.Insert(to, item);
-        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme);
+        return new ToolboxLayout(list, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, Theme, ThemeChangedAtMs);
     }
 
-    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized, AlwaysShowIcon, Theme);
+    public ToolboxLayout WithLiveGesture(bool show) => new(_entries, show, GlassEffect, Maximized, AlwaysShowIcon, Theme, ThemeChangedAtMs);
 
-    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized, AlwaysShowIcon, Theme);
+    public ToolboxLayout WithGlass(bool glass) => new(_entries, ShowLiveGesture, glass, Maximized, AlwaysShowIcon, Theme, ThemeChangedAtMs);
 
-    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized, AlwaysShowIcon, Theme);
+    public ToolboxLayout WithMaximized(bool maximized) => new(_entries, ShowLiveGesture, GlassEffect, maximized, AlwaysShowIcon, Theme, ThemeChangedAtMs);
 
-    public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value, Theme);
+    public ToolboxLayout WithAlwaysShowIcon(bool value) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, value, Theme, ThemeChangedAtMs);
 
-    public ToolboxLayout WithTheme(ThemeChoice theme) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, theme);
+    /// <summary>Otro tema, elegido en <paramref name="changedAtMs"/> (ms desde 1970, UTC; protocolo v8: gana el cambio más reciente).</summary>
+    public ToolboxLayout WithTheme(ThemeChoice theme, long changedAtMs) => new(_entries, ShowLiveGesture, GlassEffect, Maximized, AlwaysShowIcon, theme, changedAtMs);
 
     // ---- JSON ----
 
@@ -112,7 +118,7 @@ public sealed class ToolboxLayout
             glass = GlassEffect,
             maximized = Maximized,
             alwaysShowIcon = AlwaysShowIcon,
-            theme = new { id = Theme.ThemeId, accent = Theme.AccentId, stars = Theme.Stars, twinkle = Theme.Twinkle },
+            theme = new { id = Theme.ThemeId, accent = Theme.AccentId, stars = Theme.Stars, twinkle = Theme.Twinkle, changedAt = ThemeChangedAtMs },
         };
         return JsonSerializer.Serialize(model, JsonOptions);
     }
@@ -143,6 +149,7 @@ public sealed class ToolboxLayout
             var maximized = doc.RootElement.TryGetProperty("maximized", out var m) && m.ValueKind == JsonValueKind.True;
             var always = !doc.RootElement.TryGetProperty("alwaysShowIcon", out var a) || a.ValueKind != JsonValueKind.False;
             var theme = new ThemeChoice();
+            long themeChangedAt = 0;
             if (doc.RootElement.TryGetProperty("theme", out var th) && th.ValueKind == JsonValueKind.Object)
             {
                 theme = new ThemeChoice(
@@ -150,8 +157,9 @@ public sealed class ToolboxLayout
                     th.TryGetProperty("accent", out var tac) && tac.ValueKind == JsonValueKind.String ? tac.GetString()! : ThemeCatalog.AccentAuto,
                     !th.TryGetProperty("stars", out var tst) || tst.ValueKind != JsonValueKind.False,
                     !th.TryGetProperty("twinkle", out var ttw) || ttw.ValueKind != JsonValueKind.False);
+                if (th.TryGetProperty("changedAt", out var tca) && tca.ValueKind == JsonValueKind.Number && tca.TryGetInt64(out var ms)) themeChangedAt = ms;
             }
-            return new ToolboxLayout(entries, live, glass, maximized, always, theme);
+            return new ToolboxLayout(entries, live, glass, maximized, always, theme, themeChangedAt);
         }
         catch (JsonException)
         {

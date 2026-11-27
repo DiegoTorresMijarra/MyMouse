@@ -180,7 +180,7 @@ public class ToolboxThemeTests
     [Fact]
     public void ThemeSurvivesSaveAndLoad()
     {
-        var layout = ToolboxLayout.Default.WithTheme(new ThemeChoice("aurora", "amber", Stars: false, Twinkle: false));
+        var layout = ToolboxLayout.Default.WithTheme(new ThemeChoice("aurora", "amber", Stars: false, Twinkle: false), 0);
         var again = ToolboxLayout.Parse(layout.ToJson());
         Assert.Equal(new ThemeChoice("aurora", "amber", false, false), again.Theme);
         // Los demás cambios no pierden el tema.

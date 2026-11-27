@@ -10,6 +10,7 @@ using MyMouse.HostCore.Live;
 using MyMouse.HostCore.Phone;
 using MyMouse.HostCore.Shell;
 using MyMouse.HostCore.Shapes;
+using MyMouse.HostCore.Theming;
 using MyMouse.HostCore.Toolbox;
 using MyMouse.HostCore.Updates;
 using MyMouse.HostCore.Widgets;
@@ -40,6 +41,8 @@ internal sealed class HostApp : IDisposable
     private LiveGestureWindow? _live;
     private EditorWindow? _editor;
     private ToolboxLayout _layout;
+    private readonly ThemeSyncService _themeSync;
+    private bool _adoptingTheme;
     private Action? _balloonClick;
     private volatile bool _paused;
     private bool _connected;
@@ -111,6 +114,25 @@ internal sealed class HostApp : IDisposable
         Shapes = new ShapeSyncService(Phone, Path.Combine(HostConfig.Directory, "shapes-cache.json"));
         Shapes.Changed += () => Post(() => StateChanged?.Invoke());
         Shapes.NewShape += shape => Post(() => OnNewShape(shape.Name));
+        // Tema sincronizado con el móvil (v8): gana el cambio más reciente. El instante del adoptado se guarda tal cual, así no se reenvía.
+        _themeSync = new ThemeSyncService(Phone, () =>
+        {
+            var layout = _layout;
+            return new SyncedTheme(layout.Theme.ThemeId, layout.Theme.AccentId, layout.Theme.Stars, layout.ThemeChangedAtMs);
+        });
+        _themeSync.Adopted += t => Post(() =>
+        {
+            _adoptingTheme = true;
+            try
+            {
+                Layout = Layout.WithTheme(new ThemeChoice(t.ThemeId, t.AccentId, t.Stars, Layout.Theme.Twinkle), t.ChangedAtMs);
+            }
+            finally
+            {
+                _adoptingTheme = false;
+            }
+            FileLog.Write($"Tema del móvil: {t.ThemeId}, acento {t.AccentId}");
+        });
         Live = new LiveStrokeModel();
         Gestures.Outcome += o => Post(() => Live.OnOutcome(
             o.Status, o.Name, o.Binding?.HelpText, o.Binding is { } binding ? ActionText.Summary(binding.Action) : null, o.Error?.Message));
@@ -215,6 +237,7 @@ internal sealed class HostApp : IDisposable
             if (!value.ShowLiveGesture) Live.Hide();
             Theme.GlassEffect = value.GlassEffect;
             if (old.Theme != value.Theme) Theme.Set(value.Theme); // acento y fondos de todas las ventanas, al momento
+            if (old.ThemeChangedAtMs != value.ThemeChangedAtMs && !_adoptingTheme) _themeSync.LocalChanged(); // al móvil (v8)
             if (old.AlwaysShowIcon != value.AlwaysShowIcon) ApplyIconPromotion(value.AlwaysShowIcon, userAction: true);
             _toolbox?.Rebuild();
             StateChanged?.Invoke();
@@ -544,6 +567,7 @@ internal sealed class HostApp : IDisposable
         Updates.Dispose();
         _file.Dispose();
         Shapes.Dispose();
+        _themeSync.Dispose();
         _widgets.Dispose();
         Media.Dispose();
         Volume.Dispose();

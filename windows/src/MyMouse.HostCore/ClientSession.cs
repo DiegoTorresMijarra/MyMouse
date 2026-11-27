@@ -141,6 +141,10 @@ public sealed class ClientSession
                     // La versión de la app (v6) para los avisos cruzados. Se envía una sola vez, justo tras el handshake.
                     if (_phone is { HostAppVersion.Length: > 0 } && Version >= ProtocolInfo.AppVersionVersion)
                         await SendAsync(new HostAppVersionMessage(_phone.HostAppVersion), cancellationToken).ConfigureAwait(false);
+
+                    // El tema del PC (v8): el móvil manda el suyo y cada lado se queda con el cambio más reciente.
+                    if (_phone?.LocalTheme is { } localTheme && Version >= ProtocolInfo.ThemeVersion)
+                        await SendAsync(localTheme(), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -229,6 +233,14 @@ public sealed class ClientSession
         {
             // Entran en la versión 5. Se atienden aunque el PC esté en pausa: la toolbox sigue siendo útil.
             if (Version < ProtocolInfo.ToolboxVersion)
+                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            _phone?.Dispatch(message);
+            return;
+        }
+
+        if (message is ThemeMessage theme)
+        {
+            if (Version < ProtocolInfo.ThemeVersion || theme.FromHost)
                 throw new ProtocolException($"{message.Type} con protocolo v{Version}");
             _phone?.Dispatch(message);
             return;

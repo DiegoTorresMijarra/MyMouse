@@ -41,6 +41,7 @@ import dev.mymouse.core.hid.HidReport
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.MediaCommand
 import dev.mymouse.core.protocol.Message
+import dev.mymouse.core.theme.SyncedTheme
 
 /**
  * El móvil como ratón y teclado Bluetooth (docs/spec-v3-bluetooth.md): no hace falta nada en el PC.
@@ -641,6 +642,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     }
 
     override fun sendShapes(messages: List<Message>) = Unit // sin PC no hay con quién sincronizar las formas
+    override fun sendTheme(theme: SyncedTheme) = Unit // ni el tema: por Bluetooth no hay MyMouse en el PC con quien hablar
+    override var localTheme: () -> SyncedTheme? = { null }
+    override var onHostTheme: (SyncedTheme) -> Unit = {}
 
     /** En el hilo emisor: lo que no es movimiento sale ya (tras soltar el movimiento pendiente) y el movimiento espera a su tic. */
     private fun process(device: BluetoothDevice, reports: List<HidReport>) {

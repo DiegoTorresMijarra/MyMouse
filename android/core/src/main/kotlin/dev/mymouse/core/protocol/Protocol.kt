@@ -4,8 +4,8 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app, 7 = modo teclado. */
-    const val VERSION = 7
+    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app, 7 = modo teclado, 8 = tema sincronizado. */
+    const val VERSION = 8
     const val GESTURES_VERSION = 2
 
     /** Primera versión con los mensajes del panel de widgets. */
@@ -23,6 +23,12 @@ object Protocol {
 
     /** Primera versión con el modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS` y `KEYBOARD_LAYOUT`. */
     const val KEYBOARD_VERSION = 7
+
+    /** Primera versión con `THEME`: tema, acento y estrellas sincronizados entre móvil y PC. */
+    const val THEME_VERSION = 8
+
+    /** Longitud máxima de los ids de tema y de acento de `THEME`, en bytes UTF-8. */
+    const val MAX_THEME_ID_BYTES = 32
 
     /** Longitud máxima del id de distribución de `KEYBOARD_LAYOUT`, en bytes UTF-8. */
     const val MAX_LAYOUT_ID_BYTES = 16
@@ -240,6 +246,18 @@ sealed interface Message {
         }
     }
 
+    /**
+     * Tema del móvil (0x17, móvil → PC) o del PC (0x92, [fromHost]; protocolo v8): ids de tema y de acento, estrellas y cuándo se
+     * eligió por última vez (ms desde 1970, UTC). Gana el cambio más reciente (docs/spec-v6.1-tema-sincronizado.md).
+     */
+    data class Theme(val themeId: String, val accentId: String, val stars: Boolean, val changedAtMs: Long, val fromHost: Boolean = false) : Message {
+        init {
+            require(themeId.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_THEME_ID_BYTES) { "Id de tema demasiado largo" }
+            require(accentId.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_THEME_ID_BYTES) { "Id de acento demasiado largo" }
+            require(changedAtMs >= 0) { "Instante de cambio negativo" }
+        }
+    }
+
     data object Ping : Message
     data object Pong : Message
 }
@@ -270,6 +288,7 @@ object MessageCodec {
     private const val APP_VERSION = 0x14
     private const val KEY = 0x15
     private const val KEYBOARD_MODE = 0x16
+    private const val THEME = 0x17
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
     private const val GESTURE_RESULT = 0x86
@@ -284,6 +303,7 @@ object MessageCodec {
     private const val KEYBOARD_OPEN = 0x8F
     private const val KEYBOARD_LEDS = 0x90
     private const val KEYBOARD_LAYOUT = 0x91
+    private const val HOST_THEME = 0x92
 
     /** Tamaño fijo del payload, o null si el tipo es variable. */
     fun payloadSize(type: Int): Int? = when (type) {
@@ -294,7 +314,8 @@ object MessageCodec {
         GESTURE_MODE -> 3
         PING, PONG, KEYBOARD_OPEN -> 0
         GESTURE, GESTURE_LIST, WIDGET_LAYOUT, MEDIA_STATE,
-        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE, APP_VERSION, APP_VERSION_HOST, KEYBOARD_LAYOUT -> null
+        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE, APP_VERSION, APP_VERSION_HOST, KEYBOARD_LAYOUT,
+        THEME, HOST_THEME -> null
         else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
     }
 
@@ -336,6 +357,7 @@ object MessageCodec {
             Message.KeyboardOpen -> KEYBOARD_OPEN to ByteArray(0)
             is Message.KeyboardLeds -> KEYBOARD_LEDS to byteArrayOf(message.bits.toByte())
             is Message.KeyboardLayoutId -> KEYBOARD_LAYOUT to encodeName(message.id)
+            is Message.Theme -> (if (message.fromHost) HOST_THEME else THEME) to encodeTheme(message)
             Message.Ping -> PING to ByteArray(0)
             Message.Pong -> PONG to ByteArray(0)
         }
@@ -417,6 +439,8 @@ object MessageCodec {
             KEYBOARD_OPEN -> Message.KeyboardOpen
             KEYBOARD_LEDS -> Message.KeyboardLeds(payload.u8(0))
             KEYBOARD_LAYOUT -> Message.KeyboardLayoutId(decodeLayoutId(payload))
+            THEME -> decodeTheme(payload, fromHost = false)
+            HOST_THEME -> decodeTheme(payload, fromHost = true)
             PING -> Message.Ping
             PONG -> Message.Pong
             else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
@@ -553,6 +577,31 @@ object MessageCodec {
         c.requireEnd("KEYBOARD_LAYOUT")
         if (id.toByteArray(Charsets.UTF_8).size > Protocol.MAX_LAYOUT_ID_BYTES) throw ProtocolException("Id de distribución demasiado largo")
         return id
+    }
+
+    private fun encodeTheme(m: Message.Theme): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        str8(out, m.themeId)
+        str8(out, m.accentId)
+        out.write(if (m.stars) 1 else 0)
+        for (i in 0 until 8) out.write(((m.changedAtMs ushr (8 * i)) and 0xFF).toInt())
+        return out.toByteArray()
+    }
+
+    private fun decodeTheme(p: ByteArray, fromHost: Boolean): Message.Theme {
+        val name = if (fromHost) "THEME (PC)" else "THEME"
+        val c = Cursor(p)
+        val theme = c.str()
+        val accent = c.str()
+        val stars = bool(c.byte())
+        var changedAt = 0L
+        for (i in 0 until 8) changedAt = changedAt or (c.byte().toLong() shl (8 * i))
+        c.requireEnd(name)
+        if (theme.toByteArray(Charsets.UTF_8).size > Protocol.MAX_THEME_ID_BYTES || accent.toByteArray(Charsets.UTF_8).size > Protocol.MAX_THEME_ID_BYTES) {
+            throw ProtocolException("Id de tema o de acento demasiado largo en $name")
+        }
+        if (changedAt < 0) throw ProtocolException("Instante de cambio negativo en $name")
+        return Message.Theme(theme, accent, stars, changedAt, fromHost)
     }
 
     private fun decodeName(p: ByteArray): Message.ShapeDelete {

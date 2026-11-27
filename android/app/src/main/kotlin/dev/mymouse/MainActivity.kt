@@ -32,7 +32,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import dev.mymouse.core.theme.SyncedTheme
 import dev.mymouse.core.theme.ThemeChoice
+import dev.mymouse.core.theme.ThemeSync
 import dev.mymouse.core.debug.WidgetDescriber
 import dev.mymouse.core.gesture.TrackpadEngine
 import dev.mymouse.core.protocol.Message
@@ -97,6 +99,7 @@ class MainActivity : Activity() {
         settings = AppSettings.load(this)
         GlassTheme.applyTheme(settings.theme) // antes de crear ninguna vista
         appliedTheme = settings.theme.normalized()
+        sentTheme = SyncedTheme.of(settings.theme, settings.themeChangedAt)
         shapes = ShapeStore(this)
         panelShown = settings.showWidgets
         panelProgress = if (panelShown) 1f else 0f
@@ -142,6 +145,9 @@ class MainActivity : Activity() {
         connection.onKeyboardOpen = { handler.post { enterKeyboardMode() } } // widget Teclado (USB: KEYBOARD_OPEN; Bluetooth: botón propio)
         connection.onKeyboardLeds = { bits -> keyboardView.post { keyboardView.onHostLeds(bits) } }
         connection.onKeyboardLayout = { id -> keyboardView.post { keyboardView.hostLayoutId = id } }
+        // Tema sincronizado con el PC por cable (v6.1): se manda el de aquí al conectar y se adopta el del PC si es más reciente.
+        connection.localTheme = { AppSettings.load(this).let { SyncedTheme.of(it.theme, it.themeChangedAt) } }
+        connection.onHostTheme = { remote -> trackpad.post { adoptHostTheme(remote) } }
         connection.onConnectionChanged = { connected ->
             trackpad.post {
                 trackpad.connected = connected
@@ -269,6 +275,18 @@ class MainActivity : Activity() {
         return transport.gestureList(shapes.enabled)
     }
 
+    /** El tema que el PC ya conoce (el enviado o el adoptado), para mandar solo los cambios hechos aquí. */
+    private var sentTheme: SyncedTheme? = null
+
+    /** Llega el tema del PC: si es más reciente, se guarda (con su instante) y se aplica como si se hubiera elegido en Ajustes. */
+    private fun adoptHostTheme(remote: SyncedTheme) {
+        val s = AppSettings.load(this)
+        val adopted = ThemeSync.resolve(SyncedTheme.of(s.theme, s.themeChangedAt), remote, localIsPhone = true) ?: return
+        s.copy(theme = adopted.applyTo(s.theme), themeChangedAt = adopted.changedAtMs).save(this)
+        sentTheme = adopted
+        applySettings()
+    }
+
     /** Tema con el que está pintada esta pantalla (ver [applySettings]). */
     private var appliedTheme: ThemeChoice? = null
 
@@ -279,6 +297,11 @@ class MainActivity : Activity() {
 
     private fun applySettings() {
         settings = AppSettings.load(this)
+        // Se cambió el tema aquí (en Ajustes): al PC por cable (v6.1). Lo adoptado del PC ya está en [sentTheme] y no se reenvía.
+        SyncedTheme.of(settings.theme, settings.themeChangedAt).let { now ->
+            if (now != sentTheme) connection.sendTheme(now)
+            sentTheme = now
+        }
         // Se cambió el tema en Ajustes: fondo y acento nuevos (docs/spec-v4.8-temas.md §3). Se compara con el tema que
         // tiene pintado ESTA pantalla y no con GlassTheme.choice: Ajustes ya cambia GlassTheme al momento, así que esa
         // comparación nunca veía el cambio y el trackpad se quedaba con el tema viejo hasta reiniciar la app.

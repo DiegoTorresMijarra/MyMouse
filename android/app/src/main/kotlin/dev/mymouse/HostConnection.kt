@@ -5,6 +5,7 @@ import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.keyboard.KeyEvent
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.Message
+import dev.mymouse.core.theme.SyncedTheme
 import dev.mymouse.core.protocol.MessageCodec
 import dev.mymouse.core.protocol.MessageReader
 import dev.mymouse.core.protocol.Protocol
@@ -64,6 +65,10 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     override var onKeyboardOpen: () -> Unit = {}
     override var onKeyboardLeds: (Int) -> Unit = {}
     override var onKeyboardLayout: (String) -> Unit = {}
+
+    /** Tema sincronizado (protocolo v8). */
+    override var localTheme: () -> SyncedTheme? = { null }
+    override var onHostTheme: (SyncedTheme) -> Unit = {}
 
     /** Versión de MyMouse del PC (protocolo v6). `null` al desconectar. */
     override var onHostAppVersion: (String?) -> Unit = {}
@@ -150,6 +155,14 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
         if (!connected || protocolVersion < Protocol.TOOLBOX_VERSION) return
         lock.withLock {
             queue.addAll(messages)
+            notEmpty.signal()
+        }
+    }
+
+    override fun sendTheme(theme: SyncedTheme) {
+        if (!connected || protocolVersion < Protocol.THEME_VERSION) return
+        lock.withLock {
+            queue.addLast(theme.toMessage())
             notEmpty.signal()
         }
     }
@@ -241,6 +254,10 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
             out.write(MessageCodec.encode(Message.AppVersion(appVersion.take(Protocol.MAX_APP_VERSION_BYTES))))
             out.flush()
         }
+        // El tema del móvil (v8): el PC manda el suyo y cada lado se queda con el cambio más reciente.
+        if (protocolVersion >= Protocol.THEME_VERSION) {
+            localTheme()?.let { out.write(MessageCodec.encode(it.toMessage())); out.flush() }
+        }
         val readerThread = thread(name = "MyMouse-reader", isDaemon = true) { readLoop(s, reader) }
         setConnected(true)
         Log.i(TAG, "Conectado al host")
@@ -279,6 +296,7 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
                     is Message.KeyboardOpen -> onKeyboardOpen()
                     is Message.KeyboardLeds -> onKeyboardLeds(m.bits)
                     is Message.KeyboardLayoutId -> onKeyboardLayout(m.id)
+                    is Message.Theme -> if (m.fromHost) onHostTheme(SyncedTheme.of(m))
                     else -> Unit // PONG
                 }
             }

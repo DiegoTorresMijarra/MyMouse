@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **7** (v5 = toolbox del PC: panel, gesto en vivo y formas sincronizadas; v6 = `APP_VERSION`, avisos de versión cruzados; v7 = modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS`, `KEYBOARD_LAYOUT`). El host acepta también clientes de versión 1, 2, 3, 4, 5 y 6. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **8** (v5 = toolbox del PC: panel, gesto en vivo y formas sincronizadas; v6 = `APP_VERSION`, avisos de versión cruzados; v7 = modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS`, `KEYBOARD_LAYOUT`; v8 = `THEME`, tema sincronizado). El host acepta también clientes de versión 1, 2, 3, 4, 5, 6 y 7. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -24,7 +24,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 ```
 
 - Todos los enteros multibyte van en **little-endian**.
-- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`, `STROKE_POINTS`, `SHAPE_INFO`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`, `APP_VERSION`, `KEYBOARD_LAYOUT`) llevan delante la longitud del payload en un `u16`.
+- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`, `STROKE_POINTS`, `SHAPE_INFO`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`, `APP_VERSION`, `KEYBOARD_LAYOUT`, `THEME`) llevan delante la longitud del payload en un `u16`.
 - `str8` = `u8` longitud en bytes + texto UTF-8.
 - Si un extremo recibe un tipo desconocido, **cierra la conexión**: no es posible resincronizar el flujo.
 
@@ -57,6 +57,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x14` | `APP_VERSION` (v6) | `u16 len` + `str8 versión` de la app del móvil (p. ej. `5.0` o `0.0-dev.42`) | variable |
 | `0x15` | `KEY` (v7) | `u8 usage` (uso HID, página 0x07), `u8 down` (1 pulsar, 0 soltar) | 3 |
 | `0x16` | `KEYBOARD_MODE` (v7) | `u8 on` (1 entra en el modo teclado, 0 sale) | 2 |
+| `0x17` | `THEME` (v8) | `u16 len` + `str8 tema`, `str8 acento`, `u8 estrellas` (0/1), `i64 instante` del último cambio (ms desde 1970, UTC) | variable |
 
 ### Host → cliente
 
@@ -76,6 +77,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x8F` | `KEYBOARD_OPEN` (v7) | — (el widget Teclado pide abrir el teclado del móvil) | 1 |
 | `0x90` | `KEYBOARD_LEDS` (v7) | `u8 bits`: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl | 2 |
 | `0x91` | `KEYBOARD_LAYOUT` (v7) | `u16 len` + `str8 id` de la distribución (`es`, `us`) | variable |
+| `0x92` | `THEME` (v8) | Igual que `0x17`, con el tema del PC | variable |
 
 ### Detalle
 
@@ -136,6 +138,10 @@ Tamaño variable:  +--------+-----------+---------------------+
   - **`KEYBOARD_LEDS` y `KEYBOARD_LAYOUT`.** Al recibir `KEYBOARD_MODE` encendido, el host envía las luces (`KEYBOARD_LEDS`, con `GetKeyState`) y la distribución activa de la ventana en primer plano (`KEYBOARD_LAYOUT`, con `GetKeyboardLayout`: `es` si es español de España, `us` con cualquier otra), y después solo cuando cambian (comprueba cada 250 ms mientras el modo está activo). `KEYBOARD_LAYOUT` lleva un `str8` de hasta 16 bytes.
   - **`KEYBOARD_OPEN`.** Lo envía el host cuando el widget Teclado (acción `{"type":"mymouse","command":"keyboard"}`) se ejecuta; el móvil abre su teclado. Con un móvil de versión < 7 la acción falla en el PC (no se envía nada).
   - Por Bluetooth no se usa nada de esto: el móvil envía el informe de teclado HID (id 2) con las teclas pulsadas (hasta 6 normales a la vez) y recibe las luces por el informe de salida de LEDs del mismo teclado.
+- **Tema sincronizado** (v8). El tema, el acento y las estrellas se sincronizan entre móvil y PC ([spec-v6.1-tema-sincronizado.md](../docs/spec-v6.1-tema-sincronizado.md)). Solo con versión negociada ≥ 8: con una versión menor, recibir `THEME` es un error de protocolo, y un `0x92` que llega al host también.
+  - Cada lado envía su `THEME` **una vez justo tras el handshake** y después solo cuando el usuario lo cambia en ese lado. Lo que se adopta del otro lado no se reenvía.
+  - El instante es el del último cambio del tema, el acento o las estrellas (ms desde 1970, UTC; 0 = nunca). **Gana el más reciente**; con el mismo instante y distinto aspecto, gana el móvil. Lo adoptado se guarda con su instante.
+  - Ids de hasta 32 bytes UTF-8; un id desconocido se resuelve como en la v4.8 (Universo, Automático). Un instante negativo es un error de protocolo.
 
 ## Versionado
 
@@ -189,5 +195,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `KEYBOARD_LEDS(Mayús + Num)` | `90 03` |
 | `KEYBOARD_LAYOUT("es")` | `91 03 00 02 65 73` |
 | `KEYBOARD_LAYOUT("us")` | `91 03 00 02 75 73` |
+| `THEME("graphite", "auto", estrellas, 1000)` (móvil) | `17 17 00 08 67 72 61 70 68 69 74 65 04 61 75 74 6F 01 E8 03 00 00 00 00 00 00` |
+| `THEME("universe", "steel", sin estrellas, 0x0102030405060708)` (PC) | `92 18 00 08 75 6E 69 76 65 72 73 65 05 73 74 65 65 6C 00 08 07 06 05 04 03 02 01` |
 | `PING` | `05` |
 | `PONG` | `85` |

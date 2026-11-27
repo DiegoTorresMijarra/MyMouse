@@ -4,6 +4,7 @@ import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.keyboard.KeyEvent
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.Message
+import dev.mymouse.core.theme.SyncedTheme
 
 /**
  * Cómo llegan las acciones al PC: por USB con MyMouse en el PC ([HostConnection]) o como ratón
@@ -33,6 +34,12 @@ interface Transport {
 
     /** Distribución activa del PC (`KEYBOARD_LAYOUT`: `es` o `us`), solo por USB. Desde otro hilo. */
     var onKeyboardLayout: (String) -> Unit
+
+    /** Tema del móvil que se envía al PC nada más conectar (`THEME`, protocolo v8). Solo por USB. Se llama desde el hilo de conexión. */
+    var localTheme: () -> SyncedTheme?
+
+    /** Tema del PC (`THEME`, protocolo v8). Solo por USB. Se llama desde el hilo de lectura. */
+    var onHostTheme: (SyncedTheme) -> Unit
 
     /** ¿Admite el modo gestos? (Las acciones de las formas viven en el PC.) */
     val supportsGestures: Boolean
@@ -76,4 +83,7 @@ interface Transport {
 
     /** Lista de formas propias (`SHAPE_INFO`… `SHAPE_LIST_END`) o respuestas `SHAPE_RESULT`. Se descartan si [supportsToolbox] es false. */
     fun sendShapes(messages: List<Message>)
+
+    /** Se cambió el tema en el móvil: se manda al PC (`THEME`, v8). Se descarta sin conexión o con un PC anterior, y por Bluetooth. */
+    fun sendTheme(theme: SyncedTheme)
 }

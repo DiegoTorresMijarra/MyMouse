@@ -3,14 +3,20 @@ namespace MyMouse.Protocol;
 /// <summary>Constantes del protocolo. Ver protocol/PROTOCOL.md.</summary>
 public static class ProtocolInfo
 {
-    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC, 6 = versión de la app (APP_VERSION), 7 = modo teclado (KEY, KEYBOARD_*).</summary>
-    public const byte CurrentVersion = 7;
+    /// <summary>Versión más alta soportada. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows (SYSTEM_GESTURE), 5 = toolbox del PC, 6 = versión de la app (APP_VERSION), 7 = modo teclado (KEY, KEYBOARD_*), 8 = tema sincronizado (THEME).</summary>
+    public const byte CurrentVersion = 8;
 
     /// <summary>Primera versión con APP_VERSION (avisos de versión cruzados entre móvil y PC).</summary>
     public const byte AppVersionVersion = 6;
 
     /// <summary>Primera versión con el modo teclado: KEY, KEYBOARD_MODE, KEYBOARD_OPEN, KEYBOARD_LEDS y KEYBOARD_LAYOUT.</summary>
     public const byte KeyboardVersion = 7;
+
+    /// <summary>Primera versión con THEME: el tema, el acento y las estrellas se sincronizan entre móvil y PC.</summary>
+    public const byte ThemeVersion = 8;
+
+    /// <summary>Longitud máxima de los ids de tema y de acento de THEME, en bytes UTF-8.</summary>
+    public const int MaxThemeIdBytes = 32;
 
     /// <summary>Longitud máxima del id de distribución de KEYBOARD_LAYOUT, en bytes UTF-8.</summary>
     public const int MaxLayoutIdBytes = 16;
@@ -75,6 +81,7 @@ public enum MessageType : byte
     AppVersion = 0x14,
     Key = 0x15,
     KeyboardMode = 0x16,
+    Theme = 0x17,
     HelloAck = 0x81,
     Pong = 0x85,
     GestureResult = 0x86,
@@ -89,6 +96,7 @@ public enum MessageType : byte
     KeyboardOpen = 0x8F,
     KeyboardLeds = 0x90,
     KeyboardLayout = 0x91,
+    HostTheme = 0x92,
 }
 
 public enum MouseButton : byte
@@ -390,6 +398,15 @@ public sealed record KeyboardLedsMessage(byte Bits) : Message
 public sealed record KeyboardLayoutMessage(string Id) : Message
 {
     public override MessageType Type => MessageType.KeyboardLayout;
+}
+
+/// <summary>
+/// Tema del móvil (0x17, móvil a PC) o del PC (0x92, PC a móvil; protocolo v8): ids de tema y de acento, estrellas y cuándo se cambió
+/// por última vez (ms desde 1970, UTC). Gana el cambio más reciente (docs/spec-v6.1-tema-sincronizado.md).
+/// </summary>
+public sealed record ThemeMessage(string ThemeId, string AccentId, bool Stars, long ChangedAtMs, bool FromHost = false) : Message
+{
+    public override MessageType Type => FromHost ? MessageType.HostTheme : MessageType.Theme;
 }
 
 public sealed record PingMessage : Message

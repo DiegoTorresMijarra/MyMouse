@@ -54,6 +54,8 @@ public class MessageCodecTests
         { new KeyboardLedsMessage(0), "90 00" },
         { new KeyboardLayoutMessage("es"), "91 03 00 02 65 73" },
         { new KeyboardLayoutMessage("us"), "91 03 00 02 75 73" },
+        { new ThemeMessage("graphite", "auto", true, 1000), "17 17 00 08 67 72 61 70 68 69 74 65 04 61 75 74 6F 01 E8 03 00 00 00 00 00 00" },
+        { new ThemeMessage("universe", "steel", false, 0x0102030405060708, FromHost: true), "92 18 00 08 75 6E 69 76 65 72 73 65 05 73 74 65 65 6C 00 08 07 06 05 04 03 02 01" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -132,6 +134,10 @@ public class MessageCodecTests
     [InlineData("91 02 00 02 65")] // KEYBOARD_LAYOUT truncado
     [InlineData("91 04 00 02 65 73 00")] // bytes sobrantes
     [InlineData("91 12 00 11 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61 61")] // id de más de 16 bytes
+    [InlineData("17 0E 00 01 61 01 62 01 E8 03 00 00 00 00 00")] // THEME con el instante truncado
+    [InlineData("17 10 00 01 61 01 62 01 E8 03 00 00 00 00 00 00 00")] // bytes sobrantes
+    [InlineData("17 0F 00 01 61 01 62 02 E8 03 00 00 00 00 00 00")] // estrellas con booleano inválido
+    [InlineData("92 0F 00 01 61 01 62 01 00 00 00 00 00 00 00 80")] // instante negativo
     public async Task Read_InvalidInput_Throws(string hex)
     {
         var reader = new MessageReader(new MemoryStream(Hex(hex)));
