@@ -21,10 +21,8 @@ class ThemeSwatchView(context: Context, private val theme: ThemeDef, private val
     private val rect = RectF()
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
-    init {
-        isClickable = true
-        isFocusable = true
-    }
+    // No es clicable por sí misma: el toque lo recibe la celda que la contiene (muestra + nombre), que es la que cambia
+    // el tema. Si la muestra fuera clicable se quedaría el toque y solo funcionaría tocar el nombre de debajo.
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         setMeasuredDimension((WIDTH_DP * d).toInt(), (HEIGHT_DP * d).toInt())
