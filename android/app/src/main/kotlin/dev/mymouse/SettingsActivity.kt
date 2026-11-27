@@ -1,11 +1,14 @@
 package dev.mymouse
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -31,7 +34,14 @@ class SettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         settings = AppSettings.load(this)
         title = "Ajustes de MyMouse"
+        buildUi()
+        restoreScroll(savedInstanceState?.getInt(KEY_SCROLL_Y) ?: 0, savedInstanceState?.getInt(KEY_SWATCHES_X))
+    }
 
+    /** Construye (o reconstruye, al cambiar el tema) toda la pantalla con los ajustes y el tema actuales. */
+    private fun buildUi() {
+        swatchScroll = null
+        selectedCell = null
         screen = GlassTheme.Screen(this, "Ajustes")
         themeSection()
         section("Trackpad")
@@ -167,8 +177,9 @@ class SettingsActivity : Activity() {
 
         list = screen.card(null)
         list.addView(GlassTheme.button(this, "Valores por defecto") {
-            settings = AppSettings() // onPause lo guarda
-            recreate()
+            settings = AppSettings()
+            settings.save(this)
+            rebuildWithCrossfade()
         })
         list.addView(TextView(this).apply {
             text = "MyMouse ${packageManager.getPackageInfo(packageName, 0).versionName}"
@@ -178,7 +189,6 @@ class SettingsActivity : Activity() {
         })
         // Android 15 dibuja la app bajo las barras del sistema: GlassTheme.Screen deja su hueco.
         screen.setContentView()
-        restoreScroll(savedInstanceState)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -276,13 +286,38 @@ class SettingsActivity : Activity() {
         settings = settings.copy(theme = choice.normalized())
         GlassTheme.applyTheme(settings.theme)
         settings.save(this)
-        recreate()
+        rebuildWithCrossfade()
     }
 
-    /** Tras recrear, la pantalla vuelve a donde estaba; la primera vez, la fila de muestras deja a la vista la elegida. */
-    private fun restoreScroll(state: Bundle?) {
-        val y = state?.getInt(KEY_SCROLL_Y) ?: 0
-        val x = state?.getInt(KEY_SWATCHES_X)
+    /**
+     * Aplica el tema sin parpadeo. Antes se hacía `recreate()`, que destruye la actividad: durante un instante se veía el
+     * fondo de la ventana vacía. Ahora se rehace el contenido en la misma actividad, con la posición de scroll de antes,
+     * y una foto de la pantalla anterior se funde encima (220 ms) para que el cambio sea un fundido suave.
+     */
+    private fun rebuildWithCrossfade() {
+        val decor = window.decorView as ViewGroup
+        val y = screen.scrollView?.scrollY ?: 0
+        val x = swatchScroll?.scrollX
+        val snapshot = if (decor.width > 0 && decor.height > 0) {
+            Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888).also { decor.draw(Canvas(it)) }
+        } else null
+        buildUi()
+        decor.requestApplyInsets() // el contenido nuevo necesita los márgenes de las barras del sistema
+        restoreScroll(y, x)
+        if (snapshot == null) return
+        val overlay = ImageView(this).apply {
+            setImageBitmap(snapshot)
+            scaleType = ImageView.ScaleType.FIT_XY
+        }
+        decor.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        overlay.animate().alpha(0f).setDuration(220).withEndAction {
+            decor.removeView(overlay)
+            snapshot.recycle()
+        }.start()
+    }
+
+    /** Tras reconstruir, la pantalla vuelve a donde estaba; la primera vez, la fila de muestras deja a la vista la elegida. */
+    private fun restoreScroll(y: Int, x: Int?) {
         screen.scrollView?.post { screen.scrollView?.scrollTo(0, y) }
         swatchScroll?.post {
             val target = x ?: ((selectedCell?.left ?: 0) - (16 * density).toInt()).coerceAtLeast(0)
