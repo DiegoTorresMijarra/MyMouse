@@ -173,6 +173,23 @@ Con la conexión **Bluetooth** elegida y el móvil conectado al PC:
 6. **Scroll fino:** con el móvil recién emparejado, haz scroll con 2 dedos despacio en un navegador o un documento largo: debe moverse **suave, sin saltos de línea en línea**; el zoom con 2 dedos (Ctrl + rueda) también más fino. En la pantalla Bluetooth → Diagnóstico debe poner **"Scroll fino: activado por el PC"**. Si pone "no" tras volver a emparejar, apunta el PC y la versión de Windows y copia el diagnóstico: el scroll sigue funcionando en pasos enteros. *Ajustes → Conexión → Scroll fino por Bluetooth (avanzado)* lo apaga (vuelve el descriptor antiguo; hay que volver a emparejar).
 7. **Qué sigue siendo solo del USB:** abrir programas, pausar/bloquear MyMouse, reglas por aplicación, la toolbox del PC y el volumen deslizante.
 
+## Avisos de versión nueva (v5.1)
+
+**La v5.1 es la primera versión con buscador de actualizaciones.** El aviso solo sale cuando hay una release **más alta** que la instalada, así que con la v5.1 recién instalada y sin nada posterior en GitHub no aparecerá nada (es lo correcto: "Buscar ahora" dice "Ya tienes la última versión"). El primer aviso real llegará con la release siguiente (p. ej. al publicar la v5.2, desde la v5.1). Las compilaciones de rama (`0.0-dev.N`) y las de compilación local **nunca** avisan: para probar el aviso hace falta una release instalada (`5.0`, `5.1`…).
+
+Cómo probarlo sin esperar a la release siguiente:
+- **Con la v5.0 o anterior no sirve** (no tienen el buscador). Instala la **v5.1** en un lado y, cuando exista una release con etiqueta más alta (`v5.1.1`, `v5.2`…), comprueba el flujo completo. Mientras tanto se pueden probar a mano los extras que no necesitan una release nueva, de arriba abajo:
+1. **Buscar ahora:** PC → icono de la bandeja → ⚙ → **Buscar actualizaciones ahora**: debe decir "Ya tienes la última versión (MyMouse 5.1)". Móvil → Ajustes → **Actualizaciones** → **Buscar ahora**: "Tienes la última versión." Sin Internet: en el PC sale el cuadro "No se pudo comprobar…" y en el móvil "Aún no se ha comprobado"; nunca un error en pantalla al arrancar. La versión instalada se ve en ⚙ ("Versión instalada: 5.1") y en Ajustes del móvil.
+2. **Aviso cruzado** (necesita USB y dos releases distintas, p. ej. el APK de la v5.1 y el PC con una versión posterior): conecta el móvil; en el PC el banner de la toolbox dice "El móvil tiene MyMouse 5.1 y este PC la 5.0…" (o "…una versión anterior… actualízalo desde el móvil") y en el móvil sale la píldora "PC desactualizado" / "Actualizar a…". Con una versión `0.0-dev.N` en cualquiera de los dos, no sale nada.
+3. **Cuando exista una release más nueva:**
+   - **PC instalado con el instalador:** a los 10 s de abrir MyMouse sale un globo "Nueva versión … disponible" (una vez por versión), el icono de la bandeja lleva un **punto azul** arriba a la izquierda y la toolbox tiene el banner arriba con **Novedades** (abre la página de la release), **Actualizar** y **Omitir**. **Actualizar**: barra de progreso, MyMouse se cierra, el instalador corre en silencio y MyMouse **se vuelve a abrir solo** con la versión nueva (⚙ → "Versión instalada") y la misma configuración (tema, gestos, "Iniciar con Windows" si estaba marcado). Si falla la descarga, el banner lo dice y se puede reintentar.
+   - **PC portátil (zip):** el botón dice "Ver descarga" y abre la página de la release en el navegador.
+   - **Omitir:** el banner desaparece y no vuelve para esa versión; sí para la siguiente. "Buscar ahora" la vuelve a mostrar.
+   - **Móvil:** en modo ventana, la píldora "Actualizar a …" (los otros botones quedan solo con icono) abre la hoja con las novedades: **Descargar e instalar** / **Omitir** / Más tarde. La primera vez Android pide permitir a MyMouse **instalar apps desconocidas**: se abre la pantalla del sistema; activa el interruptor y vuelve atrás: el instalador de Android se abre con el APK nuevo. Se instala encima y conserva los ajustes. La píldora muestra "Descargando N %" y hay una notificación del sistema. En modo bloqueado no se muestra nada.
+4. **Apagar las búsquedas:** ⚙ → "Buscar actualizaciones automáticamente" (PC) y el interruptor de Ajustes → Actualizaciones (móvil): sin él no se busca solo (sigue "Buscar ahora").
+
+Notas: las llamadas van a `api.github.com` (límite de 60 por hora y por IP, de sobra) y el log del PC (`%APPDATA%\MyMouse\logs`, líneas "Buscar actualizaciones: instalada …, última …") y `adb logcat -s MyMouse` dicen qué versión vio cada lado.
+
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
 - Qué hiciste y qué pasó (y qué esperabas).

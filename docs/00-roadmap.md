@@ -13,6 +13,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 | **v4.7** | Fondo "universo", icono propio y retoques | USB / Bluetooth |
 | **v4.8** | Temas elegibles en el móvil y en el PC, con un universo más sobrio | USB / Bluetooth |
 | **v5** | Bluetooth completo (gestos, botones propios, scroll fino) e instalador de Windows | Bluetooth / USB |
+| **v5.1** | Avisos de versión nueva en el PC y el móvil, con actualización en un clic | USB / Internet |
 
 ---
 
@@ -209,6 +210,23 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 > Estado: implementada en la rama de desarrollo (release `v5.0` pendiente). La lógica nueva tiene tests (acciones, distribuciones ES/US, ficheros, descriptor y multiplicador, mapeador y coalescer, búsqueda de adb); el módulo `app` solo se ha pasado por el compilador de Kotlin y el instalador no se ha compilado aquí: ver las [notas de la spec](spec-v5-bluetooth-completo.md#8-notas-de-implementación).
 
 **Criterios de "hecho":** los de la [§6 de la spec](spec-v5-bluetooth-completo.md#6-criterios-de-hecho).
+
+---
+
+## v5.1: avisos de versión nueva
+
+**Objetivo:** que el PC y el móvil avisen cuando hay una release más nueva en GitHub y se actualicen con un botón.
+
+**Alcance:**
+- **PC:** banner en la toolbox ("Nueva versión 5.2 disponible": Novedades, Actualizar, Omitir), punto azul en el icono de la bandeja y un globo por versión. "Actualizar" descarga el instalador, comprueba tamaño y SHA-256, lo lanza en silencio y MyMouse se vuelve a abrir solo; la versión portátil (zip) abre la página de la release.
+- **Móvil:** píldora "Actualizar a 5.2" en la barra del modo ventana, hoja con las novedades y "Descargar e instalar" (`DownloadManager` + instalador de paquetes con `FileProvider`, con el permiso "Instalar apps desconocidas"), y tarjeta "Actualizaciones" en Ajustes.
+- **Avisos cruzados por USB:** protocolo v6 (`APP_VERSION`, `0x14` / `0x8E`): si móvil y PC tienen versiones distintas, los dos lo dicen (con botón en el que está atrasado si es el otro el nuevo).
+- Búsqueda al arrancar (a los 10 s) y cada 12 h, "Buscar ahora" y "Omitir esta versión" en los dos lados. Las versiones `0.0-dev.N` no avisan.
+- Detalle: [spec-v5.1-actualizaciones.md](spec-v5.1-actualizaciones.md).
+
+> Estado: implementada en la rama de desarrollo (release `v5.1` pendiente). La lógica nueva tiene tests en `core` y `HostCore` (versiones, API de GitHub con fixture, recurso, omitir, avisos cruzados y vectores de `APP_VERSION`); `app` solo se ha pasado por el compilador de Kotlin y el instalador y la actualización en silencio no se han ejecutado aquí: ver las [notas de la spec](spec-v5.1-actualizaciones.md#8-notas-de-implementación). La v5.1 es la primera versión con avisos: el primer aviso real llegará con la release siguiente.
+
+**Criterios de "hecho":** los de la [§7 de la spec](spec-v5.1-actualizaciones.md#7-criterios-de-hecho).
 
 ---
 

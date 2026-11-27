@@ -31,6 +31,7 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/spec-v4.7-universo.md](docs/spec-v4.7-universo.md) | Fondo "universo", icono propio de la app (`tools/icon/make_icons.py`), icono siempre visible y retoques del móvil |
 | [docs/spec-v4.8-temas.md](docs/spec-v4.8-temas.md) | Temas elegibles en el móvil y en el PC |
 | [docs/spec-v5-bluetooth-completo.md](docs/spec-v5-bluetooth-completo.md) | Bluetooth completo (gestos, botones propios, scroll fino) e instalador de Windows |
+| [docs/spec-v5.1-actualizaciones.md](docs/spec-v5.1-actualizaciones.md) | Avisos de versión nueva en el PC y el móvil (protocolo v6) |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha
