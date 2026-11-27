@@ -18,7 +18,7 @@ class GestureSheet(private val density: Float) {
 
     data class Item(val name: String, val label: String, val help: String, val pinned: Boolean, val preview: List<P>?)
 
-    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.panelSolid }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = GlassTheme.BORDER
@@ -46,7 +46,7 @@ class GestureSheet(private val density: Float) {
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.ACCENT }
+    private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.accent }
     private val box = RectF()
 
     /**
@@ -86,6 +86,7 @@ class GestureSheet(private val density: Float) {
         canvas.translate(placement.left, placement.top)
         canvas.scale(placement.scale, placement.scale)
         box.set(0f, 0f, w, h)
+        boxPaint.color = GlassTheme.panelSolid
         canvas.drawRoundRect(box, GlassTheme.RADIUS_CARD * density, GlassTheme.RADIUS_CARD * density, boxPaint)
         canvas.drawRoundRect(box, GlassTheme.RADIUS_CARD * density, GlassTheme.RADIUS_CARD * density, borderPaint)
         canvas.clipRect(box)
@@ -130,6 +131,7 @@ class GestureSheet(private val density: Float) {
 
     private fun drawShape(canvas: Canvas, points: List<P>, rect: RectF, highlighted: Boolean) {
         shapePaint.color = if (highlighted) GlassTheme.GREEN else GlassTheme.TEXT
+        startPaint.color = GlassTheme.accent
         drawShape(canvas, points, rect, shapePaint, startPaint, density)
     }
 

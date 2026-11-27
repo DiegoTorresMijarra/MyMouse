@@ -19,7 +19,7 @@ class ShapePreviewView(context: Context, private val points: List<P>?) : View(co
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val start = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.ACCENT }
+    private val start = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.accent }
     private val rect = RectF()
 
     override fun onDraw(canvas: Canvas) {

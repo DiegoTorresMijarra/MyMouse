@@ -2,6 +2,7 @@ package dev.mymouse
 
 import android.content.Context
 import dev.mymouse.core.gesture.TrackpadConfig
+import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.widgets.WidgetPanelSize
 
 /** Ajustes de la app (docs/spec-v0.md §2.5), guardados en SharedPreferences. */
@@ -38,6 +39,8 @@ data class AppSettings(
     val widgetPanelSize: WidgetPanelSize = WidgetPanelSize.MEDIUM,
     /** Cadencia del envío del movimiento por Bluetooth, en ms (ajuste avanzado, docs/spec-v4.5-estilo.md §4.2). */
     val bluetoothIntervalMs: Int = 8,
+    /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. No se sincroniza con el PC. */
+    val theme: ThemeChoice = ThemeChoice(),
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -76,6 +79,11 @@ data class AppSettings(
             .putBoolean("showWidgets", showWidgets)
             .putString("widgetPanelSize", widgetPanelSize.name)
             .putInt("bluetoothIntervalMs", bluetoothIntervalMs)
+            .putString("theme", theme.themeId)
+            .putString("accent", theme.accentId)
+            .putBoolean("themeStars", theme.stars)
+            .putBoolean("themeTwinkle", theme.twinkle)
+            .putBoolean("themeTwinkleTrackpad", theme.twinkleTrackpad)
             .apply()
     }
 
@@ -125,6 +133,14 @@ data class AppSettings(
                     ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,
                 bluetoothIntervalMs = p.getInt("bluetoothIntervalMs", d.bluetoothIntervalMs)
                     .coerceIn(MIN_BLUETOOTH_INTERVAL_MS, MAX_BLUETOOTH_INTERVAL_MS),
+                // Sin tema guardado (versiones anteriores a la 4.8) o con uno desconocido: Universo, con la paleta sobria.
+                theme = ThemeChoice(
+                    themeId = p.getString("theme", null) ?: d.theme.themeId,
+                    accentId = p.getString("accent", null) ?: d.theme.accentId,
+                    stars = p.getBoolean("themeStars", d.theme.stars),
+                    twinkle = p.getBoolean("themeTwinkle", d.theme.twinkle),
+                    twinkleTrackpad = p.getBoolean("themeTwinkleTrackpad", d.theme.twinkleTrackpad),
+                ).normalized(),
             )
         }
     }

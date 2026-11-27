@@ -5,12 +5,15 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import dev.mymouse.core.theme.ThemeChoice
+import dev.mymouse.core.theme.Themes
 import dev.mymouse.core.widgets.WidgetPanelSize
 import kotlin.math.roundToInt
 
@@ -30,7 +33,8 @@ class SettingsActivity : Activity() {
         title = "Ajustes de MyMouse"
 
         screen = GlassTheme.Screen(this, "Ajustes")
-        list = screen.card("Trackpad")
+        themeSection()
+        section("Trackpad")
         list.addView(slider("Sensibilidad", 0.3f, 3f, 0.1f, settings.sensitivity, { "×%.1f".format(it) }) {
             settings = settings.copy(sensitivity = it)
         })
@@ -174,6 +178,116 @@ class SettingsActivity : Activity() {
         })
         // Android 15 dibuja la app bajo las barras del sistema: GlassTheme.Screen deja su hueco.
         screen.setContentView()
+        restoreScroll(savedInstanceState)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(KEY_SCROLL_Y, screen.scrollView?.scrollY ?: 0)
+        outState.putInt(KEY_SWATCHES_X, swatchScroll?.scrollX ?: 0)
+    }
+
+    // ---- Tema (docs/spec-v4.8-temas.md §3) ----
+
+    private var swatchScroll: HorizontalScrollView? = null
+    private var selectedCell: View? = null
+
+    /** La tarjeta "Tema": muestras con el fondo real, acento y estrellas. Cada cambio se aplica al momento (recreando la pantalla). */
+    private fun themeSection() {
+        val choice = settings.theme.normalized()
+        val theme = choice.theme
+        list = screen.card("Tema")
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (t in Themes.ALL) {
+            val isSelected = t.id == theme.id
+            val cell = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                isClickable = true
+                contentDescription = t.name
+                setOnClickListener { updateTheme(choice.copy(themeId = t.id)) }
+            }
+            cell.addView(ThemeSwatchView(this, t, isSelected))
+            cell.addView(TextView(this).apply {
+                text = t.name
+                textSize = 12f
+                gravity = Gravity.CENTER
+                maxLines = 1
+                setTextColor(if (isSelected) GlassTheme.TEXT else GlassTheme.TEXT_SECONDARY)
+                setPadding(0, (6 * density).toInt(), 0, 0)
+            }, LinearLayout.LayoutParams((ThemeSwatchView.WIDTH_DP * density).toInt() + (8 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
+            if (isSelected) selectedCell = cell
+            row.addView(cell, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = (12 * density).toInt()
+            })
+        }
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(row)
+        }
+        swatchScroll = scroll
+        list.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = (8 * density).toInt()
+        })
+
+        list.addView(label().apply {
+            text = "Acento"
+            setPadding(0, (16 * density).toInt(), 0, (8 * density).toInt())
+        })
+        val dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun dot(rgb: Int, auto: Boolean, id: String, name: String) {
+            dots.addView(
+                AccentDotView(this, rgb, auto, choice.accentId == id).apply {
+                    contentDescription = name
+                    setOnClickListener { updateTheme(choice.copy(accentId = id)) }
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginEnd = (8 * density).toInt()
+                },
+            )
+        }
+        dot(theme.accent, auto = true, id = Themes.ACCENT_AUTO, name = "Automático (el del tema)")
+        for (a in Themes.ACCENTS) dot(a.color, auto = false, id = a.id, name = a.name)
+        list.addView(HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(dots)
+        })
+
+        if (theme.stars) {
+            list.addView(switch("Estrellas", choice.stars) { updateTheme(choice.copy(stars = it)) })
+            if (choice.stars) {
+                list.addView(switch("Animación de estrellas (parpadeo)", choice.twinkle) { updateTheme(choice.copy(twinkle = it)) })
+                list.addView(switch("Animación también en el trackpad (gasta algo más de batería)", choice.twinkleTrackpad) {
+                    updateTheme(choice.copy(twinkleTrackpad = it))
+                })
+            }
+        } else {
+            list.addView(GlassTheme.note(this, "Este tema no lleva estrellas."))
+        }
+        list.addView(GlassTheme.note(this, "Solo afecta a este móvil: el PC tiene su propio tema en los ajustes de la toolbox."))
+    }
+
+    /** Guarda y aplica la elección al momento: se recrea la pantalla para que todos los controles tomen el acento y el fondo nuevos. */
+    private fun updateTheme(choice: ThemeChoice) {
+        if (choice.normalized() == settings.theme) return
+        settings = settings.copy(theme = choice.normalized())
+        GlassTheme.applyTheme(settings.theme)
+        settings.save(this)
+        recreate()
+    }
+
+    /** Tras recrear, la pantalla vuelve a donde estaba; la primera vez, la fila de muestras deja a la vista la elegida. */
+    private fun restoreScroll(state: Bundle?) {
+        val y = state?.getInt(KEY_SCROLL_Y) ?: 0
+        val x = state?.getInt(KEY_SWATCHES_X)
+        screen.scrollView?.post { screen.scrollView?.scrollTo(0, y) }
+        swatchScroll?.post {
+            val target = x ?: ((selectedCell?.left ?: 0) - (16 * density).toInt()).coerceAtLeast(0)
+            swatchScroll?.scrollTo(target, 0)
+        }
     }
 
     override fun onPause() {
@@ -250,5 +364,10 @@ class SettingsActivity : Activity() {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(0, (12 * density).toInt(), 0, (12 * density).toInt())
         setOnCheckedChangeListener { _, checked -> onChange(checked) }
+    }
+
+    private companion object {
+        const val KEY_SCROLL_Y = "scrollY"
+        const val KEY_SWATCHES_X = "swatchesX"
     }
 }

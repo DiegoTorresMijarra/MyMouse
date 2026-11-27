@@ -65,7 +65,7 @@ class TrackpadView(
         strokeWidth = resources.displayMetrics.density
     }
     private val panelRect = RectF()
-    private val backdropDrawable = GlassTheme.universe(context)
+    private var backdropDrawable = GlassTheme.universe(context, trackpad = true)
 
     /** Con un toque en el punto de estado (solo en modo Bluetooth): abre el diagnóstico. */
     var onStatusDotTap: (() -> Unit)? = null
@@ -210,9 +210,16 @@ class TrackpadView(
         }
     }
 
+    /** Se cambió el tema en Ajustes: el acento del borde del modo gestos y el fondo con el que se desenfoca (docs/spec-v4.8-temas.md §3). */
+    fun onThemeChanged() {
+        gestureBorder.color = GlassTheme.accent
+        backdropDrawable = GlassTheme.universe(context, trackpad = true)
+        invalidate()
+    }
+
     private val gestureBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = GlassTheme.ACCENT
+        color = GlassTheme.accent
         strokeWidth = 3 * resources.displayMetrics.density
     }
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -227,7 +234,7 @@ class TrackpadView(
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
     }
-    private val resultBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
+    private val resultBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.panelSolid }
     private val strokePath = Path()
 
     /** Mostrar la chuleta de gestos en el centro. */
@@ -349,7 +356,7 @@ class TrackpadView(
             val cy = height * 0.82f
             canvas.drawRoundRect(
                 width / 2f - tw / 2 - 16 * density, cy - 30 * density, width / 2f + tw / 2 + 16 * density, cy + 14 * density,
-                12 * density, 12 * density, resultBg,
+                12 * density, 12 * density, resultBg.apply { color = GlassTheme.panelSolid },
             )
             canvas.drawRoundRect(
                 width / 2f - tw / 2 - 16 * density, cy - 30 * density, width / 2f + tw / 2 + 16 * density, cy + 14 * density,

@@ -314,7 +314,7 @@ class WidgetPanelView(
         val blurred = parent != null && backdrop?.draw(
             canvas, rect, radius, left + translationX, top + translationY, parent.width, parent.height,
         ) == true
-        panelPaint.color = if (blurred) GlassTheme.PANEL_FILL else GlassTheme.PANEL_SOLID
+        panelPaint.color = if (blurred) GlassTheme.PANEL_FILL else GlassTheme.panelSolid
         canvas.drawRoundRect(rect, radius, radius, panelPaint)
         if (framed) {
             borderPaint.color = GlassTheme.BORDER
@@ -334,7 +334,7 @@ class WidgetPanelView(
     }
 
     private fun buttonCard(canvas: Canvas, box: Box, active: Boolean, flashing: Boolean) = when {
-        flashing -> card(canvas, box, GlassTheme.SELECTED_FILL, GlassTheme.SELECTED_BORDER)
+        flashing -> card(canvas, box, GlassTheme.selectedFill, GlassTheme.selectedBorder)
         active -> card(canvas, box, GlassTheme.ELEVATED)
         else -> card(canvas, box, GlassTheme.CARD_FILL)
     }
@@ -440,7 +440,7 @@ class WidgetPanelView(
         rect.set(track.x, track.y, track.right, track.bottom)
         canvas.drawRoundRect(rect, half, half, fill)
         val x = g.thumbX(level)
-        fill.color = if (muted) TRACK_MUTED else GlassTheme.ACCENT
+        fill.color = if (muted) TRACK_MUTED else GlassTheme.accent
         rect.set(track.x, track.y, x, track.bottom)
         canvas.drawRoundRect(rect, half, half, fill)
 

@@ -11,20 +11,26 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.os.SystemClock
+import dev.mymouse.core.theme.ThemeDef
+import dev.mymouse.core.theme.Themes
 import dev.mymouse.core.universe.Star
 import dev.mymouse.core.universe.StarField
 
 /**
- * El fondo "universo" (docs/spec-v4.7-universo.md §2): degradado diagonal, tres nebulosas y estrellas con semilla fija. Las estrellas
- * que parpadean solo se animan si [animated] (todas las pantallas menos el trackpad, que es estático para no gastar batería ni
- * distraer); estático, se dibuja el instante 0. Sin desenfoque. La generación de las estrellas y el parpadeo están en `core`
- * ([StarField]) y tienen tests; el PC usa el mismo algoritmo.
+ * El fondo "universo" de un tema (docs/spec-v4.7-universo.md §2, docs/spec-v4.8-temas.md §2): degradado diagonal de 1–3 colores,
+ * de 0 a 3 nebulosas y estrellas con semilla fija. [showStars]: si se dibujan las estrellas (el tema las tiene y están activadas).
+ * Las que parpadean solo se animan si [animated] (en el trackpad, no por defecto, para no gastar batería ni distraer); estático, se
+ * dibuja el instante 0. Sin desenfoque. La generación de las estrellas y el parpadeo están en `core` ([StarField]) y tienen tests;
+ * el PC usa el mismo algoritmo.
  */
-class UniverseDrawable(private val density: Float, private val animated: Boolean) : Drawable() {
+class UniverseDrawable(
+    private val density: Float,
+    private val theme: ThemeDef,
+    private val showStars: Boolean,
+    private val animated: Boolean,
+) : Drawable() {
     private val basePaint = Paint()
-    private val violet = Paint()
-    private val blue = Paint()
-    private val magenta = Paint()
+    private val nebulaPaints = theme.nebulas.map { Paint() }
     private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val haloRadius = 3.5f * density
@@ -41,8 +47,10 @@ class UniverseDrawable(private val density: Float, private val animated: Boolean
         )
     }
 
-    private fun nebula(cx: Float, cy: Float, radius: Float, rgb: Int, opacity: Float): RadialGradient {
-        fun at(k: Float) = Color.argb((255 * opacity * k).toInt(), Color.red(rgb), Color.green(rgb), Color.blue(rgb))
+    private fun rgb(value: Int): Int = (0xFF shl 24) or (value and 0xFFFFFF)
+
+    private fun nebula(cx: Float, cy: Float, radius: Float, color: Int, opacity: Float): RadialGradient {
+        fun at(k: Float) = Color.argb((255 * opacity * k).toInt(), Color.red(rgb(color)), Color.green(rgb(color)), Color.blue(rgb(color)))
         return RadialGradient(cx, cy, radius, intArrayOf(at(1f), at(0.45f), at(0f)), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
     }
 
@@ -53,13 +61,13 @@ class UniverseDrawable(private val density: Float, private val animated: Boolean
         shadersH = h
         val fw = w.toFloat()
         val fh = h.toFloat()
-        basePaint.shader = LinearGradient(
-            0f, 0f, fw, fh, intArrayOf(GlassTheme.BASE_START, GlassTheme.BASE_MID, GlassTheme.BASE_END), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP,
-        )
-        violet.shader = nebula(0.10f * fw, 0.06f * fh, 0.70f * fw, Color.parseColor("#7C3AED"), 0.35f) // arriba a la izquierda
-        blue.shader = nebula(0.90f * fw, 0.95f * fh, 0.60f * fw, Color.parseColor("#2563EB"), 0.28f) // abajo a la derecha
-        magenta.shader = nebula(0.85f * fw, 0.50f * fh, 0.40f * fw, Color.parseColor("#DB2777"), 0.18f) // centro-derecha
-        val count = StarField.countFor(fw / density, fh / density)
+        // Una base de un solo color (OLED) se pasa como dos iguales: el degradado necesita al menos dos.
+        val colors = theme.base.map { rgb(it) }.let { if (it.size == 1) listOf(it[0], it[0]) else it }.toIntArray()
+        basePaint.shader = LinearGradient(0f, 0f, fw, fh, colors, null, Shader.TileMode.CLAMP)
+        theme.nebulas.forEachIndexed { i, n ->
+            nebulaPaints[i].shader = nebula(n.x * fw, n.y * fh, n.r * fw, n.color, n.opacity)
+        }
+        val count = if (showStars) Themes.starCount(theme, fw / density, fh / density) else 0
         if (stars.size != count) stars = StarField.generate(count)
     }
 
@@ -74,13 +82,11 @@ class UniverseDrawable(private val density: Float, private val animated: Boolean
         canvas.save()
         canvas.translate(b.left.toFloat(), b.top.toFloat())
         canvas.drawRect(0f, 0f, fw, fh, basePaint)
-        canvas.drawRect(0f, 0f, fw, fh, violet)
-        canvas.drawRect(0f, 0f, fw, fh, blue)
-        canvas.drawRect(0f, 0f, fw, fh, magenta)
+        for (paint in nebulaPaints) canvas.drawRect(0f, 0f, fw, fh, paint)
 
         val seconds = if (animated) (SystemClock.uptimeMillis() - startMs) / 1000.0 else 0.0
         for (star in stars) {
-            val alpha = (StarField.opacityAt(star, seconds) * 255).toInt().coerceIn(0, 255)
+            val alpha = (StarField.opacityAt(star, seconds, theme.twinkleDepth) * 255).toInt().coerceIn(0, 255)
             val cx = star.x * fw
             val cy = star.y * fh
             if (star.halo) {
@@ -96,7 +102,7 @@ class UniverseDrawable(private val density: Float, private val animated: Boolean
         canvas.restore()
 
         // Unos 30 fotogramas por segundo, solo mientras se vea y haya estrellas que parpadean.
-        if (animated && isVisible && stars.any { it.twinkle }) scheduleSelf(frame, SystemClock.uptimeMillis() + FRAME_MS)
+        if (animated && isVisible && theme.twinkleDepth > 0f && stars.any { it.twinkle }) scheduleSelf(frame, SystemClock.uptimeMillis() + FRAME_MS)
     }
 
     override fun setVisible(visible: Boolean, restart: Boolean): Boolean {

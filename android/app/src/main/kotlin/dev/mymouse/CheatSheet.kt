@@ -90,7 +90,7 @@ class CheatSheet(private val density: Float) {
         // Tarjeta de cristal: desenfoque de lo de detrás si se puede y, si no, color translúcido; después, borde y brillo superior.
         val card = RectF(left, top, left + w * scale, top + h * scale)
         val blurred = backdrop?.draw(canvas, card, radius * scale, 0f, 0f, width, height) == true
-        boxPaint.color = if (blurred) GlassTheme.CARD_FILL else GlassTheme.PANEL_SOLID
+        boxPaint.color = if (blurred) GlassTheme.CARD_FILL else GlassTheme.panelSolid
         canvas.drawRoundRect(card, radius * scale, radius * scale, boxPaint)
         canvas.save()
         canvas.translate(left, top)

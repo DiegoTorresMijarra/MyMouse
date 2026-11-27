@@ -87,6 +87,7 @@ class MainActivity : Activity() {
         AdminReceiver.applyKioskPolicies(this)
 
         settings = AppSettings.load(this)
+        GlassTheme.applyTheme(settings.theme) // antes de crear ninguna vista
         shapes = ShapeStore(this)
         panelShown = settings.showWidgets
         panelProgress = if (panelShown) 1f else 0f
@@ -147,7 +148,7 @@ class MainActivity : Activity() {
 
         controls = buildControls()
         root = FrameLayout(this).apply {
-            background = GlassTheme.universe(this@MainActivity) // universo estático detrás del trackpad (también en modo bloqueado)
+            background = GlassTheme.universe(this@MainActivity, trackpad = true) // universo (estático salvo que se active) detrás del trackpad (también en modo bloqueado)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(panel, FrameLayout.LayoutParams(MATCH, MATCH)) // el tamaño y el sitio los fija applyMargins
             // Un toque que empieza en el panel nunca llega al trackpad, ni al revés: todos los dedos van a la vista
@@ -220,6 +221,12 @@ class MainActivity : Activity() {
 
     private fun applySettings() {
         settings = AppSettings.load(this)
+        if (settings.theme != GlassTheme.choice) {
+            // Se cambió el tema en Ajustes: fondo y acento nuevos (docs/spec-v4.8-temas.md §3).
+            GlassTheme.applyTheme(settings.theme)
+            root.background = GlassTheme.universe(this, trackpad = true)
+            trackpad.onThemeChanged()
+        }
         if (panelAnimator == null) {
             panelShown = settings.showWidgets
             panelProgress = if (panelShown) 1f else 0f

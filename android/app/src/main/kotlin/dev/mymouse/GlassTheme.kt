@@ -35,23 +35,45 @@ import androidx.annotation.RequiresApi
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import dev.mymouse.core.theme.ThemeChoice
+import dev.mymouse.core.theme.Themes
 
 /**
  * La capa de estilo "glass" de la v4.5 (docs/spec-v4.5-estilo.md §1 y §3): los tokens en un único sitio, más los dibujables y las
  * vistas pequeñas que se repiten en todas las pantallas. Sin Material Components ni Compose: solo vistas de la plataforma.
  */
 object GlassTheme {
-    // ---- Tokens (docs/spec-v4.7-universo.md §3.1; sustituyen a los de la v4.5) ----
-    /** Fondo "universo": ver [UniverseDrawable]. Esta es la base del degradado, para lo que se dibuja encima. */
-    val BASE_START: Int = Color.parseColor("#070616")
-    val BASE_MID: Int = Color.parseColor("#120D2E")
-    val BASE_END: Int = Color.parseColor("#1B0F36")
+    // ---- Tokens (docs/spec-v4.7-universo.md §3.1; los que dependen del tema, docs/spec-v4.8-temas.md §4) ----
+    /** El tema y el acento elegidos en Ajustes. Lo fija [applyTheme]; las pantallas lo cargan con [refresh] antes de crear sus vistas. */
+    var choice: ThemeChoice = ThemeChoice()
+        private set
+
+    /** Cristal: panel sin desenfoque: el color medio del tema, aclarado, al 92 %. */
+    var panelSolid: Int = 0
+        private set
+
+    /** Seleccionado: acento al 22 % con borde de acento al 45 %. */
+    var selectedFill: Int = 0
+        private set
+    var selectedBorder: Int = 0
+        private set
+
+    /** Pista de un interruptor activado: acento al 45 %. */
+    private var trackOn: Int = 0
+
+    /** Acento del tema (o el elegido). Los botones primarios llevan el degradado de [accentStart] a [accentEnd]. */
+    var accent: Int = 0
+        private set
+    var accentStart: Int = 0
+        private set
+    var accentEnd: Int = 0
+        private set
+
+    /** Color medio de la base del tema (relleno de los pomos de los deslizadores del icono). */
+    private var baseMid: Int = 0
 
     /** Cristal: panel (blanco al 7 %) sobre el fondo; con desenfoque disponible. */
     val PANEL_FILL: Int = Color.parseColor("#12FFFFFF")
-
-    /** Cristal: panel sin desenfoque: #1A1830 al 92 %. */
-    val PANEL_SOLID: Int = Color.parseColor("#EB1A1830")
 
     /** Cristal: tarjeta (blanco al 7 %), borde (blanco al 16 %) y brillo superior (blanco del 10 % al 0 % en el 35 % de arriba). */
     val CARD_FILL: Int = Color.parseColor("#12FFFFFF")
@@ -61,14 +83,30 @@ object GlassTheme {
     /** Cristal: elemento elevado / hover (blanco al 12 %). */
     val ELEVATED: Int = Color.parseColor("#1FFFFFFF")
 
-    /** Seleccionado: acento al 22 % con borde de acento al 45 %. */
-    val SELECTED_FILL: Int = Color.parseColor("#387C8CFF")
-    val SELECTED_BORDER: Int = Color.parseColor("#737C8CFF")
+    private fun argb(rgb: Int, alpha: Int = 0xFF): Int = (alpha shl 24) or (rgb and 0xFFFFFF)
 
-    /** Acento: azul lavanda. Los botones primarios llevan el degradado de [ACCENT_START] a [ACCENT_END]. */
-    val ACCENT: Int = Color.parseColor("#7C8CFF")
-    val ACCENT_START: Int = Color.parseColor("#6D5BFF")
-    val ACCENT_END: Int = Color.parseColor("#3B82F6")
+    /** Aplica un tema: recalcula los tokens que dependen de él. Solo cambia valores; las vistas ya creadas no se enteran. */
+    fun applyTheme(newChoice: ThemeChoice) {
+        val c = newChoice.normalized()
+        choice = c
+        val rgb = c.accent
+        accent = argb(rgb)
+        selectedFill = argb(rgb, 0x38)
+        selectedBorder = argb(rgb, 0x73)
+        trackOn = argb(rgb, 0x73)
+        accentStart = argb(Themes.accentStart(rgb))
+        accentEnd = argb(Themes.accentEnd(rgb))
+        panelSolid = argb(Themes.surfaceSolid(c.theme), 0xEB)
+        baseMid = argb(c.theme.baseMid)
+    }
+
+    /** Carga el tema guardado en los ajustes. */
+    fun refresh(context: Context) = applyTheme(AppSettings.load(context).theme)
+
+    init {
+        applyTheme(ThemeChoice())
+    }
+
     val GREEN: Int = Color.parseColor("#5FB865")
     val AMBER: Int = Color.parseColor("#E5A50A")
     val RED: Int = Color.parseColor("#E5534B")
@@ -91,9 +129,12 @@ object GlassTheme {
     fun dp(context: Context, value: Float): Float = value * context.resources.displayMetrics.density
     fun dpi(context: Context, value: Float): Int = dp(context, value).toInt()
 
-    /** El fondo "universo" (degradado, nebulosas y estrellas). [animated]: las estrellas parpadean (en el trackpad, no). */
-    fun universe(context: Context, animated: Boolean = false): Drawable =
-        UniverseDrawable(context.resources.displayMetrics.density, animated)
+    /**
+     * El fondo "universo" del tema elegido (degradado, nebulosas y estrellas). [trackpad]: es el del trackpad, donde las estrellas
+     * solo parpadean si se ha activado (por defecto no, como en la v4.7); en el resto de pantallas, si está activada la animación.
+     */
+    fun universe(context: Context, trackpad: Boolean = false): Drawable =
+        UniverseDrawable(context.resources.displayMetrics.density, choice.theme, choice.showStars, choice.twinkles(trackpad))
 
     /** Rectángulo redondeado con relleno y borde de 1 dp opcional. */
     fun rounded(context: Context, fill: Int, radiusDp: Float, border: Int = 0): GradientDrawable = GradientDrawable().apply {
@@ -149,9 +190,9 @@ object GlassTheme {
         override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
     }
 
-    /** Fondo de los botones primarios: degradado de #6D5BFF a #3B82F6. */
+    /** Fondo de los botones primarios: degradado del acento oscurecido ([accentStart] a [accentEnd]), para que el texto blanco se lea. */
     fun accentBackground(context: Context, radiusDp: Float): GradientDrawable =
-        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(ACCENT_START, ACCENT_END)).apply {
+        GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(accentStart, accentEnd)).apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(context, radiusDp)
         }
@@ -212,18 +253,18 @@ object GlassTheme {
 
     @Suppress("UseSwitchCompatOrMaterialCode")
     fun tint(view: Switch) {
-        view.thumbTintList = checkedList(ACCENT, Color.parseColor("#B0B5BD"))
-        view.trackTintList = checkedList(Color.parseColor("#733574F0"), Color.parseColor("#26FFFFFF"))
+        view.thumbTintList = checkedList(accent, Color.parseColor("#B0B5BD"))
+        view.trackTintList = checkedList(trackOn, Color.parseColor("#26FFFFFF"))
     }
 
     fun tint(view: SeekBar) {
-        view.progressTintList = ColorStateList.valueOf(ACCENT)
-        view.thumbTintList = ColorStateList.valueOf(ACCENT)
+        view.progressTintList = ColorStateList.valueOf(accent)
+        view.thumbTintList = ColorStateList.valueOf(accent)
         view.progressBackgroundTintList = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
     }
 
     fun tint(view: RadioButton) {
-        view.buttonTintList = checkedList(ACCENT, TEXT_SECONDARY)
+        view.buttonTintList = checkedList(accent, TEXT_SECONDARY)
     }
 
     // ---- Desenfoque del fondo (Android 12+) ----
@@ -231,7 +272,7 @@ object GlassTheme {
     /**
      * Desenfoca lo que hay detrás de un panel (docs/spec-v4.5-estilo.md §3). El fondo se vuelve a dibujar en un [RenderNode] con
      * `RenderEffect.createBlurEffect` y se pinta recortado con el panel. Solo existe desde Android 12; por debajo, o si el lienzo no
-     * es acelerado, [draw] devuelve false y quien llama usa el color translúcido sin desenfoque ([PANEL_SOLID]).
+     * es acelerado, [draw] devuelve false y quien llama usa el color translúcido sin desenfoque ([panelSolid]).
      * [drawBackdrop] dibuja lo que hay detrás, en coordenadas del padre y con su ancho y alto.
      */
     class BackdropBlur(private val drawBackdrop: (Canvas, Int, Int) -> Unit) {
@@ -299,6 +340,7 @@ object GlassTheme {
             private set
 
         init {
+            refresh(activity) // el tema guardado, antes de crear ninguna vista
             WindowCompat.setDecorFitsSystemWindows(activity.window, false)
             val back = IconButton(activity, IconButton.Kind.BACK, circle = true)
             back.contentDescription = "Volver"
@@ -323,7 +365,7 @@ object GlassTheme {
             }
             val root = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                background = universe(activity, animated = true) // universo con estrellas que parpadean (el trackpad es estático)
+                background = universe(activity) // universo del tema, con estrellas que parpadean si está activado (el trackpad es estático)
                 addView(bar)
                 if (scrollable) {
                     val scroll = ScrollView(activity).apply { addView(content) }
@@ -449,7 +491,7 @@ object GlassTheme {
                 Kind.SLIDERS -> {
                     for ((fy, knob) in listOf(0.15f to 0.7f, 0.5f to 0.3f, 0.85f to 0.6f)) {
                         canvas.drawLine(x(0f), y(fy), x(1f), y(fy), line)
-                        fill.color = BASE_MID
+                        fill.color = baseMid
                         canvas.drawCircle(x(knob), y(fy), 0.13f * s, fill)
                         canvas.drawCircle(x(knob), y(fy), 0.13f * s, line)
                     }

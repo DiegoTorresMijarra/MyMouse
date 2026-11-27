@@ -27,7 +27,7 @@ class DebugOverlay(private val density: Float) {
     /** Estado del enlace Bluetooth (informes por segundo e intervalo real), si lo hay. */
     var linkInfo: String? = null
 
-    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.PANEL_SOLID }
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GlassTheme.panelSolid }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = GlassTheme.BORDER
@@ -113,6 +113,7 @@ class DebugOverlay(private val density: Float) {
         val h = w * height / width.coerceAtLeast(1)
         val textWidth = if (width > height) w else width - 2 * m
         panel.set(m, m, m + w, m + h)
+        panelPaint.color = GlassTheme.panelSolid
         canvas.drawRoundRect(panel, 8 * density, 8 * density, panelPaint)
         canvas.drawRoundRect(panel, 8 * density, 8 * density, borderPaint)
         val sx = w / width
