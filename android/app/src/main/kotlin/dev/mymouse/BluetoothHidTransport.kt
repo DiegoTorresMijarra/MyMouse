@@ -468,10 +468,13 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         host = device
         if (!changed) return
         stats.reset()
-        // El multiplicador de scroll es de cada conexión: el PC lo vuelve a pedir al conectar.
-        if (mapper.resetScrollResolution()) log("scroll fino desactivado (sin conexión)")
+        // El multiplicador de scroll es de cada conexión: el PC lo vuelve a escribir al conectar. Solo se reinicia al perderla: el
+        // SET_REPORT puede llegar justo antes del aviso de "conectado" y no debe borrarse.
         handler.removeCallbacks(zoomRelease)
-        if (device == null) sender.post { coalescer.reset() } else sender.post { coalescer.dropScroll() }
+        if (device == null) {
+            if (mapper.resetScrollResolution()) log("scroll fino desactivado (sin conexión)")
+            sender.post { coalescer.reset() }
+        }
         onConnectionChanged(device != null)
         if (device != null) replayState() else onWidgetLayout(Message.WidgetLayout(emptyList()))
     }
