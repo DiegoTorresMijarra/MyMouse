@@ -63,6 +63,9 @@ WizardStyle=modern
 ; Si MyMouse está en marcha (vive en la bandeja), se espera a que se cierre antes de sustituir el exe.
 AppMutex=MyMouse.Host
 CloseApplications=yes
+; Actualización en silencio (v5.1): el propio MyMouse lanza "MyMouse-Setup-<v>.exe /SILENT /CLOSEAPPLICATIONS /RELAUNCH=1" y se cierra.
+; No se confía en RestartApplications: el Restart Manager de Windows solo reinicia las apps que se registraron con
+; RegisterApplicationRestart, y MyMouse no lo hace. El relanzado lo hace la entrada [Run] de abajo, que solo actúa con /RELAUNCH=1.
 RestartApplications=no
 
 [Languages]
@@ -99,8 +102,16 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\MyMouse.exe"; Description: "Abrir MyMouse"; Flags: nowait postinstall skipifsilent
+; Tras una actualización en silencio (/RELAUNCH=1) MyMouse vuelve a abrirse solo. Si ya hubiera una instancia, el mutex de MyMouse la deja en nada.
+Filename: "{app}\MyMouse.exe"; Flags: nowait skipifnotsilent; Check: RelaunchRequested
 
 [Code]
+// "/RELAUNCH=1" lo pasa la actualización automática de MyMouse (docs/spec-v5.1-actualizaciones.md §4).
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
 // Desinstalar quita también el valor Run aunque se activara después desde la bandeja (no lo creó el instalador).
 // %APPDATA%\MyMouse (la configuración: gestures.json, formas, config.json) se conserva a propósito.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

@@ -81,7 +81,7 @@ jobs:
       - name: Publicar
         run: |
           $name = "${{ needs.meta.outputs.version }}"
-          $common = @('-c','Release','-r','win-x64','--self-contained','true','-p:PublishSingleFile=true','-p:IncludeNativeLibrariesForSelfExtract=true',"-p:InformationalVersion=$name")
+          $common = @('-c','Release','-r','win-x64','--self-contained','true','-p:PublishSingleFile=true','-p:IncludeNativeLibrariesForSelfExtract=true',"-p:Version=$name","-p:InformationalVersion=$name")
           dotnet publish src/MyMouse.Host @common -o out/MyMouse
           dotnet publish src/MyMouse.TestClient @common -o out/MyMouse
           Get-ChildItem out/MyMouse -Filter *.pdb | Remove-Item

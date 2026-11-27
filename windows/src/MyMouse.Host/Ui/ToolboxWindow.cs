@@ -8,6 +8,7 @@ using System.Windows.Shapes;
 using MyMouse.HostCore.Gestures;
 using MyMouse.HostCore.Shapes;
 using MyMouse.HostCore.Toolbox;
+using MyMouse.HostCore.Updates;
 using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
 using Path = System.IO.Path;
@@ -245,10 +246,29 @@ internal sealed class ToolboxWindow : FloatingWindow
         ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
         ("Efecto cristal", _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
         ("Mostrar siempre el icono en la barra de tareas", _app.Layout.AlwaysShowIcon, () => _app.Layout = _app.Layout.WithAlwaysShowIcon(!_app.Layout.AlwaysShowIcon)),
+        ("Buscar actualizaciones automáticamente", _app.Updates.Manager.AutoCheck, () => _app.Updates.Manager.AutoCheck = !_app.Updates.Manager.AutoCheck),
+        ("Buscar actualizaciones ahora", null, () => _ = CheckUpdatesNowAsync()),
+        ($"Versión instalada: {_app.Updates.Manager.LocalText}", null, () => { }),
         ("Tema…", null, _app.ChooseTheme),
         ("Personalizar tarjetas…", null, _app.CustomizeCards),
         ("Abrir la carpeta de logs", null, _app.OpenLogs),
     ];
+
+    /// <summary>Ajustes → "Buscar actualizaciones ahora": el resultado se dice con un cuadro; si hay una versión nueva, sale el banner.</summary>
+    private async Task CheckUpdatesNowAsync()
+    {
+        var updates = _app.Updates;
+        var outcome = await updates.CheckAsync(manual: true);
+        var text = outcome switch
+        {
+            CheckOutcome.Available => null, // el banner de la toolbox ya lo dice
+            CheckOutcome.UpToDate => $"Ya tienes la última versión (MyMouse {updates.Manager.LocalText}).",
+            CheckOutcome.DevBuild => $"Esta es una versión de desarrollo ({updates.Manager.LocalText}): no avisa de versiones nuevas.",
+            CheckOutcome.Skipped => "Hay una versión más nueva, pero la omitiste.",
+            _ => "No se pudo comprobar si hay una versión nueva. Revisa la conexión a Internet e inténtalo de nuevo.",
+        };
+        if (text is not null) Dialogs.Message(null, "MyMouse", text);
+    }
 
     private void SetNoActivate(bool on)
     {
@@ -300,6 +320,12 @@ internal sealed class ToolboxWindow : FloatingWindow
             _cards.Add(card);
         }
 
+        // El aviso de actualización (v5.1) va arriba de todo y no cuenta como tarjeta del diseño: se oculta solo si no hay nada que avisar.
+        var update = new UpdateCard(_app);
+        update.Refresh();
+        update.Resized = OnCardResized;
+        _cards.Add(update);
+
         if (_maximized)
         {
             // Dos columnas: Opciones y Música a la izquierda, Gestos a la derecha y Widgets debajo de la columna más baja.
@@ -313,11 +339,13 @@ internal sealed class ToolboxWindow : FloatingWindow
             var (left, right) = ToolboxColumns.Split(_app.Layout.Visible, HeightOf);
             foreach (var c in left) _left.Children.Add(built[c].View);
             foreach (var c in right) _right.Children.Add(built[c].View);
+            _left.Children.Insert(0, update.View);
             TrimLastMargin(_left);
             TrimLastMargin(_right);
         }
         else
         {
+            _stack.Children.Add(update.View);
             foreach (var kind in _app.Layout.Visible) _stack.Children.Add(built[kind].View);
             TrimLastMargin(_stack);
         }
@@ -794,4 +822,102 @@ internal sealed class WidgetsCard : IToolboxCard
         VolumeWidget => ("🔊", "Volumen"),
         _ => ("▫", "?"),
     };
+}
+
+
+/// <summary>
+/// Avisos de versión (docs/spec-v5.1-actualizaciones.md §4 y §6): una tarjeta con el acento del tema encima de las Opciones por cada aviso, con
+/// "Novedades", "Actualizar" y "Omitir", y la barra de progreso mientras se descarga. Invisible si no hay nada que avisar.
+/// </summary>
+internal sealed class UpdateCard : IToolboxCard
+{
+    private readonly HostApp _app;
+    private readonly StackPanel _view = new();
+    private readonly List<ProgressBar> _bars = [];
+    private string _signature = "";
+
+    public UpdateCard(HostApp app) => _app = app;
+
+    public FrameworkElement View => _view;
+
+    public Action? Resized { get; set; }
+
+    public bool Refresh()
+    {
+        var updates = _app.Updates;
+        var banners = updates.Manager.Banners;
+        var signature = string.Join("|", banners.Select(b => $"{b.Kind}:{b.Text}:{b.CanInstall}:{b.Release?.Tag}")) + $"#{updates.Busy}#{updates.Error}#{updates.IsInstalled}";
+        foreach (var bar in _bars) bar.Value = updates.Progress * 100; // el progreso no reconstruye
+        if (signature == _signature) return false;
+        _signature = signature;
+
+        _view.Children.Clear();
+        _bars.Clear();
+        foreach (var banner in banners) _view.Children.Add(Build(banner));
+        _view.Visibility = banners.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        return true;
+    }
+
+    private Border Build(UpdateBanner banner)
+    {
+        var updates = _app.Updates;
+        var stack = new StackPanel();
+        var title = Theme.Label(banner.Text, 13, banner.Kind == BannerKind.PhoneOlder ? Theme.Dim : Theme.Text, FontWeights.SemiBold);
+        title.TextWrapping = TextWrapping.Wrap;
+        title.TextTrimming = TextTrimming.None;
+        stack.Children.Add(title);
+
+        if (banner.Release is { } release)
+        {
+            var notes = Theme.Label("Novedades", 12, Theme.Accent);
+            notes.Cursor = Cursors.Hand;
+            notes.TextDecorations = TextDecorations.Underline;
+            notes.Margin = new Thickness(0, 4, 0, 0);
+            notes.HorizontalAlignment = HorizontalAlignment.Left;
+            notes.MouseLeftButtonUp += (_, _) => updates.OpenPage(release);
+            stack.Children.Add(notes);
+        }
+
+        if (updates.Error is { } error && banner.CanInstall)
+        {
+            var failed = Theme.Label(error, 12, Theme.Red);
+            failed.TextWrapping = TextWrapping.Wrap;
+            failed.TextTrimming = TextTrimming.None;
+            failed.Margin = new Thickness(0, 4, 0, 0);
+            stack.Children.Add(failed);
+        }
+
+        if (banner.CanInstall && banner.Release is { } target)
+        {
+            if (updates.Busy)
+            {
+                var bar = new ProgressBar { Height = 4, Minimum = 0, Maximum = 100, Value = updates.Progress * 100, Margin = new Thickness(0, 10, 0, 0),
+                    Foreground = Theme.Accent, Background = Theme.Hover, BorderThickness = new Thickness(0) };
+                _bars.Add(bar);
+                stack.Children.Add(bar);
+                var busy = Theme.Label("Descargando e instalando…", 12, Theme.Dim);
+                busy.Margin = new Thickness(0, 6, 0, 0);
+                stack.Children.Add(busy);
+            }
+            else
+            {
+                var update = Theme.AccentButton(updates.IsInstalled ? "Actualizar" : "Ver descarga");
+                update.Click += (_, _) => _ = updates.InstallAsync(target);
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+                row.Children.Add(update);
+                if (banner.CanSkip)
+                {
+                    var skip = Theme.FlatButton("Omitir");
+                    skip.Margin = new Thickness(8, 0, 0, 0);
+                    skip.Click += (_, _) => updates.Skip();
+                    row.Children.Add(skip);
+                }
+                stack.Children.Add(row);
+            }
+        }
+
+        var card = CardChrome.Wrap(stack);
+        card.BorderBrush = banner.Kind == BannerKind.PhoneOlder ? Theme.Line : Theme.Accent;
+        return card;
+    }
 }

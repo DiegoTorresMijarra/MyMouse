@@ -277,6 +277,16 @@ public class UpdateManagerTests
     }
 
     [Fact]
+    public async Task ManualCheckUnskipsTheSkippedVersion()
+    {
+        var m = Make("5.0", out var saved, settings: new UpdateSettings { SkippedVersion = "5.0.1" });
+        Assert.Equal(CheckOutcome.Skipped, await m.CheckAsync());
+        Assert.Equal(CheckOutcome.Available, await m.CheckAsync(manual: true));
+        Assert.Null(saved.Last().SkippedVersion);
+        Assert.Equal("v5.0.1", m.Offer!.Tag);
+    }
+
+    [Fact]
     public async Task NetworkFailureIsSilent()
     {
         var log = new List<string>();

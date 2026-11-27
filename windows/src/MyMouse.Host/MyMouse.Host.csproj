@@ -7,6 +7,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>MyMouse</AssemblyName>
+    <!-- La versión de la app (docs/spec-v5.1-actualizaciones.md §3): CI la pasa con -p:Version y -p:InformationalVersion (5.0 en una release,
+         0.0-dev.N en las demás). Una compilación local es de desarrollo y no avisa de versiones nuevas. -->
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">0.0-dev</InformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Icono de la app (docs/spec-v4.7-universo.md §3.3): lo genera tools/icon/make_icons.py. -->
     <ApplicationIcon>Assets\MyMouse.ico</ApplicationIcon>

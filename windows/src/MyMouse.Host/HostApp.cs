@@ -11,6 +11,7 @@ using MyMouse.HostCore.Phone;
 using MyMouse.HostCore.Shell;
 using MyMouse.HostCore.Shapes;
 using MyMouse.HostCore.Toolbox;
+using MyMouse.HostCore.Updates;
 using MyMouse.HostCore.Widgets;
 using MyMouse.Protocol;
 using Drawing = System.Drawing;
@@ -97,7 +98,16 @@ internal sealed class HostApp : IDisposable
         Volume.Changed += () => Post(() => StateChanged?.Invoke());
         Media.Changed += () => Post(() => StateChanged?.Invoke());
 
-        Phone = new PhoneHub();
+        // Actualizaciones (v5.1): los avisos van a la toolbox y a la bandeja; el globo, una vez por versión.
+        Updates = new UpdateController(
+            text => Post(() => Notify(text, () => Toolbox.Open(fromPhone: false))),
+            () => Post(Quit));
+        Updates.Changed += () => Post(() =>
+        {
+            UpdateStatus(); // el punto azul de la bandeja
+        });
+
+        Phone = new PhoneHub { HostAppVersion = AppInfo.Version };
         Shapes = new ShapeSyncService(Phone, Path.Combine(HostConfig.Directory, "shapes-cache.json"));
         Shapes.Changed += () => Post(() => StateChanged?.Invoke());
         Shapes.NewShape += shape => Post(() => OnNewShape(shape.Name));
@@ -108,6 +118,7 @@ internal sealed class HostApp : IDisposable
         Phone.Changed += () => Post(() =>
         {
             if (!Phone.SupportsToolbox) Live.Hide();
+            Updates.Manager.SetPhoneVersion(Phone.PhoneAppVersion); // avisos cruzados (v5.1); dispara su propio Changed
             StateChanged?.Invoke();
         });
 
@@ -144,6 +155,7 @@ internal sealed class HostApp : IDisposable
         _adb.StatusChanged += _ => Post(UpdateStatus);
 
         UpdateStatus();
+        Updates.Start();
         if (_layout.AlwaysShowIcon) ApplyIconPromotion(true); // se activa solo la primera vez que arranca la v4.7
         _ = RunLoggedAsync("servidor", () => server.RunAsync(_cts.Token));
         _ = RunLoggedAsync("adb", () => _adb.RunAsync(_cts.Token));
@@ -156,6 +168,7 @@ internal sealed class HostApp : IDisposable
     public WasapiVolumeController Volume { get; }
     public WindowsMediaController Media { get; }
     public PhoneHub Phone { get; }
+    public UpdateController Updates { get; }
     public ShapeSyncService Shapes { get; }
     public LiveStrokeModel Live { get; }
     public GestureConfigStorage ConfigStorage { get; }
@@ -432,6 +445,7 @@ internal sealed class HostApp : IDisposable
 
     private void UpdateStatus()
     {
+        if (_disposed) return;
         StatusHint = null;
         // Texto corto en la píldora; la explicación larga va debajo, como texto secundario (docs/spec-v4.7-universo.md §3.2).
         var (status, icon, brush) = (_paused, _connected, _adb.Status) switch
@@ -453,7 +467,7 @@ internal sealed class HostApp : IDisposable
                 _ => EsperandoHint,
             };
         }
-        _icon.Icon = icon;
+        _icon.Icon = Updates.Manager.HasUpdate ? TrayIcons.WithUpdateDot(icon) : icon;
         // El tooltip de NotifyIcon admite como máximo 127 caracteres.
         _icon.Text = ($"MyMouse: {status}").Length > 120 ? ("MyMouse: " + status)[..120] : "MyMouse: " + status;
         StateChanged?.Invoke();
@@ -511,6 +525,7 @@ internal sealed class HostApp : IDisposable
         _cts.Cancel();
         _foregroundTimer.Stop();
         _promotionRetry?.Stop();
+        Updates.Dispose();
         _file.Dispose();
         Shapes.Dispose();
         _widgets.Dispose();

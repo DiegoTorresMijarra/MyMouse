@@ -81,13 +81,16 @@ public sealed class UpdateManager
         }
     }
 
-    /// <summary>Busca en GitHub. Un fallo de red no es un error: se anota en el log y devuelve <see cref="CheckOutcome.Failed"/>.</summary>
-    public async Task<CheckOutcome> CheckAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Busca en GitHub. Un fallo de red no es un error: se anota en el log y devuelve <see cref="CheckOutcome.Failed"/>.
+    /// <paramref name="manual"/> ("Buscar ahora"): si la versión más alta es la que se omitió, se deja de omitir y se ofrece otra vez.
+    /// </summary>
+    public async Task<CheckOutcome> CheckAsync(bool manual = false, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ReleaseInfo> list;
         try
         {
-            list = await _fetch(cancellationToken).ConfigureAwait(false);
+            list = await _fetch(cancellationToken); // sin ConfigureAwait(false): Changed debe dispararse en el hilo de quien llama (la interfaz)
         }
         catch (Exception ex) when (ex is HttpRequestException or FormatException or TaskCanceledException or IOException or InvalidOperationException)
         {
@@ -98,6 +101,8 @@ public sealed class UpdateManager
 
         _releases = list;
         var latest = Releases.Highest(list);
+        if (manual && latest is not null && UpdatePolicy.IsSkipped(latest.Version, Settings.SkippedVersion))
+            Update(Settings with { SkippedVersion = null });
         var offer = UpdatePolicy.ShouldOffer(Local, latest, Settings.SkippedVersion) ? latest : null;
         Offer = offer;
         _log?.Invoke($"Buscar actualizaciones: instalada {LocalText}, última {latest?.Version.Display ?? "ninguna"}{(offer is null ? "" : " (se ofrece)")}");

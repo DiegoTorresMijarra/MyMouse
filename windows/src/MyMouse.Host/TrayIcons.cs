@@ -12,12 +12,25 @@ namespace MyMouse.Host;
 /// </summary>
 internal static class TrayIcons
 {
-    public static readonly Icon NoDevice = Create(Color.FromArgb(0xE5, 0x53, 0x4B));  // rojo: sin móvil o sin adb
-    public static readonly Icon Waiting = Create(Color.FromArgb(0xE5, 0xA5, 0x0A));   // ámbar: móvil visto, app sin conectar
-    public static readonly Icon Connected = Create(Color.FromArgb(0x5F, 0xB8, 0x65)); // verde
-    public static readonly Icon Paused = Create(Color.FromArgb(0x8C, 0x90, 0x97));    // gris
+    /// <summary>Cada icono de estado con su variante con el punto azul de "hay una versión nueva" (v5.1).</summary>
+    private static readonly Dictionary<Icon, Icon> UpdateVariants = [];
 
-    private static Icon Create(Color status)
+    public static readonly Icon NoDevice = Make(Color.FromArgb(0xE5, 0x53, 0x4B));  // rojo: sin móvil o sin adb
+    public static readonly Icon Waiting = Make(Color.FromArgb(0xE5, 0xA5, 0x0A));   // ámbar: móvil visto, app sin conectar
+    public static readonly Icon Connected = Make(Color.FromArgb(0x5F, 0xB8, 0x65)); // verde
+    public static readonly Icon Paused = Make(Color.FromArgb(0x8C, 0x90, 0x97));    // gris
+
+    /// <summary>El mismo icono con un punto azul pequeño en la esquina de arriba a la izquierda (la contraria al punto de estado).</summary>
+    public static Icon WithUpdateDot(Icon status) => UpdateVariants.TryGetValue(status, out var variant) ? variant : status;
+
+    private static Icon Make(Color status)
+    {
+        var plain = Create(status, updateDot: false);
+        UpdateVariants[plain] = Create(status, updateDot: true);
+        return plain;
+    }
+
+    private static Icon Create(Color status, bool updateDot)
     {
         var size = TraySize();
         try
@@ -33,7 +46,8 @@ internal static class TrayIcons
                     g.SmoothingMode = SmoothingMode.AntiAlias;
                     g.Clear(Color.Transparent);
                     g.DrawImage(bmp, new Rectangle(0, 0, size, size));
-                    DrawDot(g, size, status);
+                    DrawDot(g, size, status, size - Math.Max(6, (int)Math.Round(size * 0.46)), size - Math.Max(6, (int)Math.Round(size * 0.46)));
+                    if (updateDot) DrawDot(g, size, UpdateBlue, 0, 0, 0.8);
                 }
                 return FromBitmap(canvas);
             }
@@ -53,17 +67,17 @@ internal static class TrayIcons
     }
 
     /// <summary>Punto de estado abajo a la derecha con un borde oscuro fino, para que se lea sobre cualquier fondo.</summary>
-    private static void DrawDot(Graphics g, int size, Color status)
+    private static void DrawDot(Graphics g, int size, Color status, int x, int y, double scale = 1.0)
     {
-        var d = Math.Max(6, (int)Math.Round(size * 0.46));
-        var x = size - d;
-        var y = size - d;
+        var d = Math.Max(5, (int)Math.Round(Math.Max(6, (int)Math.Round(size * 0.46)) * scale));
         using var outline = new SolidBrush(Color.FromArgb(235, 18, 16, 43));
         using var fill = new SolidBrush(status);
         g.FillEllipse(outline, x - 0.5f, y - 0.5f, d + 1, d + 1);
         var inset = Math.Max(1f, size / 16f);
         g.FillEllipse(fill, x + inset, y + inset, d - 2 * inset, d - 2 * inset);
     }
+
+    private static readonly Color UpdateBlue = Color.FromArgb(0x3B, 0x9E, 0xFF);
 
     private static Icon FromBitmap(Bitmap bmp)
     {
