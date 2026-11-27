@@ -42,7 +42,7 @@ public sealed class ToolboxLayout
 
     /// <summary>
     /// "Efecto cristal": tarjetas translúcidas sobre el universo (v4.7; antes, Acrylic del sistema). Desactivado, las tarjetas son
-    /// sólidas (<c>#1A1830</c>) sobre el mismo universo.
+    /// sólidas (del color de la base del tema, v4.8) sobre el mismo universo.
     /// </summary>
     public bool GlassEffect { get; }
 

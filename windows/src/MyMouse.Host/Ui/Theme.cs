@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
+using MyMouse.HostCore.Theming;
 
 namespace MyMouse.Host.Ui;
 
@@ -15,16 +16,51 @@ internal static class Theme
         return brush;
     }
 
+    // ---- Temas (docs/spec-v4.8-temas.md §4) ----
+    // Los tokens que dependen del tema (fondo, tarjeta sólida, menús, seleccionado y acento) son pinceles sin congelar cuyo color
+    // cambia en sitio al elegir otro tema: todo lo que ya los usa (ventanas abiertas, botones, filas) se actualiza solo, y el que se
+    // crea después los lee ya con el tema nuevo. Solo se tocan desde el hilo de la interfaz.
+
+    private static SolidColorBrush Mutable(Color color) => new(color);
+
+    private static Color Rgb(int rgb, byte alpha = 0xFF) => Color.FromArgb(alpha, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+
+    /// <summary>El tema, el acento y las estrellas elegidos en este PC.</summary>
+    public static ThemeChoice Current { get; private set; } = new();
+
+    /// <summary>Se eligió otro tema (o acento o estrellas): los fondos se redibujan.</summary>
+    public static event Action? Changed;
+
+    /// <summary>Aplica un tema: cambia el color de los pinceles dinámicos y avisa a los fondos.</summary>
+    public static void Set(ThemeChoice choice)
+    {
+        var c = choice.Normalized();
+        Current = c;
+        var accent = c.Accent;
+        Accent.Color = AccentColor = Rgb(accent);
+        Selected.Color = Rgb(accent, 0x38);
+        SelectedBorder.Color = Rgb(accent, 0x73);
+        AccentGradient.GradientStops[0].Color = Rgb(ThemeCatalog.AccentStart(accent));
+        AccentGradient.GradientStops[1].Color = Rgb(ThemeCatalog.AccentEnd(accent));
+        Bg.Color = Rgb(c.Theme.BaseMid);
+        var surface = ThemeCatalog.SurfaceSolid(c.Theme);
+        CardSolid.Color = Rgb(surface);
+        PanelSolid.Color = Rgb(surface, 0xF2);
+        Changed?.Invoke();
+    }
+
+    static Theme() => Set(new ThemeChoice());
+
     // ---- Tokens "glass" (docs/spec-v4.7-universo.md §3.1; sustituyen a los de la v4.5): un único sitio en Windows ----
 
-    /// <summary>Fondo sólido de los diálogos y base del universo.</summary>
-    public static readonly SolidColorBrush Bg = Brush("#12102B");
+    /// <summary>Fondo sólido de los diálogos y base del universo: el color medio de la base del tema.</summary>
+    public static SolidColorBrush Bg { get; } = Mutable(Colors.Black);
 
-    /// <summary>Tarjeta sólida: "Efecto cristal" desactivado (#1A1830), y fondo de menús y diálogos.</summary>
-    public static readonly SolidColorBrush CardSolid = Brush("#1A1830");
+    /// <summary>Tarjeta sólida: "Efecto cristal" desactivado, y fondo de menús y diálogos (la base del tema, aclarada).</summary>
+    public static SolidColorBrush CardSolid { get; } = Mutable(Colors.Black);
 
-    /// <summary>Menús flotantes: #1A1830 casi opaco.</summary>
-    public static readonly SolidColorBrush PanelSolid = Brush("#F21A1830");
+    /// <summary>Menús flotantes: lo mismo, casi opaco.</summary>
+    public static SolidColorBrush PanelSolid { get; } = Mutable(Colors.Black);
 
     /// <summary>Cristal: tarjeta (plano): blanco al 7 %.</summary>
     public static readonly SolidColorBrush CardGlassFlat = Brush("#12FFFFFF");
@@ -50,19 +86,22 @@ internal static class Theme
     public static readonly SolidColorBrush Hover = Brush("#1FFFFFFF");
 
     /// <summary>Seleccionado: acento al 22 % con borde de acento al 45 %.</summary>
-    public static readonly SolidColorBrush Selected = Brush("#387C8CFF");
-    public static readonly SolidColorBrush SelectedBorder = Brush("#737C8CFF");
+    public static SolidColorBrush Selected { get; } = Mutable(Colors.Black);
+    public static SolidColorBrush SelectedBorder { get; } = Mutable(Colors.Black);
 
     /// <summary>Fondo de los cuadros de texto.</summary>
     public static readonly SolidColorBrush InputBg = Brush("#40000000");
 
-    /// <summary>Acento: azul lavanda. Los botones primarios llevan <see cref="AccentGradient"/>.</summary>
-    public static readonly SolidColorBrush Accent = Brush("#7C8CFF");
+    /// <summary>Acento del tema (o el elegido). Los botones primarios llevan <see cref="AccentGradient"/>.</summary>
+    public static SolidColorBrush Accent { get; } = Mutable(Colors.Black);
 
-    /// <summary>Botones primarios: degradado #6D5BFF a #3B82F6.</summary>
-    public static readonly Brush AccentGradient = Gradient(
-        [((Color)ColorConverter.ConvertFromString("#6D5BFF"), 0), ((Color)ColorConverter.ConvertFromString("#3B82F6"), 1)],
-        new Point(0, 0), new Point(1, 1));
+    /// <summary>Botones primarios: degradado del acento oscurecido, para que el texto blanco se lea con cualquier acento.</summary>
+    public static LinearGradientBrush AccentGradient { get; } = new()
+    {
+        StartPoint = new Point(0, 0),
+        EndPoint = new Point(1, 1),
+        GradientStops = [new GradientStop(Colors.Black, 0), new GradientStop(Colors.Black, 1)],
+    };
 
     public static readonly SolidColorBrush Text = Brush("#F4F5FA");
 
@@ -77,7 +116,7 @@ internal static class Theme
     public static readonly SolidColorBrush Gray = Brush("#8C9097");
     public static readonly SolidColorBrush Transparent = Brush("#00000000");
 
-    public static readonly Color AccentColor = (Color)ColorConverter.ConvertFromString("#7C8CFF");
+    public static Color AccentColor { get; private set; }
 
     /// <summary>Segoe UI Variable si está instalada (Windows 11) y, si no, Segoe UI.</summary>
     public static readonly FontFamily Font = new("Segoe UI Variable Text, Segoe UI");
@@ -113,6 +152,7 @@ internal static class Theme
     /// <summary>Instala los estilos de scroll en los recursos de la aplicación. Si una plantilla falla, se usa la de Windows.</summary>
     public static void Apply(ResourceDictionary resources)
     {
+        resources["MyMouseAccent"] = Accent; // las plantillas siguen al acento del tema con DynamicResource
         _buttonTemplate = Load("botón", ButtonXaml(8));
         _roundButtonTemplate = Load("botón redondo", ButtonXaml(999));
         _textBoxTemplate = Load("cuadro de texto", """
@@ -122,7 +162,7 @@ internal static class Theme
                               HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
               </Border>
               <ControlTemplate.Triggers>
-                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="#7C8CFF"/></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource MyMouseAccent}"/></Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
               </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -138,8 +178,8 @@ internal static class Theme
               </StackPanel>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsChecked" Value="True">
-                  <Setter TargetName="box" Property="Background" Value="#7C8CFF"/>
-                  <Setter TargetName="box" Property="BorderBrush" Value="#7C8CFF"/>
+                  <Setter TargetName="box" Property="Background" Value="{DynamicResource MyMouseAccent}"/>
+                  <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource MyMouseAccent}"/>
                   <Setter TargetName="tick" Property="Visibility" Value="Visible"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>

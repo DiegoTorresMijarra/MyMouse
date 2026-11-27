@@ -47,6 +47,7 @@ internal sealed class HostApp : IDisposable
     {
         _layout = ToolboxLayout.Load(_layoutPath);
         Theme.GlassEffect = _layout.GlassEffect;
+        Theme.Set(_layout.Theme);
         ConfigStorage = new GestureConfigStorage(GestureConfigFile.FilePath);
         StartMenu = StartMenuScanner.ForCurrentUser();
 
@@ -192,6 +193,7 @@ internal sealed class HostApp : IDisposable
             }
             if (!value.ShowLiveGesture) Live.Hide();
             Theme.GlassEffect = value.GlassEffect;
+            if (old.Theme != value.Theme) Theme.Set(value.Theme); // acento y fondos de todas las ventanas, al momento
             if (old.AlwaysShowIcon != value.AlwaysShowIcon) ApplyIconPromotion(value.AlwaysShowIcon, userAction: true);
             _toolbox?.Rebuild();
             StateChanged?.Invoke();
@@ -370,6 +372,28 @@ internal sealed class HostApp : IDisposable
     public void ToggleMute() => Volume.SetMuted(!Volume.Get().Muted);
 
     public void CustomizeCards() => new CustomizeCardsWindow(this).Show();
+
+    /// <summary>Ajustes → "Tema…" (docs/spec-v4.8-temas.md §3).</summary>
+    public void ChooseTheme()
+    {
+        if (_themeWindow is { IsVisible: true } open)
+        {
+            open.Activate();
+            return;
+        }
+        _themeWindow = new ThemeWindow(this);
+        _themeWindow.Closed += (_, _) =>
+        {
+            _themeWindow = null;
+            if (_toolbox is { IsVisible: true } toolbox) toolbox.Activate(); // vuelve a cerrarse sola al perder el foco
+        };
+        _themeWindow.Show();
+    }
+
+    private ThemeWindow? _themeWindow;
+
+    /// <summary>El panel "Tema…" está abierto: la toolbox no se cierra al perder el foco, para verse cambiar con el tema.</summary>
+    public bool ThemePanelOpen => _themeWindow is { IsVisible: true };
 
     public void OpenLogs()
     {

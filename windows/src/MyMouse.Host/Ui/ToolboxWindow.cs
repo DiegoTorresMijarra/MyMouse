@@ -170,7 +170,7 @@ internal sealed class ToolboxWindow : FloatingWindow
         };
         Deactivated += (_, _) =>
         {
-            if (!IsVisible || _noActivate || _maximized || _app.EditorOpen) return;
+            if (!IsVisible || _noActivate || _maximized || _app.EditorOpen || _app.ThemePanelOpen) return;
             _closedByFocusLossAt = DateTime.UtcNow;
             Close();
         };
@@ -245,6 +245,7 @@ internal sealed class ToolboxWindow : FloatingWindow
         ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
         ("Efecto cristal", _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
         ("Mostrar siempre el icono en la barra de tareas", _app.Layout.AlwaysShowIcon, () => _app.Layout = _app.Layout.WithAlwaysShowIcon(!_app.Layout.AlwaysShowIcon)),
+        ("Tema…", null, _app.ChooseTheme),
         ("Personalizar tarjetas…", null, _app.CustomizeCards),
         ("Abrir la carpeta de logs", null, _app.OpenLogs),
     ];
