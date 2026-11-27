@@ -22,6 +22,15 @@ public sealed class PhoneHub
     /// <summary>¿Hay un móvil conectado que entienda la toolbox (versión ≥ 5)?</summary>
     public bool SupportsToolbox => Version >= ProtocolInfo.ToolboxVersion;
 
+    /// <summary>Versión de la app del móvil conectado (<c>APP_VERSION</c>, protocolo v6), o null si no hay móvil o aún no la ha dicho.</summary>
+    public string? PhoneAppVersion
+    {
+        get { lock (_lock) return _current?.AppVersion; }
+    }
+
+    /// <summary>Versión de MyMouse de este PC, que se envía al móvil tras el handshake (v6). Vacía = no se envía.</summary>
+    public string HostAppVersion { get; set; } = "";
+
     /// <summary>Se conecta o desconecta un móvil de la versión 5 o posterior.</summary>
     public event Action? Changed;
 
@@ -35,6 +44,17 @@ public sealed class PhoneHub
         lock (_lock) _current = attachment;
         Changed?.Invoke();
         return attachment;
+    }
+
+    /// <summary>Lo llama <see cref="ClientSession"/> al recibir <c>APP_VERSION</c> del móvil.</summary>
+    public void SetPhoneAppVersion(string version)
+    {
+        lock (_lock)
+        {
+            if (_current is null) return;
+            _current.AppVersion = version;
+        }
+        Changed?.Invoke();
     }
 
     /// <summary>Lo llama <see cref="ClientSession"/> con cada mensaje de la v5 que llega.</summary>
@@ -71,6 +91,8 @@ public sealed class PhoneHub
     private sealed class Attachment(PhoneHub hub, byte version, Func<Message, CancellationToken, ValueTask> send) : IDisposable
     {
         public byte Version { get; } = version;
+
+        public string? AppVersion { get; set; }
 
         public ValueTask Send(Message message, CancellationToken cancellationToken) => send(message, cancellationToken);
 

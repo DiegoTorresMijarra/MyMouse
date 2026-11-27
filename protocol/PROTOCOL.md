@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **5** (toolbox del PC: panel, gesto en vivo y formas sincronizadas). El host acepta también clientes de versión 1, 2, 3 y 4. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **6** (v5 = toolbox del PC: panel, gesto en vivo y formas sincronizadas; v6 = `APP_VERSION`, avisos de versión cruzados). El host acepta también clientes de versión 1, 2, 3, 4 y 5. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -54,6 +54,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x11` | `SHAPE_INFO` (v5) | `u16 len` + `str8 nombre`, `u8 muestras`, por muestra `u8 n` + `n` × (`u16 x`, `u16 y`) | variable |
 | `0x12` | `SHAPE_LIST_END` (v5) | `u8` número de formas propias enviadas | 2 |
 | `0x13` | `SHAPE_RESULT` (v5) | `u16 len` + `str8 nombre`, `u8 estado` (0 = guardada, 1 = se confunde, 2 = nombre repetido, 3 = no válida, 4 = borrada, 5 = no existe), `str8` forma con la que se confunde o vacío | variable |
+| `0x14` | `APP_VERSION` (v6) | `u16 len` + `str8 versión` de la app del móvil (p. ej. `5.0` o `0.0-dev.42`) | variable |
 
 ### Host → cliente
 
@@ -69,6 +70,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x8B` | `WIDGET_RESULT` (v3) | `u8 id`, `u8 estado` (mismos valores que `GESTURE_RESULT`) | 3 |
 | `0x8C` | `SHAPE_ADD` (v5) | Como `SHAPE_INFO` y, al final, `u8 force` (1 = guardar aunque se confunda) | variable |
 | `0x8D` | `SHAPE_DELETE` (v5) | `u16 len` + `str8 nombre` | variable |
+| `0x8E` | `APP_VERSION` (v6) | Igual que `0x14`, con la versión de la app del PC | variable |
 
 ### Detalle
 
@@ -118,6 +120,8 @@ Tamaño variable:  +--------+-----------+---------------------+
   - `SHAPE_ADD` (PC → móvil): el móvil valida (nombre `custom:` + texto, ≤ 64 bytes; al menos una muestra con 2 o más puntos y un tamaño mínimo), comprueba que no se confunda con otra forma activa salvo que `force` sea 1, la guarda y responde `SHAPE_RESULT`: 0 guardada, 1 se confunde (con la forma del último campo), 2 nombre repetido, 3 no válida. Si se guarda, además reenvía la lista completa.
   - `SHAPE_DELETE`: borra una forma propia; responde `SHAPE_RESULT` con 4 (borrada) o 5 (no existe) y, si borró, reenvía la lista.
 
+- **Versión de la app** (v6). Avisos de versión cruzados ([spec-v5.1-actualizaciones.md](../docs/spec-v5.1-actualizaciones.md) §6). Cada lado envía su versión (`versionName` del móvil, versión del ensamblado del PC) **una vez, justo tras el handshake**, con versión negociada ≥ 6; con una versión negociada < 6 no se envía y un `APP_VERSION` recibido con versión < 6 es un error de protocolo. Es solo informativo y no se responde. El payload es un `str8` de hasta 64 bytes UTF-8 (cadena vacía permitida: "desconocida"). Los dos tipos tienen el mismo formato pero números distintos (`0x14` móvil → PC, `0x8E` PC → móvil) porque los tipos de cada sentido no se solapan. Las versiones `0.0-dev.N` son de desarrollo y no provocan avisos.
+
 ## Versionado
 
 - Si se añade un tipo nuevo o cambia un payload, **se incrementa la versión**.
@@ -160,5 +164,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `SHAPE_RESULT("a", se confunde, "z")` | `13 05 00 01 61 01 01 7A` |
 | `SHAPE_ADD("a", [[(1,2), (3,4)]], force)` | `8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 01` |
 | `SHAPE_DELETE("a")` | `8D 02 00 01 61` |
+| `APP_VERSION("5.0")` (móvil) | `14 04 00 03 35 2E 30` |
+| `APP_VERSION("5.0")` (PC) | `8E 04 00 03 35 2E 30` |
 | `PING` | `05` |
 | `PONG` | `85` |

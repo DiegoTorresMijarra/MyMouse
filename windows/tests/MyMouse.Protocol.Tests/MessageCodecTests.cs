@@ -42,6 +42,9 @@ public class MessageCodecTests
         { new ShapeResultMessage("a", ShapeStatus.Saved, ""), "13 04 00 01 61 00 00" },
         { new ShapeAddMessage("a", [[new StrokePoint(1, 2), new StrokePoint(3, 4)]], true), "8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 01" },
         { new ShapeDeleteMessage("a"), "8D 02 00 01 61" },
+        { new AppVersionMessage("5.0"), "14 04 00 03 35 2E 30" },
+        { new HostAppVersionMessage("5.0"), "8E 04 00 03 35 2E 30" },
+        { new AppVersionMessage("0.0-dev.42"), "14 0B 00 0A 30 2E 30 2D 64 65 76 2E 34 32" },
         { PingMessage.Instance, "05" },
         { PongMessage.Instance, "85" },
     };
@@ -77,6 +80,9 @@ public class MessageCodecTests
     [Theory]
     [InlineData("06 00 00")] // GESTURE con nombre vacío
     [InlineData("FF")]
+    [InlineData("14 03 00 03 35 2E")] // APP_VERSION truncado
+    [InlineData("14 05 00 03 35 2E 30 00")] // bytes sobrantes
+    [InlineData("8E 04 00 05 35 2E 30")] // longitud del texto mayor que el payload
     [InlineData("02 05 00")] // MOVE truncado
     [InlineData("07 78")] // ZOOM truncado
     [InlineData("06 02 00 7A")] // GESTURE truncado

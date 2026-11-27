@@ -126,6 +126,10 @@ public sealed class ClientSession
                     // La toolbox (v5) recibe lo que llega del móvil y puede escribirle (SHAPE_ADD, SHAPE_DELETE).
                     if (_phone is not null && Version >= ProtocolInfo.ToolboxVersion)
                         phoneAttachment = _phone.Attach(Version, SendAsync);
+
+                    // La versión de la app (v6) para los avisos cruzados. Se envía una sola vez, justo tras el handshake.
+                    if (_phone is { HostAppVersion.Length: > 0 } && Version >= ProtocolInfo.AppVersionVersion)
+                        await SendAsync(new HostAppVersionMessage(_phone.HostAppVersion), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
@@ -215,6 +219,14 @@ public sealed class ClientSession
             if (Version < ProtocolInfo.ToolboxVersion)
                 throw new ProtocolException($"{message.Type} con protocolo v{Version}");
             _phone?.Dispatch(message);
+            return;
+        }
+
+        if (message is AppVersionMessage appVersion)
+        {
+            if (Version < ProtocolInfo.AppVersionVersion)
+                throw new ProtocolException($"{message.Type} con protocolo v{Version}");
+            _phone?.SetPhoneAppVersion(appVersion.Version);
             return;
         }
 

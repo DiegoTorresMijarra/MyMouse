@@ -47,6 +47,9 @@ class MessageCodecTest {
         Message.ShapeAdd("a", listOf(listOf(StrokePoint(1, 2), StrokePoint(3, 4))), force = true) to
             "8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 01",
         Message.ShapeDelete("a") to "8D 02 00 01 61",
+        Message.AppVersion("5.0") to "14 04 00 03 35 2E 30",
+        Message.HostAppVersion("5.0") to "8E 04 00 03 35 2E 30",
+        Message.AppVersion("0.0-dev.42") to "14 0B 00 0A 30 2E 30 2D 64 65 76 2E 34 32",
         Message.Ping to "05",
         Message.Pong to "85",
     )
@@ -74,7 +77,7 @@ class MessageCodecTest {
             "88 04 00 01 00 02 00", "8A 04 00 01 01 41 01", "8A 05 00 02 01 41 01 42", "08",
             "0D 02", "0E 02 00 00", "0F 01 00 00", "0F 02 00 00 00", "0F 05 00 02 00 00 00 00", "10 04", "11 02 00 01 61", "11 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 00",
             "13 05 00 01 61 06 01 7A", "8C 0C 00 01 61 01 02 01 00 02 00 03 00 04 00", "8C 0D 00 01 61 01 02 01 00 02 00 03 00 04 00 02", "8D 02 00 01",
-            "12")) {
+            "12", "14 03 00 03 35 2E", "14 05 00 03 35 2E 30 00", "8E 01 00", "8E 04 00 05 35 2E 30")) {
             assertFailsWith<ProtocolException>(hex) { MessageReader(ByteArrayInputStream(hex(hex))).read() }
         }
     }

@@ -4,8 +4,8 @@ import java.io.InputStream
 
 /** Constantes del protocolo. Fuente de verdad: protocol/PROTOCOL.md. */
 object Protocol {
-    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC. */
-    const val VERSION = 5
+    /** Versión más alta que conoce el cliente. 2 = modo gestos, 3 = panel de widgets, 4 = gestos de Windows, 5 = toolbox del PC, 6 = versión de la app. */
+    const val VERSION = 6
     const val GESTURES_VERSION = 2
 
     /** Primera versión con los mensajes del panel de widgets. */
@@ -17,6 +17,12 @@ object Protocol {
 
     /** Primera versión con la toolbox del PC: `TOOLBOX`, gesto en vivo (`GESTURE_MODE`, `STROKE_*`) y sincronización de formas (`SHAPE_*`). */
     const val TOOLBOX_VERSION = 5
+
+    /** Primera versión con `APP_VERSION` (avisos de versión cruzados entre móvil y PC). */
+    const val APP_VERSION_VERSION = 6
+
+    /** Longitud máxima del texto de versión de `APP_VERSION`, en bytes UTF-8. */
+    const val MAX_APP_VERSION_BYTES = 64
 
     /** Puntos a los que se remuestrea cada muestra de una forma al enviarla (`SHAPE_INFO`). */
     const val SHAPE_SAMPLE_POINTS = 32
@@ -177,6 +183,20 @@ sealed interface Message {
     /** Resultado de pulsar un widget. Mismos valores que [GestureStatus]. */
     data class WidgetResult(val id: Int, val status: GestureStatus) : Message
 
+    /** Versión de la app del móvil (0x14, móvil → PC; protocolo v6), p. ej. `5.0`. */
+    data class AppVersion(val version: String) : Message {
+        init {
+            require(version.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_APP_VERSION_BYTES) { "Versión demasiado larga" }
+        }
+    }
+
+    /** Versión de la app del PC (0x8E, PC → móvil; protocolo v6). */
+    data class HostAppVersion(val version: String) : Message {
+        init {
+            require(version.toByteArray(Charsets.UTF_8).size <= Protocol.MAX_APP_VERSION_BYTES) { "Versión demasiado larga" }
+        }
+    }
+
     data object Ping : Message
     data object Pong : Message
 }
@@ -204,6 +224,7 @@ object MessageCodec {
     private const val SHAPE_INFO = 0x11
     private const val SHAPE_LIST_END = 0x12
     private const val SHAPE_RESULT = 0x13
+    private const val APP_VERSION = 0x14
     private const val HELLO_ACK = 0x81
     private const val PONG = 0x85
     private const val GESTURE_RESULT = 0x86
@@ -214,6 +235,7 @@ object MessageCodec {
     private const val WIDGET_RESULT = 0x8B
     private const val SHAPE_ADD = 0x8C
     private const val SHAPE_DELETE = 0x8D
+    private const val APP_VERSION_HOST = 0x8E
 
     /** Tamaño fijo del payload, o null si el tipo es variable. */
     fun payloadSize(type: Int): Int? = when (type) {
@@ -224,7 +246,7 @@ object MessageCodec {
         GESTURE_MODE -> 3
         PING, PONG -> 0
         GESTURE, GESTURE_LIST, WIDGET_LAYOUT, MEDIA_STATE,
-        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE -> null
+        STROKE_POINTS, SHAPE_INFO, SHAPE_RESULT, SHAPE_ADD, SHAPE_DELETE, APP_VERSION, APP_VERSION_HOST -> null
         else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
     }
 
@@ -259,6 +281,8 @@ object MessageCodec {
             is Message.ShapeResult -> SHAPE_RESULT to encodeShapeResult(message)
             is Message.ShapeAdd -> SHAPE_ADD to encodeShape(message.name, message.samples) + byteArrayOf((if (message.force) 1 else 0).toByte())
             is Message.ShapeDelete -> SHAPE_DELETE to encodeName(message.name)
+            is Message.AppVersion -> APP_VERSION to encodeName(message.version)
+            is Message.HostAppVersion -> APP_VERSION_HOST to encodeName(message.version)
             Message.Ping -> PING to ByteArray(0)
             Message.Pong -> PONG to ByteArray(0)
         }
@@ -333,6 +357,8 @@ object MessageCodec {
             SHAPE_RESULT -> decodeShapeResult(payload)
             SHAPE_ADD -> decodeShape(payload, withForce = true).let { Message.ShapeAdd(it.name, it.samples, it.force) }
             SHAPE_DELETE -> decodeName(payload)
+            APP_VERSION -> Message.AppVersion(decodeAppVersion(payload))
+            APP_VERSION_HOST -> Message.HostAppVersion(decodeAppVersion(payload))
             PING -> Message.Ping
             PONG -> Message.Pong
             else -> throw ProtocolException("Tipo de mensaje desconocido: 0x%02X".format(type))
@@ -454,6 +480,14 @@ object MessageCodec {
     }
 
     private fun encodeName(name: String): ByteArray = java.io.ByteArrayOutputStream().also { str8(it, name) }.toByteArray()
+
+    private fun decodeAppVersion(p: ByteArray): String {
+        val c = Cursor(p)
+        val version = c.str()
+        c.requireEnd("APP_VERSION")
+        if (version.toByteArray(Charsets.UTF_8).size > Protocol.MAX_APP_VERSION_BYTES) throw ProtocolException("Versión demasiado larga en APP_VERSION")
+        return version
+    }
 
     private fun decodeName(p: ByteArray): Message.ShapeDelete {
         val c = Cursor(p)

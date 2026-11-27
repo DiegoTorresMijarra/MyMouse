@@ -22,7 +22,8 @@ public static class MessageCodec
         MessageType.Ping or MessageType.Pong => 0,
         MessageType.Gesture or MessageType.GestureList or MessageType.WidgetLayout or MessageType.MediaState
             or MessageType.StrokePoints or MessageType.ShapeInfo or MessageType.ShapeResult
-            or MessageType.ShapeAdd or MessageType.ShapeDelete => null,
+            or MessageType.ShapeAdd or MessageType.ShapeDelete
+            or MessageType.AppVersion or MessageType.AppVersionHost => null,
         _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
     };
 
@@ -157,6 +158,10 @@ public static class MessageCodec
                 WriteStr8(ms, m.Name);
                 return ms.ToArray();
             }
+            case AppVersionMessage m:
+                return EncodeAppVersion(m.Version);
+            case HostAppVersionMessage m:
+                return EncodeAppVersion(m.Version);
             case PingMessage or PongMessage:
                 return [];
             default:
@@ -205,6 +210,8 @@ public static class MessageCodec
             MessageType.ShapeResult => DecodeShapeResult(payload),
             MessageType.ShapeAdd => DecodeShape(payload, withForce: true),
             MessageType.ShapeDelete => DecodeShapeDelete(payload),
+            MessageType.AppVersion => new AppVersionMessage(DecodeAppVersion(payload)),
+            MessageType.AppVersionHost => new HostAppVersionMessage(DecodeAppVersion(payload)),
             _ => throw new ProtocolException($"Tipo de mensaje desconocido: 0x{type:X2}"),
         };
     }
@@ -338,6 +345,25 @@ public static class MessageCodec
         var other = ReadStr8(payload, ref pos);
         if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en SHAPE_RESULT");
         return new ShapeResultMessage(name, (ShapeStatus)status, other);
+    }
+
+    private static byte[] EncodeAppVersion(string version)
+    {
+        if (Encoding.UTF8.GetByteCount(version) > ProtocolInfo.MaxAppVersionBytes)
+            throw new ArgumentException("Versión demasiado larga");
+        var ms = new MemoryStream();
+        WriteStr8(ms, version);
+        return ms.ToArray();
+    }
+
+    private static string DecodeAppVersion(ReadOnlySpan<byte> payload)
+    {
+        var pos = 0;
+        var version = ReadStr8(payload, ref pos);
+        if (pos != payload.Length) throw new ProtocolException("Bytes sobrantes en APP_VERSION");
+        if (Encoding.UTF8.GetByteCount(version) > ProtocolInfo.MaxAppVersionBytes)
+            throw new ProtocolException("Versión demasiado larga en APP_VERSION");
+        return version;
     }
 
     private static ShapeDeleteMessage DecodeShapeDelete(ReadOnlySpan<byte> payload)
