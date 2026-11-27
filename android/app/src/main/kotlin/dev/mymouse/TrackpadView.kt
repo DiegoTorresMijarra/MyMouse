@@ -181,11 +181,14 @@ class TrackpadView(
         invalidate()
     }
 
+    /** Lo que se dice de una forma sin acción: "sin acción en el PC" por USB; por Bluetooth las acciones son del móvil. */
+    var unassignedText: String = "sin acción en el PC"
+
     /** Respuesta del PC a la última forma: solo se avisa si no se ha ejecutado. */
     fun showGestureStatus(status: GestureStatus) {
         when (status) {
             GestureStatus.EXECUTED -> Unit
-            GestureStatus.UNASSIGNED -> showResult("${lastGesture?.let(ShapeStore::label) ?: "Forma"}: sin acción en el PC", ok = false)
+            GestureStatus.UNASSIGNED -> showResult("${lastGesture?.let(ShapeStore::label) ?: "Forma"}: $unassignedText", ok = false)
             GestureStatus.ERROR -> showResult("El PC no la ha ejecutado (¿en pausa?)", ok = false)
         }
     }

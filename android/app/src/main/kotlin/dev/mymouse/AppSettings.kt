@@ -1,6 +1,7 @@
 package dev.mymouse
 
 import android.content.Context
+import dev.mymouse.core.btactions.KeyboardLayouts
 import dev.mymouse.core.gesture.TrackpadConfig
 import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.widgets.WidgetPanelSize
@@ -39,10 +40,17 @@ data class AppSettings(
     val widgetPanelSize: WidgetPanelSize = WidgetPanelSize.MEDIUM,
     /** Cadencia del envío del movimiento por Bluetooth, en ms (ajuste avanzado, docs/spec-v4.5-estilo.md §4.2). */
     val bluetoothIntervalMs: Int = 8,
+    /** Distribución del teclado del PC para escribir texto por Bluetooth: `es` (Español de España) o `us` (docs/spec-v5-bluetooth-completo.md §2.1). */
+    val btKeyboardLayout: String = "es",
+    /** Scroll fino por Bluetooth (docs/spec-v5-bluetooth-completo.md §4). Apagado, se registra el descriptor HID antiguo. */
+    val btFineScroll: Boolean = true,
     /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. No se sincroniza con el PC. */
     val theme: ThemeChoice = ThemeChoice(),
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
+
+    /** La distribución del teclado del PC elegida. */
+    val keyboardLayout get() = KeyboardLayouts.byId(btKeyboardLayout)
 
     fun trackpadConfig() = TrackpadConfig(
         sensitivity = sensitivity,
@@ -79,6 +87,8 @@ data class AppSettings(
             .putBoolean("showWidgets", showWidgets)
             .putString("widgetPanelSize", widgetPanelSize.name)
             .putInt("bluetoothIntervalMs", bluetoothIntervalMs)
+            .putString("btKeyboardLayout", btKeyboardLayout)
+            .putBoolean("btFineScroll", btFineScroll)
             .putString("theme", theme.themeId)
             .putString("accent", theme.accentId)
             .putBoolean("themeStars", theme.stars)
@@ -133,6 +143,8 @@ data class AppSettings(
                     ?.let { name -> WidgetPanelSize.entries.firstOrNull { it.name == name } } ?: d.widgetPanelSize,
                 bluetoothIntervalMs = p.getInt("bluetoothIntervalMs", d.bluetoothIntervalMs)
                     .coerceIn(MIN_BLUETOOTH_INTERVAL_MS, MAX_BLUETOOTH_INTERVAL_MS),
+                btKeyboardLayout = KeyboardLayouts.byId(p.getString("btKeyboardLayout", null)).id,
+                btFineScroll = p.getBoolean("btFineScroll", d.btFineScroll),
                 // Sin tema guardado (versiones anteriores a la 4.8) o con uno desconocido: Universo, con la paleta sobria.
                 theme = ThemeChoice(
                     themeId = p.getString("theme", null) ?: d.theme.themeId,

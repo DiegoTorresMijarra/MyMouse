@@ -43,6 +43,14 @@
             android:exported="false" />
 
         <activity
+            android:name=".BtGesturesActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".BtWidgetsActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false" />
 

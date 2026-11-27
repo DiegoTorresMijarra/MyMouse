@@ -20,11 +20,17 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
+import dev.mymouse.core.btactions.BtAction
+import dev.mymouse.core.btactions.BtActions
+import dev.mymouse.core.btactions.BtGestureConfig
+import dev.mymouse.core.btactions.BtWidgetConfig
+import dev.mymouse.core.btactions.KeyboardLayout
 import dev.mymouse.core.bluetooth.BluetoothEventLog
 import dev.mymouse.core.bluetooth.BluetoothFacts
 import dev.mymouse.core.bluetooth.HidLinkState
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.hid.ConsumerKey
+import dev.mymouse.core.hid.HidDescriptor
 import dev.mymouse.core.hid.HidMapper
 import dev.mymouse.core.hid.HidMotionCoalescer
 import dev.mymouse.core.hid.HidSendStats
@@ -32,8 +38,6 @@ import dev.mymouse.core.hid.HidReport
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.MediaCommand
 import dev.mymouse.core.protocol.Message
-import dev.mymouse.core.protocol.WidgetEntry
-import dev.mymouse.core.protocol.WidgetKind
 
 /**
  * El móvil como ratón y teclado Bluetooth (docs/spec-v3-bluetooth.md): no hace falta nada en el PC.
@@ -50,6 +54,15 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private val handler = Handler(Looper.getMainLooper())
     private val adapter: BluetoothAdapter? = app.getSystemService(BluetoothManager::class.java)?.adapter
     private val mapper = HidMapper()
+
+    // ---- Acciones guardadas en el móvil (docs/spec-v5-bluetooth-completo.md §2 y §3) ----
+    private val actionStore = BtActionStore(app)
+    private var gestureConfig: BtGestureConfig = BtGestureConfig.DEFAULT
+    private var widgetConfig: BtWidgetConfig = BtWidgetConfig.DEFAULT
+    private var layout: KeyboardLayout = AppSettings().keyboardLayout
+
+    /** Descriptor con el que se registró la app: con o sin scroll fino (el ajuste puede cambiar con la app registrada). */
+    private var registeredFine = true
 
     // ---- Envío agrupado (docs/spec-v4.5-estilo.md §4.2) ----
     // Un hilo propio saca UN informe de ratón por tic con el movimiento acumulado; botones, teclado y multimedia salen enseguida y en orden.
@@ -86,7 +99,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onWidgetResult: (Message.WidgetResult) -> Unit = {}
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
-    override val supportsGestures = false
+    override val supportsGestures = true // las acciones de las formas viven en el móvil (bt-gestures.json)
     override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
     override val toolboxUnavailableText = "La toolbox del PC solo funciona por USB"
@@ -191,6 +204,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             preferredHostName = bonded?.let { nameOf(it) } ?: preferred,
             preferredHostBonded = bonded != null,
             link = link,
+            fineScrollEnabled = registeredFine,
+            fineScrollActive = mapper.resolution.fine,
         )
     }
 
@@ -228,11 +243,41 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     private val release = Runnable { releaseNow() }
 
+    /** Vuelve a leer los ajustes y los ficheros de acciones (se llama al abrir una pantalla: el editor puede haberlos cambiado). */
+    fun reloadActions() {
+        val settings = AppSettings.load(app)
+        layout = settings.keyboardLayout
+        gestureConfig = actionStore.gestures()
+        widgetConfig = actionStore.widgets()
+    }
+
+    /** Lista de formas con acción (la misma forma que `GESTURE_LIST` del PC) para la hoja del modo gestos de la pantalla del trackpad. */
+    fun gestureList(enabledShapes: Collection<String>): Message.GestureList =
+        Message.GestureList("por Bluetooth", gestureConfig.listEntries(enabledShapes))
+
+    /**
+     * Ejecuta una acción en el PC al momento (botón "Probar" de los editores). Devuelve false si el móvil no está conectado al PC por
+     * Bluetooth. Desde el hilo principal.
+     */
+    fun runAction(action: BtAction): Boolean {
+        val device = host ?: return false
+        reloadActions()
+        val reports = mapper.action(action, layout)
+        sendActionReports(device, action, reports)
+        return true
+    }
+
     override fun start() {
         handler.removeCallbacks(release)
         users++
         log("pantalla en uso (usuarios: $users)")
+        reloadActions()
         if (hid != null || users > 1) {
+            // Si se cambió "Scroll fino" con la app ya registrada, hay que registrar el otro descriptor.
+            if (hid != null && registered && registeredFine != AppSettings.load(app).btFineScroll) {
+                log("el ajuste de scroll fino cambió: se vuelve a registrar el descriptor")
+                reregister()
+            }
             replayState()
             return
         }
@@ -293,8 +338,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     private fun register() {
         val h = hid ?: return
+        registeredFine = AppSettings.load(app).btFineScroll
         val sdp = BluetoothHidDeviceAppSdpSettings(
-            "MyMouse", "Trackpad MyMouse", "MyMouse", BluetoothHidDevice.SUBCLASS1_COMBO, HidMapper.DESCRIPTOR,
+            "MyMouse", "Trackpad MyMouse", "MyMouse", BluetoothHidDevice.SUBCLASS1_COMBO, HidDescriptor.build(registeredFine),
         )
         try {
             // QoS del canal de salida (interrupción, del móvil al PC): mejor esfuerzo con poco retardo (11,25 ms).
@@ -303,7 +349,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                 BluetoothHidDeviceAppQosSettings.MAX,
             )
             val ok = h.registerApp(sdp, null, outQos, app.mainExecutor, callback)
-            log("registerApp() devolvió $ok (QoS de salida: mejor esfuerzo, tasa $QOS_TOKEN_RATE B/s, cubo $QOS_TOKEN_BUCKET, latencia $QOS_LATENCY_US µs; entrada: sin QoS)")
+            log("registerApp() devolvió $ok (descriptor ${if (registeredFine) "con scroll fino" else "antiguo, sin scroll fino"}; QoS de salida: mejor esfuerzo, tasa $QOS_TOKEN_RATE B/s, cubo $QOS_TOKEN_BUCKET, latencia $QOS_LATENCY_US µs; entrada: sin QoS)")
             status = if (ok) "Registrando como ratón Bluetooth…" else "No se pudo registrar como ratón Bluetooth"
         } catch (e: SecurityException) {
             status = "Falta el permiso de Bluetooth"
@@ -348,18 +394,48 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         }
 
         override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
-            // Algunos sistemas piden el estado inicial de cada informe: se responde con ceros.
-            val size = when (id.toInt()) {
-                HidMapper.MOUSE_ID -> 5
-                HidMapper.KEYBOARD_ID -> 8
-                HidMapper.CONSUMER_ID -> 2
-                else -> 0
-            }
             try {
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE) {
+                    // Multiplicador de resolución del scroll (docs/spec-v5-bluetooth-completo.md §4): se contesta con el valor actual.
+                    if (id.toInt() == HidMapper.MOUSE_ID && registeredFine) {
+                        hid?.replyReport(device, type, id, mapper.resolution.featureData())
+                        log("el PC leyó el multiplicador de scroll")
+                    } else {
+                        hid?.reportError(device, BluetoothHidDevice.ERROR_RSP_INVALID_RPT_ID)
+                    }
+                    return
+                }
+                // Algunos sistemas piden el estado inicial de cada informe: se responde con ceros.
+                val size = when (id.toInt()) {
+                    HidMapper.MOUSE_ID -> 5
+                    HidMapper.KEYBOARD_ID -> 8
+                    HidMapper.CONSUMER_ID -> 2
+                    else -> 0
+                }
                 if (size > 0) hid?.replyReport(device, type, id, ByteArray(size))
                 else hid?.reportError(device, BluetoothHidDevice.ERROR_RSP_INVALID_RPT_ID)
             } catch (e: SecurityException) {
                 Log.w(TAG, "onGetReport sin permiso")
+            }
+        }
+
+        /** Windows activa el scroll fino escribiendo el informe feature del multiplicador (`SET_REPORT`). */
+        override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
+            try {
+                if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id.toInt() == HidMapper.MOUSE_ID && registeredFine) {
+                    val changed = mapper.applyScrollFeature(data)
+                    log("el PC escribió el multiplicador de scroll (${data.joinToString(" ") { "%02X".format(it) }}): " +
+                        if (mapper.resolution.fine) "scroll fino activado" else "pasos enteros")
+                    hid?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
+                    if (changed) {
+                        sender.post { coalescer.dropScroll() } // lo acumulado estaba en otras unidades
+                        statusListener(status)
+                    }
+                } else {
+                    hid?.reportError(device, BluetoothHidDevice.ERROR_RSP_INVALID_RPT_ID)
+                }
+            } catch (e: SecurityException) {
+                Log.w(TAG, "onSetReport sin permiso")
             }
         }
     }
@@ -392,28 +468,79 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         host = device
         if (!changed) return
         stats.reset()
-        if (device == null) sender.post { coalescer.reset() }
+        // El multiplicador de scroll es de cada conexión: el PC lo vuelve a pedir al conectar.
+        if (mapper.resetScrollResolution()) log("scroll fino desactivado (sin conexión)")
+        handler.removeCallbacks(zoomRelease)
+        if (device == null) sender.post { coalescer.reset() } else sender.post { coalescer.dropScroll() }
         onConnectionChanged(device != null)
         if (device != null) replayState() else onWidgetLayout(Message.WidgetLayout(emptyList()))
     }
 
-    /** Panel fijo de widgets en modo Bluetooth (spec §1): multimedia y volumen por teclas multimedia. */
+    /** Panel de widgets en modo Bluetooth: multimedia y volumen fijos más los botones propios de `bt-widgets.json` (spec v5 §3). */
     private fun replayState() {
         if (host == null) return
         onConnectionChanged(true)
-        onWidgetLayout(Message.WidgetLayout(WIDGETS))
+        onWidgetLayout(Message.WidgetLayout(widgetConfig.entries()))
         onMediaState(Message.MediaState(false, "Multimedia del PC", "por Bluetooth"))
     }
 
     override fun send(action: OutputAction) {
         val device = host ?: return
+        if (action is OutputAction.Gesture) {
+            runGesture(device, action.name)
+            return
+        }
         val reports = mapper.map(action)
+        if (reports.isNotEmpty()) sender.post { process(device, reports) }
+        // Con scroll fino el zoom deja Ctrl pulsado: se suelta cuando el zoom se detiene.
+        if (action is OutputAction.Zoom && mapper.zoomHeld) {
+            handler.removeCallbacks(zoomRelease)
+            handler.postDelayed(zoomRelease, ZOOM_RELEASE_MS)
+        }
+    }
+
+    /** Suelta Ctrl cuando pasa un rato sin zoom (hilo principal: el mapeador solo se toca desde ahí). */
+    private val zoomRelease = Runnable {
+        val device = host
+        val reports = mapper.endZoom()
+        if (device != null && reports.isNotEmpty()) sender.post { process(device, reports) }
+    }
+
+    /** Forma reconocida: se busca su acción en `bt-gestures.json` y se teclea en el PC (spec v5 §2.3). */
+    private fun runGesture(device: BluetoothDevice, name: String) {
+        val binding = gestureConfig.find(name)
+        if (binding == null) {
+            onGestureResult(GestureStatus.UNASSIGNED)
+            return
+        }
+        val reports = mapper.action(binding.action, layout)
+        log("forma $name → ${BtActions.describe(binding.action)}")
+        sendActionReports(device, binding.action, reports)
+        onGestureResult(GestureStatus.EXECUTED)
+    }
+
+    /** Los informes de una acción van en orden y tras el movimiento pendiente; el texto, con un hueco entre teclas para no desbordar la pila. */
+    private fun sendActionReports(device: BluetoothDevice, action: BtAction, reports: List<HidReport>) {
         if (reports.isEmpty()) return
-        sender.post { process(device, reports) }
+        if (action is BtAction.Text && reports.size > TEXT_BURST) {
+            reports.forEachIndexed { i, report -> sender.postDelayed({ process(device, listOf(report)) }, i * TEXT_GAP_MS) }
+        } else {
+            sender.post { process(device, reports) }
+        }
     }
 
     override fun sendWidget(message: Message) {
         val device = host ?: return
+        if (message is Message.WidgetPress) {
+            val button = widgetConfig.buttonFor(message.id)
+            if (button != null) {
+                val reports = mapper.action(button.action, layout)
+                log("botón ${button.label} → ${BtActions.describe(button.action)}")
+                sendActionReports(device, button.action, reports)
+                onWidgetResult(Message.WidgetResult(message.id, GestureStatus.EXECUTED))
+                return
+            }
+        }
         val key = when (message) {
             is Message.MediaControl -> when (message.command) {
                 MediaCommand.PLAY_PAUSE -> ConsumerKey.PLAY_PAUSE
@@ -421,14 +548,14 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                 MediaCommand.PREVIOUS -> ConsumerKey.PREVIOUS
             }
             is Message.WidgetPress -> when (message.id) {
-                ID_VOLUME_DOWN -> ConsumerKey.VOLUME_DOWN
-                ID_VOLUME_UP -> ConsumerKey.VOLUME_UP
-                ID_MUTE -> ConsumerKey.MUTE
+                BtWidgetConfig.ID_VOLUME_DOWN -> ConsumerKey.VOLUME_DOWN
+                BtWidgetConfig.ID_VOLUME_UP -> ConsumerKey.VOLUME_UP
+                BtWidgetConfig.ID_MUTE -> ConsumerKey.MUTE
                 else -> null
             }
             else -> null // sin volumen absoluto por Bluetooth
         } ?: return
-        val reports = mapper.consumer(key)
+        val reports = mapper.endZoom() + mapper.consumer(key)
         sender.post { process(device, reports) }
     }
 
@@ -500,16 +627,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         private const val QOS_TOKEN_BUCKET = 9
         private const val QOS_LATENCY_US = 11_250
         private const val RELEASE_DELAY_MS = 60_000L // spec v4.5 §4: no cortar el registro HID mientras Windows empareja
-        private const val ID_VOLUME_DOWN = 1
-        private const val ID_VOLUME_UP = 2
-        private const val ID_MUTE = 3
-
-        private val WIDGETS = listOf(
-            WidgetEntry(0, WidgetKind.MEDIA, "", ""),
-            WidgetEntry(ID_VOLUME_DOWN, WidgetKind.BUTTON, "Vol −", "🔉"),
-            WidgetEntry(ID_VOLUME_UP, WidgetKind.BUTTON, "Vol +", "🔊"),
-            WidgetEntry(ID_MUTE, WidgetKind.BUTTON, "Silencio", "🔇"),
-        )
+        private const val ZOOM_RELEASE_MS = 150L // sin zoom durante este tiempo, se suelta el Ctrl del zoom fino
+        private const val TEXT_BURST = 8 // hasta 8 informes (4 teclas) salen de golpe; el texto más largo, con hueco
+        private const val TEXT_GAP_MS = 5L
 
         @Volatile private var instance: BluetoothHidTransport? = null
 

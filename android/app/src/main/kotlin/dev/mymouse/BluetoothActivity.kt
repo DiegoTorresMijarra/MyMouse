@@ -111,7 +111,8 @@ class BluetoothActivity : Activity() {
                 "1. Pulsa \"Hacer visible\" y deja esta pantalla abierta.\n" +
                 "2. En Windows: Configuración → Bluetooth y dispositivos → Agregar dispositivo → Bluetooth, y elige este móvil.\n" +
                 "3. Acepta el código en los dos lados.\n" +
-                "Después, el móvil se conecta solo a ese PC al abrir MyMouse.",
+                "Después, el móvil se conecta solo a ese PC al abrir MyMouse.\n\n" +
+                BluetoothDiagnostics.REPAIR_FINE_SCROLL,
         ))
         statusBody.addView(GlassTheme.button(this, "Hacer visible (3 min)") {
             // Mientras Windows empareja salen diálogos del sistema: el registro HID se mantiene 3 minutos pase lo que pase.
@@ -171,6 +172,9 @@ class BluetoothActivity : Activity() {
             ).apply { setPadding(0, (8 * density).toInt(), 0, 0) })
         }
 
+        diagBody.addView(GlassTheme.text(this, BluetoothDiagnostics.fineScrollLine(facts), 13f, GlassTheme.TEXT_SECONDARY).apply {
+            setPadding(0, (8 * density).toInt(), 0, 0)
+        })
         statsText = GlassTheme.text(this, statsLine(), 12f, GlassTheme.TEXT_SECONDARY).apply {
             typeface = Typeface.MONOSPACE
             setPadding(0, (8 * density).toInt(), 0, 0)
@@ -190,6 +194,7 @@ class BluetoothActivity : Activity() {
 
         diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.REPAIR_HELP))
         diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.PAIRING_NOTE))
+        diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.REPAIR_FINE_SCROLL))
 
         diagBody.addView(GlassTheme.cardTitle(this, "Últimos eventos").apply { setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt()) })
         val events = transport.events.entries()

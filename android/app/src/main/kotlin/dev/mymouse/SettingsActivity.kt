@@ -79,6 +79,15 @@ class SettingsActivity : Activity() {
             AppSettings.MIN_BLUETOOTH_INTERVAL_MS.toFloat(), AppSettings.MAX_BLUETOOTH_INTERVAL_MS.toFloat(), 1f,
             settings.bluetoothIntervalMs.toFloat(), { "${it.roundToInt()} ms" },
         ) { settings = settings.copy(bluetoothIntervalMs = it.roundToInt()) })
+        list.addView(switch("Scroll fino por Bluetooth (avanzado)", settings.btFineScroll) {
+            settings = settings.copy(btFineScroll = it)
+        })
+        list.addView(GlassTheme.note(
+            this,
+            "Scroll y zoom suaves, como un ratón de precisión. Si Windows no los acepta, se usan pasos enteros. " +
+                "Al cambiarlo hay que quitar el móvil en Windows y volver a emparejarlo: Windows guarda en caché la descripción del ratón. " +
+                "Desactívalo solo si algún PC se porta mal.",
+        ))
         list.addView(GlassTheme.button(this, "Emparejar por Bluetooth…") {
             settings.save(this@SettingsActivity)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -86,8 +95,9 @@ class SettingsActivity : Activity() {
             }
         }.apply { isEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P })
         list.addView(TextView(this).apply {
-            text = "Por Bluetooth funcionan el trackpad, el zoom y un panel fijo de multimedia y volumen. " +
-                "El modo gestos y los widgets configurables necesitan MyMouse en el PC (USB). " +
+            text = "Por Bluetooth funcionan el trackpad, el zoom, el modo gestos y el panel de widgets con multimedia, volumen y tus botones: " +
+                "sus acciones se configuran en este móvil (Modo gestos → Acciones por Bluetooth; Widgets → Botones por Bluetooth). " +
+                "Abrir programas, la toolbox y los widgets con volumen deslizante necesitan MyMouse en el PC (USB). " +
                 "El intervalo es cada cuánto se envía el movimiento: menos ms = puntero más fluido y más tráfico " +
                 "(8 ms va bien; sube a 12–16 si se nota retraso acumulado). En el trackpad se ve el intervalo real entre informes, no un ping."
             textSize = 13f
@@ -119,8 +129,13 @@ class SettingsActivity : Activity() {
         list.addView(GlassTheme.button(this, "Formas…") {
             startActivity(android.content.Intent(this@SettingsActivity, ShapesActivity::class.java))
         })
+        list.addView(GlassTheme.button(this, "Acciones por Bluetooth…") {
+            settings.save(this@SettingsActivity) // el editor lee la conexión y la distribución del teclado
+            startActivity(android.content.Intent(this@SettingsActivity, BtGesturesActivity::class.java))
+        })
         list.addView(TextView(this).apply {
-            text = "Lo que hace cada forma se configura en la toolbox del PC (clic en el icono de la bandeja o 4 dedos ↑) → \"Gestos y widgets\"."
+            text = "Por USB, lo que hace cada forma se configura en la toolbox del PC (clic en el icono de la bandeja o 4 dedos ↑) → \"Gestos y widgets\". " +
+                "Por Bluetooth, en \"Acciones por Bluetooth…\" (atajos, multimedia y texto)."
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
@@ -134,9 +149,13 @@ class SettingsActivity : Activity() {
             listOf("Pequeño (22 %)", "Mediano (30 %)", "Grande (40 %)"),
             settings.widgetPanelSize.ordinal,
         ) { settings = settings.copy(widgetPanelSize = WidgetPanelSize.entries[it]) })
+        list.addView(GlassTheme.button(this, "Botones por Bluetooth…") {
+            settings.save(this@SettingsActivity)
+            startActivity(android.content.Intent(this@SettingsActivity, BtWidgetsActivity::class.java))
+        })
         list.addView(TextView(this).apply {
-            text = "El panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
-                "toolbox del PC → \"Gestos y widgets\"."
+            text = "Por USB, el panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
+                "toolbox del PC → \"Gestos y widgets\". Por Bluetooth, el panel lleva multimedia, volumen y los botones de \"Botones por Bluetooth…\"."
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })

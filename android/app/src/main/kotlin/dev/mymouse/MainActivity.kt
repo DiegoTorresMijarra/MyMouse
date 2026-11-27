@@ -109,6 +109,8 @@ class MainActivity : Activity() {
         // En modo Bluetooth, un toque en el punto de estado abre el diagnóstico (docs/spec-v4.5-estilo.md §4).
         if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             trackpad.linkInfo = { (connection as? BluetoothHidTransport)?.linkInfo() }
+            trackpad.unassignedText = "sin acción (Ajustes → Acciones por Bluetooth)"
+            trackpad.hostGestureList = phoneGestureList()
             trackpad.onStatusDotTap = {
                 startActivity(Intent(this, BluetoothActivity::class.java).putExtra(BluetoothActivity.EXTRA_SHOW_DIAGNOSTICS, true))
             }
@@ -120,7 +122,7 @@ class MainActivity : Activity() {
             trackpad.post {
                 trackpad.connected = connected
                 if (!connected) {
-                    trackpad.hostGestureList = null
+                    trackpad.hostGestureList = phoneGestureList() // por Bluetooth, las acciones son del móvil y se ven sin conexión
                     lastSyncedShapes = null
                     panel.clear()
                     applyMargins()
@@ -215,10 +217,18 @@ class MainActivity : Activity() {
     // ---- Ajustes y atenuación ----
 
     private fun buildEngine(): TrackpadEngine {
-        // Por Bluetooth no hay PC que ejecute las formas: sin modo gestos.
+        // Por Bluetooth las acciones de las formas son del móvil (bt-gestures.json): el modo gestos funciona igual.
         val config = settings.trackpadConfig().let { if (connection.supportsGestures) it else it.copy(gestureFingers = 0) }
         val recognizer = if (config.gestureFingers > 0) shapes.recognizer(minSizePx = 40 * density) else null
         return TrackpadEngine(config, recognizer)
+    }
+
+    /** Por Bluetooth, las formas con acción de `bt-gestures.json` para la hoja del modo gestos; por USB, null (la manda el PC). */
+    private fun phoneGestureList(): Message.GestureList? {
+        if (connectionType != AppSettings.Connection.BLUETOOTH || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        val transport = connection as? BluetoothHidTransport ?: return null
+        transport.reloadActions()
+        return transport.gestureList(shapes.enabled)
     }
 
     /** Tema con el que está pintada esta pantalla (ver [applySettings]). */
@@ -251,6 +261,7 @@ class MainActivity : Activity() {
         trackpad.shapeStore = shapes
         trackpad.interpreter = buildEngine()
         trackpad.showCheatSheet = settings.showCheatSheet
+        phoneGestureList()?.let { trackpad.hostGestureList = it } // el editor de "Acciones por Bluetooth" pudo cambiarlas
         if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             (connection as? BluetoothHidTransport)?.intervalMs = settings.bluetoothIntervalMs.toLong()
         }
