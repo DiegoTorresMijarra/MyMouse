@@ -22,6 +22,8 @@
   <ItemGroup>
     <!-- El mismo fichero que lee el test de Kotlin: coordenadas de las 15 formas del catálogo. -->
     <None Include="..\..\..\android\core\src\test\resources\shape-catalog.txt" Link="shape-catalog.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Respuesta realista de la API de GitHub (releases): la comprueban también los tests de Kotlin (docs/spec-v5.1-actualizaciones.md §3). -->
+    <None Include="..\..\..\android\core\src\test\resources\github-releases.json" Link="github-releases.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- La fuente compartida de los temas (docs/spec-v4.8-temas.md §4): el móvil la lee en ThemesFixtureTest. -->
     <None Include="..\..\..\shared\themes.json" Link="themes.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

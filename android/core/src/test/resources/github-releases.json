@@ -1,0 +1,547 @@
+[
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/104",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v6.0",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/104/assets",
+    "id": 104,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v6.0",
+    "target_commitish": "main",
+    "name": "v6.0",
+    "draft": true,
+    "prerelease": false,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1041",
+        "id": 1041,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-6.0.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145832,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002d9",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v6.0/MyMouse-6.0.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1042",
+        "id": 1042,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-6.0.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886184,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002da",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v6.0/MyMouse-Setup-6.0.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1043",
+        "id": 1043,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-6.0.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177640,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v6.0/MyMouse-Windows-6.0.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v6.0",
+    "body": "Borrador sin publicar.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/103",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v5.0",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/103/assets",
+    "id": 103,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v5.0",
+    "target_commitish": "main",
+    "name": "v5.0",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1031",
+        "id": 1031,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-5.0.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145831,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002d2",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0/MyMouse-5.0.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1032",
+        "id": 1032,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-5.0.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886183,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002d3",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0/MyMouse-Setup-5.0.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1033",
+        "id": 1033,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-5.0.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177639,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0/MyMouse-Windows-5.0.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v5.0",
+    "body": "## MyMouse v5.0\r\n\r\n- Bluetooth completo\r\n- Instalador de Windows\r\n\r\n\r\n- adb incluido\r\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/102",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v5.0.1",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/102/assets",
+    "id": 102,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v5.0.1",
+    "target_commitish": "main",
+    "name": "v5.0.1",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1021",
+        "id": 1021,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-5.0.1.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145830,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002cb",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0.1/MyMouse-5.0.1.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1022",
+        "id": 1022,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-5.0.1.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886182,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002cc",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0.1/MyMouse-Setup-5.0.1.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1023",
+        "id": 1023,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-5.0.1.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177638,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v5.0.1/MyMouse-Windows-5.0.1.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v5.0.1",
+    "body": "Corrección de errores.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/101",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/nightly",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/101/assets",
+    "id": 101,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "nightly",
+    "target_commitish": "main",
+    "name": "nightly",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/nightly",
+    "body": "Compilación nocturna.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/100",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v4.8.3",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/100/assets",
+    "id": 100,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v4.8.3",
+    "target_commitish": "main",
+    "name": "v4.8.3",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1001",
+        "id": 1001,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-4.8.3.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145828,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002bd",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8.3/MyMouse-4.8.3.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1002",
+        "id": 1002,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-4.8.3.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886180,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002be",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8.3/MyMouse-Setup-4.8.3.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/1003",
+        "id": 1003,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-4.8.3.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177636,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8.3/MyMouse-Windows-4.8.3.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v4.8.3",
+    "body": "Temas.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/99",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v10.0-rc1",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/99/assets",
+    "id": 99,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v10.0-rc1",
+    "target_commitish": "main",
+    "name": "v10.0-rc1",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/991",
+        "id": 991,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-10.0-rc1.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145827,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002b6",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v10.0-rc1/MyMouse-10.0-rc1.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/992",
+        "id": 992,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-10.0-rc1.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886179,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002b7",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v10.0-rc1/MyMouse-Setup-10.0-rc1.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/993",
+        "id": 993,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-10.0-rc1.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177635,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v10.0-rc1/MyMouse-Windows-10.0-rc1.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v10.0-rc1",
+    "body": "No es una etiqueta de versión válida.\n"
+  },
+  {
+    "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/98",
+    "html_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/tag/v4.8",
+    "assets_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/98/assets",
+    "id": 98,
+    "author": {
+      "login": "github-actions[bot]",
+      "id": 41898282,
+      "type": "Bot",
+      "site_admin": false
+    },
+    "node_id": "RE_kwDOExample",
+    "tag_name": "v4.8",
+    "target_commitish": "main",
+    "name": "",
+    "draft": false,
+    "prerelease": true,
+    "created_at": "2026-05-02T10:12:00Z",
+    "published_at": "2026-05-02T10:16:00Z",
+    "assets": [
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/981",
+        "id": 981,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-4.8.apk",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/vnd.android.package-archive",
+        "state": "uploaded",
+        "size": 3145826,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002af",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8/MyMouse-4.8.apk"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/982",
+        "id": 982,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Setup-4.8.exe",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/x-msdownload",
+        "state": "uploaded",
+        "size": 83886178,
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000002b0",
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8/MyMouse-Setup-4.8.exe"
+      },
+      {
+        "url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/releases/assets/983",
+        "id": 983,
+        "node_id": "RA_kwDOExample",
+        "name": "MyMouse-Windows-4.8.zip",
+        "label": null,
+        "uploader": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot",
+          "site_admin": false
+        },
+        "content_type": "application/zip",
+        "state": "uploaded",
+        "size": 90177634,
+        "digest": null,
+        "download_count": 3,
+        "created_at": "2026-05-02T10:15:30Z",
+        "updated_at": "2026-05-02T10:15:42Z",
+        "browser_download_url": "https://github.com/DiegoTorresMijarra/MyMouse/releases/download/v4.8/MyMouse-Windows-4.8.zip"
+      }
+    ],
+    "tarball_url": "https://api.github.com/repos/DiegoTorresMijarra/MyMouse/tarball/v4.8",
+    "body": "Temas (primera).\n"
+  }
+]

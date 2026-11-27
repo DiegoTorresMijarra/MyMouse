@@ -48,10 +48,46 @@ public class PhoneSessionTests
     }
 
     [Fact]
-    public async Task Handshake_NegotiatesVersion5()
+    public async Task Handshake_NegotiatesVersion6()
     {
         var (_, output) = await Run(new PhoneHub(), Bytes(new HelloMessage(9)));
-        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(5)), output.Take(2).ToArray());
+        Assert.Equal(MessageCodec.Encode(new HelloAckMessage(6)), output.Take(2).ToArray());
+    }
+
+    [Fact]
+    public async Task V6_SendsTheHostVersionRightAfterTheHandshakeAndKeepsThePhones()
+    {
+        var hub = new PhoneHub { HostAppVersion = "5.1" };
+        string? seen = null;
+        hub.Changed += () => seen ??= hub.PhoneAppVersion;
+        var (reason, output) = await Run(hub, Bytes(new HelloMessage(6), new AppVersionMessage("5.0")));
+
+        Assert.Equal(SessionEndReason.ClientClosed, reason);
+        Assert.Equal(Bytes(new HelloAckMessage(6), new HostAppVersionMessage("5.1")), output);
+        Assert.Equal("5.0", seen);
+        Assert.Null(hub.PhoneAppVersion); // la sesión terminó
+    }
+
+    [Fact]
+    public async Task V5Client_GetsNoHostVersion()
+    {
+        var hub = new PhoneHub { HostAppVersion = "5.1" };
+        var (_, output) = await Run(hub, Bytes(new HelloMessage(5)));
+        Assert.Equal(Bytes(new HelloAckMessage(5)), output);
+    }
+
+    [Fact]
+    public async Task AppVersion_WithOlderProtocol_IsAProtocolError()
+    {
+        var (reason, _) = await Run(new PhoneHub(), Bytes(new HelloMessage(5), new AppVersionMessage("5.0")));
+        Assert.Equal(SessionEndReason.ProtocolError, reason);
+    }
+
+    [Fact]
+    public async Task EmptyHostVersion_IsNotSent()
+    {
+        var (_, output) = await Run(new PhoneHub(), Bytes(new HelloMessage(6)));
+        Assert.Equal(Bytes(new HelloAckMessage(6)), output);
     }
 
     [Theory]
