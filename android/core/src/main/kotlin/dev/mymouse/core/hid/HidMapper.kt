@@ -1,5 +1,7 @@
 package dev.mymouse.core.hid
 
+import dev.mymouse.core.btactions.BtAction
+import dev.mymouse.core.btactions.KeyboardLayout
 import dev.mymouse.core.gesture.FractionalAccumulator
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.protocol.MouseButton
@@ -20,17 +22,27 @@ enum class ConsumerKey(val usage: Int) {
 /**
  * Traduce las acciones del trackpad a informes HID (docs/spec-v3-bluetooth.md §2): ratón (id 1),
  * teclado (id 2) y consumo (id 3). Mantiene el estado de los botones y acumula el scroll y el zoom fraccionarios
- * (por Bluetooth no hay deltas finos: solo pasos enteros de rueda).
+ * (sin el multiplicador de resolución del PC, por Bluetooth solo hay pasos enteros de rueda; con él, unidades finas de 1/120).
  * Los gestos de 3 dedos de Windows (docs/spec-v3.1-ajustes.md §1) se envían como atajos de teclado.
  */
-class HidMapper {
+class HidMapper(
+    /** Estado del scroll fino (docs/spec-v5-bluetooth-completo.md §4): lo cambia el PC con un `SET_REPORT` *feature* ([applyScrollFeature]). */
+    val resolution: ScrollResolution = ScrollResolution(),
+) {
     private var buttons = 0
     private val wheel = FractionalAccumulator()
     private val pan = FractionalAccumulator()
     private val zoom = FractionalAccumulator()
     private var altHeld = false
+    private var ctrlHeldForZoom = false
 
-    fun map(action: OutputAction): List<HidReport> = when (action) {
+    fun map(action: OutputAction): List<HidReport> {
+        // Con scroll fino, el zoom deja Ctrl pulsado entre un gesto y el siguiente: cualquier otra cosa lo suelta antes.
+        val release = if (action is OutputAction.Zoom) emptyList() else endZoom()
+        return release + mapAction(action)
+    }
+
+    private fun mapAction(action: OutputAction): List<HidReport> = when (action) {
         is OutputAction.PointerMove -> move(action.dx, action.dy)
         is OutputAction.Button -> {
             val bit = when (action.button) {
@@ -42,21 +54,75 @@ class HidMapper {
             listOf(mouse(0, 0, 0, 0))
         }
         is OutputAction.Scroll -> {
-            // 120 unidades = 1 paso de rueda.
-            val v = wheel.add(action.vertical / WHEEL_STEP.toFloat())
-            val h = pan.add(action.horizontal / WHEEL_STEP.toFloat())
+            // 120 unidades = 1 paso de rueda. Con el multiplicador del PC activo, una unidad del informe es 1/120 de paso.
+            val v = wheel.add(action.vertical * resolution.wheelMultiplier / WHEEL_STEP.toFloat())
+            val h = pan.add(action.horizontal * resolution.panMultiplier / WHEEL_STEP.toFloat())
             steps(v, h)
         }
-        is OutputAction.Zoom -> {
-            // Zoom fino: se acumula hasta completar pasos enteros de rueda.
-            val n = zoom.add(action.delta / WHEEL_STEP.toFloat())
-            if (n == 0) emptyList() else listOf(keyboard(MOD_LEFT_CTRL)) + steps(n, 0) + keyboard(0)
-        }
+        is OutputAction.Zoom -> zoom(action.delta)
         is OutputAction.SystemGesture -> system(action.command)
         is OutputAction.Gesture, is OutputAction.GestureMode, is OutputAction.GestureRejected,
         is OutputAction.StrokePoints, is OutputAction.StrokeEnd,
         is OutputAction.WidgetPanel, is OutputAction.FourFingerSwipe -> emptyList()
     }
+
+    private fun zoom(delta: Int): List<HidReport> {
+        // Zoom fino: se acumula hasta completar unidades enteras (pasos de rueda; o 1/120 con el scroll fino del PC).
+        val n = zoom.add(delta * resolution.wheelMultiplier / WHEEL_STEP.toFloat())
+        if (n == 0) return emptyList()
+        if (!resolution.fine) return listOf(keyboard(MOD_LEFT_CTRL)) + steps(n, 0) + keyboard(0)
+        // Con unidades finas llegan muchas por segundo: Ctrl se queda pulsado y lo suelta [endZoom] (si no, 3 informes por unidad).
+        val press = if (ctrlHeldForZoom) emptyList() else listOf(keyboard(MOD_LEFT_CTRL))
+        ctrlHeldForZoom = true
+        return press + steps(n, 0)
+    }
+
+    /** ¿Está Ctrl pulsado por un zoom fino? Quien envía debe llamar a [endZoom] cuando el zoom se detiene (unos 150 ms sin zoom). */
+    val zoomHeld: Boolean get() = ctrlHeldForZoom
+
+    /** Suelta el Ctrl del zoom fino, si estaba pulsado. */
+    fun endZoom(): List<HidReport> {
+        if (!ctrlHeldForZoom) return emptyList()
+        ctrlHeldForZoom = false
+        return listOf(keyboard(0))
+    }
+
+    /**
+     * El PC ha escrito el informe *feature* del multiplicador (`SET_REPORT`): se aplica y se descarta lo acumulado, que estaba en
+     * otras unidades. Devuelve true si cambió el multiplicador.
+     */
+    fun applyScrollFeature(data: ByteArray): Boolean {
+        val changed = resolution.applyFeature(data)
+        if (changed) resetScrollAccumulators()
+        return changed
+    }
+
+    /** Al desconectar, el multiplicador vuelve a ×1 hasta que el PC lo active otra vez. */
+    fun resetScrollResolution(): Boolean {
+        val changed = resolution.reset()
+        if (changed) resetScrollAccumulators()
+        return changed
+    }
+
+    private fun resetScrollAccumulators() {
+        wheel.reset()
+        pan.reset()
+        zoom.reset()
+    }
+
+    /**
+     * Ejecuta una acción guardada en el móvil (docs/spec-v5-bluetooth-completo.md §2): un atajo (pulsar y soltar), una tecla multimedia
+     * o texto tecleado con la distribución [layout] (lo que no existe en ella se salta).
+     */
+    fun action(action: BtAction, layout: KeyboardLayout): List<HidReport> = endZoom() + when (action) {
+        is BtAction.Keys -> chord(action.modifiers, action.key)
+        is BtAction.Media -> consumer(action.key)
+        is BtAction.Text -> typeText(action.text, layout)
+    }
+
+    /** Teclea [text]: por cada carácter, sus pulsaciones (pulsar y soltar). Los saltos de línea son Intro. */
+    fun typeText(text: String, layout: KeyboardLayout): List<HidReport> =
+        layout.typeStrokes(text).flatMap { listOf(keyboard(it.modifiers, it.usage), keyboard(0)) }
 
     private fun system(command: SystemGestureCommand): List<HidReport> = when (command) {
         SystemGestureCommand.TASK_VIEW -> chord(MOD_LEFT_GUI, KEY_TAB)
@@ -87,6 +153,7 @@ class HidMapper {
     fun releaseAll(): List<HidReport> {
         buttons = 0
         altHeld = false
+        ctrlHeldForZoom = false
         wheel.reset()
         pan.reset()
         zoom.reset()
@@ -147,26 +214,7 @@ class HidMapper {
         private const val KEY_D = 0x07
         private const val KEY_TAB = 0x2B
 
-        /** Descriptor HID compuesto: ratón (botones, X, Y, rueda, AC Pan), teclado y consumo. */
-        val DESCRIPTOR: ByteArray = intArrayOf(
-            // Ratón (id 1)
-            0x05, 0x01, 0x09, 0x02, 0xA1, 0x01, 0x85, MOUSE_ID,
-            0x09, 0x01, 0xA1, 0x00,
-            0x05, 0x09, 0x19, 0x01, 0x29, 0x05, 0x15, 0x00, 0x25, 0x01, 0x95, 0x05, 0x75, 0x01, 0x81, 0x02,
-            0x95, 0x01, 0x75, 0x03, 0x81, 0x01,
-            0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x03, 0x81, 0x06,
-            0x05, 0x0C, 0x0A, 0x38, 0x02, 0x15, 0x81, 0x25, 0x7F, 0x75, 0x08, 0x95, 0x01, 0x81, 0x06,
-            0xC0, 0xC0,
-            // Teclado (id 2)
-            0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, KEYBOARD_ID,
-            0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02,
-            0x95, 0x01, 0x75, 0x08, 0x81, 0x01,
-            0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00,
-            0xC0,
-            // Consumo (id 3)
-            0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, CONSUMER_ID,
-            0x15, 0x00, 0x26, 0xFF, 0x03, 0x19, 0x00, 0x2A, 0xFF, 0x03, 0x75, 0x10, 0x95, 0x01, 0x81, 0x00,
-            0xC0,
-        ).map { it.toByte() }.toByteArray()
+        /** Descriptor antiguo (sin scroll fino). El que se registra según el ajuste es [HidDescriptor.build]. */
+        val DESCRIPTOR: ByteArray = HidDescriptor.build(fineScroll = false)
     }
 }

@@ -1,15 +1,18 @@
 package dev.mymouse.core.theme
 
+import dev.mymouse.core.json.MiniJson
+
 /** Lo que dice `shared/themes.json`: acentos, tema por defecto y temas. */
 data class ThemeFile(val defaultTheme: String, val accents: List<AccentOption>, val themes: List<ThemeDef>)
 
 /**
- * Lectura y validación de `shared/themes.json` (docs/spec-v4.8-temas.md §4), con un lector de JSON mínimo (el módulo `core` no
+ * Lectura y validación de `shared/themes.json` (docs/spec-v4.8-temas.md §4), con el lector de JSON mínimo [MiniJson] (el módulo `core` no
  * tiene dependencias). Lanza [IllegalArgumentException] con un mensaje en español si el fichero no es válido.
  */
 object ThemeJson {
     fun parse(text: String): ThemeFile {
-        val root = Reader(text).readDocument() as? Map<*, *> ?: fail("la raíz debe ser un objeto")
+        val root = (try { MiniJson.parse(text) } catch (e: IllegalArgumentException) { fail(e.message ?: "JSON no válido") }) as? Map<*, *>
+            ?: fail("la raíz debe ser un objeto")
         val accents = list(root["accents"], "accents").map { a ->
             val o = obj(a, "accent")
             AccentOption(string(o, "id"), string(o, "name"), color(o, "color"))
@@ -62,114 +65,4 @@ object ThemeJson {
     private fun string(o: Map<*, *>, key: String): String = o[key] as? String ?: fail("falta '$key'")
     private fun number(o: Map<*, *>, key: String): Float = (o[key] as? Double)?.toFloat() ?: fail("falta el número '$key'")
     private fun color(o: Map<*, *>, key: String): Int = Themes.parseHex(o[key] as? String) ?: fail("color no válido en '$key'")
-
-    /** JSON → Map, List, String, Double, Boolean, null. */
-    private class Reader(private val s: String) {
-        private var i = 0
-
-        fun readDocument(): Any? {
-            val v = value()
-            ws()
-            if (i != s.length) fail("texto sobrante en la posición $i")
-            return v
-        }
-
-        private fun ws() {
-            while (i < s.length && s[i].isWhitespace()) i++
-        }
-
-        private fun value(): Any? {
-            ws()
-            if (i >= s.length) fail("fin inesperado")
-            return when (val c = s[i]) {
-                '{' -> objectValue()
-                '[' -> arrayValue()
-                '"' -> stringValue()
-                't' -> literal("true", true)
-                'f' -> literal("false", false)
-                'n' -> literal("null", null)
-                else -> if (c == '-' || c.isDigit()) numberValue() else fail("carácter inesperado '$c' en $i")
-            }
-        }
-
-        private fun literal(word: String, v: Any?): Any? {
-            if (!s.startsWith(word, i)) fail("se esperaba $word en $i")
-            i += word.length
-            return v
-        }
-
-        private fun numberValue(): Double {
-            val start = i
-            while (i < s.length && (s[i].isDigit() || s[i] in "+-.eE")) i++
-            return s.substring(start, i).toDoubleOrNull() ?: fail("número no válido en $start")
-        }
-
-        private fun stringValue(): String {
-            i++ // comilla de apertura
-            val sb = StringBuilder()
-            while (i < s.length && s[i] != '"') {
-                if (s[i] == '\\') {
-                    i++
-                    when (val e = s.getOrNull(i) ?: fail("cadena sin cerrar")) {
-                        'n' -> sb.append('\n')
-                        't' -> sb.append('\t')
-                        'u' -> {
-                            sb.append(s.substring(i + 1, i + 5).toInt(16).toChar())
-                            i += 4
-                        }
-                        else -> sb.append(e)
-                    }
-                } else {
-                    sb.append(s[i])
-                }
-                i++
-            }
-            if (i >= s.length) fail("cadena sin cerrar")
-            i++ // comilla de cierre
-            return sb.toString()
-        }
-
-        private fun arrayValue(): List<Any?> {
-            i++
-            val out = ArrayList<Any?>()
-            ws()
-            if (s.getOrNull(i) == ']') {
-                i++
-                return out
-            }
-            while (true) {
-                out.add(value())
-                ws()
-                when (s.getOrNull(i++)) {
-                    ',' -> continue
-                    ']' -> return out
-                    else -> fail("se esperaba , o ] en ${i - 1}")
-                }
-            }
-        }
-
-        private fun objectValue(): Map<String, Any?> {
-            i++
-            val out = LinkedHashMap<String, Any?>()
-            ws()
-            if (s.getOrNull(i) == '}') {
-                i++
-                return out
-            }
-            while (true) {
-                ws()
-                if (s.getOrNull(i) != '"') fail("se esperaba una clave en $i")
-                val key = stringValue()
-                ws()
-                if (s.getOrNull(i++) != ':') fail("se esperaba : en ${i - 1}")
-                out[key] = value()
-                ws()
-                when (s.getOrNull(i++)) {
-                    ',' -> continue
-                    '}' -> return out
-                    else -> fail("se esperaba , o } en ${i - 1}")
-                }
-            }
-        }
-    }
 }

@@ -47,6 +47,10 @@ data class BluetoothFacts(
     /** El PC preferido sigue en la lista de emparejados. */
     val preferredHostBonded: Boolean = false,
     val link: HidLinkState? = null,
+    /** Ajuste "Scroll fino por Bluetooth": con él apagado se registra el descriptor antiguo, sin multiplicador. */
+    val fineScrollEnabled: Boolean = true,
+    /** ¿Ha activado el PC el multiplicador de resolución? (docs/spec-v5-bluetooth-completo.md §4). */
+    val fineScrollActive: Boolean = false,
 )
 
 enum class CheckStatus { OK, FAIL, UNKNOWN }
@@ -67,6 +71,18 @@ object BluetoothDiagnostics {
         "Mientras se empareja, Windows muestra el móvil con icono de teléfono: es normal (usa la clase del dispositivo). " +
             "Al terminar, el móvil debe aparecer en Windows como conectado; si solo pone «Emparejado», quítalo y vuelve a " +
             "emparejar con MyMouse abierto en esta pantalla de Bluetooth."
+
+    /** Aviso para quien actualiza desde una versión anterior: el descriptor HID cambió y Windows lo guarda en caché. */
+    const val REPAIR_FINE_SCROLL =
+        "Si actualizas desde una versión anterior, quita el móvil en Windows y vuelve a emparejarlo " +
+            "(Windows guarda en caché el descriptor del ratón y no verá el scroll fino)."
+
+    /** La línea "Scroll fino" del diagnóstico (docs/spec-v5-bluetooth-completo.md §4). */
+    fun fineScrollLine(f: BluetoothFacts): String = when {
+        !f.fineScrollEnabled -> "Scroll fino: no (desactivado en Ajustes; se usa el descriptor antiguo, con pasos enteros)"
+        f.fineScrollActive -> "Scroll fino: activado por el PC"
+        else -> "Scroll fino: no (el PC no lo ha activado; se usan pasos enteros)"
+    }
 
     /** Las seis comprobaciones de la spec, en orden. */
     fun evaluate(f: BluetoothFacts): List<DiagnosticCheck> {
@@ -132,6 +148,7 @@ object BluetoothDiagnostics {
                 if (c.detail.isNotEmpty()) append(": ").append(c.detail)
                 append('\n')
             }
+            append('\n').append(fineScrollLine(facts)).append('\n')
             if (suspectsStalePairing(checks)) append("\nPosible causa: emparejado antes de activar el modo Bluetooth.\n")
             append("\nÚltimos eventos (").append(events.size).append("):\n")
             if (events.isEmpty()) append("(ninguno)\n")

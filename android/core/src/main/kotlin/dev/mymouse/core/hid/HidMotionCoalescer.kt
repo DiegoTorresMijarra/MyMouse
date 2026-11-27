@@ -9,7 +9,8 @@ package dev.mymouse.core.hid
  * enseguida y en orden: antes se suelta el movimiento pendiente, para que un clic caiga donde estaba el puntero.
  *
  * Los informes de ratón llevan 5 bytes: botones, X, Y, rueda y pan (con signo, de −127 a 127). Un movimiento mayor se trocea en
- * varios informes, uno por tic. No es seguro entre hilos: lo usa solo el hilo emisor.
+ * varios informes, uno por tic. La rueda y el pan se suman tal cual lleguen: con el scroll fino del PC (docs/spec-v5-bluetooth-completo.md §4)
+ * son unidades de 1/120 de paso, y sin él, pasos enteros; da igual al agrupar. No es seguro entre hilos: lo usa solo el hilo emisor.
  */
 class HidMotionCoalescer {
     private var dx = 0
@@ -81,6 +82,15 @@ class HidMotionCoalescer {
         dy += report.data[2].toInt()
         wheel += report.data[3].toInt()
         pan += report.data[4].toInt()
+    }
+
+    /**
+     * Descarta la rueda y la rueda horizontal pendientes. Se llama cuando el PC cambia el multiplicador de resolución: lo acumulado
+     * estaba en otras unidades (pasos enteros o 1/120 de paso) y reinterpretarlo daría un salto.
+     */
+    fun dropScroll() {
+        wheel = 0
+        pan = 0
     }
 
     /** Descarta el movimiento pendiente y los botones (al desconectar). */
