@@ -117,6 +117,17 @@ Misma actualización de APK y host. Es la primera vez que se ven en un PC y un m
 8. **Widget de volumen:** una fila con el altavoz a la izquierda (tocarlo silencia), la pista fina ocupando todo el ancho, un pulgar blanco de 18 dp y el número legible a la derecha. En un panel estrecho (horizontal, 2 columnas) el número pasa debajo de la pista antes de que ésta se haga corta. Silenciado: altavoz con una × gris y la pista llena en gris.
 9. **Chuleta y depuración:** con *Modo depuración* activado, la chuleta no tapa la minipantalla: va a su derecha en horizontal y debajo en vertical (más pequeña si hace falta).
 
+## Temas de la v4.8
+
+Misma actualización de APK y host. Móvil y PC guardan su tema por separado.
+1. **Por defecto:** tras actualizar, el móvil y el PC se ven en *Universo*, ya sin el violeta intenso: casi negro azulado con dos nebulosas apagadas (índigo y azul pizarra) y menos estrellas, con un parpadeo suave. Si no te gusta el nuevo, *Nebulosa* es el de la v4.7.
+2. **Móvil:** *Ajustes → Tema*. La fila de muestras se desplaza de lado; cada muestra dibuja el fondo de verdad, con el nombre debajo, y la elegida lleva un borde de acento. Al tocar otra, la pantalla de Ajustes cambia al momento (fondo, interruptores, deslizadores y botones toman el acento). Al volver al trackpad, el fondo y el acento (borde del modo gestos, volumen) son los nuevos. Comprueba los siete temas: *Medianoche*, *Grafito* y *Negro (OLED)* no llevan estrellas (la casilla desaparece); *Océano* y *Aurora* llevan menos.
+3. **Acento (móvil):** *Auto* es el del tema; prueba los otros siete. Los botones primarios son el acento oscurecido, con texto blanco: apunta si alguno se lee mal (sobre todo *Blanco* y *Grafito*).
+4. **Estrellas (móvil):** *Estrellas* las quita o las pone; *Animación de estrellas* las hace parpadear en Ajustes, Formas y Bluetooth; *Animación también en el trackpad* (apagada por defecto) las hace parpadear en el trackpad, con algo más de gasto de batería.
+5. **PC:** *Ajustes (⚙) → Tema…* abre un panel con la rejilla de cuatro columnas, el acento y las estrellas. La toolbox se queda abierta mientras el panel está abierto y cambia al momento; abre también el gesto en vivo (dibuja en el móvil) y el editor para ver que toman el tema y el acento. *Efecto cristal* sigue funcionando sobre cualquier tema.
+6. **Independientes:** pon el móvil en *Grafito* y el PC en *Universo*: cada uno se queda como lo dejaste, también tras reiniciar la app o el host.
+7. **Migración:** quien venía de la v4.7 empieza en *Universo* (sobrio). El `toolbox.json` guarda la elección en `"theme"`.
+
 ## Bluetooth: diagnóstico y volver a emparejar (v4.5)
 
 Si el móvil dice **"Esperando al PC"** y el PC no lo usa como ratón:

@@ -10,6 +10,8 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 | **v3** | Quitar el cable y la fricción de instalación | Bluetooth HID y/o AOA |
 | **v4** | La toolbox del PC | USB (ADB) |
 | **v4.5** | Estilo glass en el PC y el móvil, y depuración del Bluetooth | USB / Bluetooth |
+| **v4.7** | Fondo "universo", icono propio y retoques | USB / Bluetooth |
+| **v4.8** | Temas elegibles en el móvil y en el PC, con un universo más sobrio | USB / Bluetooth |
 
 ---
 
@@ -170,6 +172,25 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 > Estado: implementada en la rama de desarrollo (release `v4.7` pendiente). La lógica nueva tiene tests (estrellas y parpadeo en los dos lados, `NotifyIconSettings`, geometría del volumen, disposición de las hojas); las ventanas de Windows y el módulo `app` no se han ejecutado ni compilado aquí: ver las [notas de la spec](spec-v4.7-universo.md#6-notas-de-implementación).
 
 **Criterios de "hecho":** los de la [§5 de la spec](spec-v4.7-universo.md#5-criterios-de-hecho).
+
+---
+
+## v4.8: Temas
+
+**Objetivo:** el universo del móvil salía demasiado morado. Ahora es más sobrio y oscuro por defecto, y cada lado (móvil y PC) elige su tema por separado.
+
+**Alcance:**
+- **Siete temas:** Universo (por defecto, paleta sobria), Medianoche, Grafito, Océano, Aurora, Negro (OLED) y Nebulosa (la violeta de la v4.7). Definidos como datos en [`shared/themes.json`](../shared/themes.json): el PC lo incrusta y el móvil lo replica en Kotlin, con un test en cada lado que lo compara.
+- **Acento:** Automático (el del tema) o uno de siete colores; los tokens de acento de `Theme.cs` y `GlassTheme.kt` son dinámicos.
+- **Estrellas** y **animación de estrellas** (parpadeo) como casillas.
+- **Móvil:** Ajustes → tarjeta "Tema" con muestras de 72 × 96 dp que dibujan el fondo real, círculos de acento y casillas, aplicado al momento. Se guarda en `AppSettings`.
+- **PC:** Ajustes de la toolbox → "Tema…" con la rejilla de muestras, el acento y las estrellas; aplicado al momento a la toolbox, al gesto en vivo y al editor. Se guarda en `toolbox.json`.
+- Las elecciones **no se sincronizan** entre el móvil y el PC.
+- Detalle: [spec-v4.8-temas.md](spec-v4.8-temas.md).
+
+> Estado: implementada en la rama de desarrollo (release `v4.8` pendiente). La lógica nueva tiene tests en los dos lados (catálogo, validación, acento, migración, estrellas con densidad y parpadeo suave); las ventanas de Windows y el módulo `app` no se han ejecutado ni compilado aquí: ver las [notas de la spec](spec-v4.8-temas.md#6-notas-de-implementación).
+
+**Criterios de "hecho":** los de la [§5 de la spec](spec-v4.8-temas.md#5-criterios-de-hecho).
 
 ---
 
