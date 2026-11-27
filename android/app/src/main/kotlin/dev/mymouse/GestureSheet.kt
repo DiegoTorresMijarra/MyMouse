@@ -79,7 +79,8 @@ class GestureSheet(private val density: Float) {
         val noteH = if (note != null) 18 * density else 0f
         val emptyH = if (items.isEmpty()) 22 * density else 0f
         // Tamaño natural; el lienzo se escala después si no cabe.
-        val h = pad * 2 + titleH + noteH + emptyH + sections.size * headerH + rows * cellH
+        val footerH = 20 * density
+        val h = pad * 2 + titleH + noteH + emptyH + sections.size * headerH + rows * cellH + footerH
         val placement = SheetLayout.placeSheet(width.toFloat(), height.toFloat(), w, h, margin = 16 * density, debug = debug)
 
         canvas.save()
@@ -119,6 +120,8 @@ class GestureSheet(private val density: Float) {
             }
             y += cellH
         }
+        // El teclado (docs/spec-v6-teclado.md §6): cómo abrirlo, a mano en la hoja de gestos.
+        canvas.drawText(ellipsize(KEYBOARD_HINT, w - 2 * pad, dimPaint), box.left + pad, y + 13 * density, dimPaint)
         canvas.restore()
     }
 
@@ -136,6 +139,8 @@ class GestureSheet(private val density: Float) {
     }
 
     companion object {
+        private const val KEYBOARD_HINT = "Teclado: doble toque con 4 dedos · 2× vol +: teclado ⇄ mouse"
+
         /** Hueco entre las dos columnas, en dp. */
         private const val COLUMN_GAP_DP = 16f
 

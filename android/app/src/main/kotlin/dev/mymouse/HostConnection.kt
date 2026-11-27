@@ -2,6 +2,7 @@ package dev.mymouse
 
 import android.util.Log
 import dev.mymouse.core.gesture.OutputAction
+import dev.mymouse.core.keyboard.KeyEvent
 import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.Message
 import dev.mymouse.core.protocol.MessageCodec
@@ -33,6 +34,12 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
 
     override val supportsToolbox get() = protocolVersion >= Protocol.TOOLBOX_VERSION
 
+    override val supportsKeyboard get() = protocolVersion >= Protocol.KEYBOARD_VERSION
+
+    override val hostRepeatsKeys = false
+
+    override val keyboardUnavailableText get() = if (protocolVersion == 0) "Sin conexión con el PC" else "Actualiza MyMouse en el PC (modo teclado)"
+
     override val toolboxUnavailableText get() = if (protocolVersion == 0) "Sin conexión con el PC" else "Actualiza MyMouse en el PC"
 
     override var onConnectionChanged: (Boolean) -> Unit = {}
@@ -52,6 +59,11 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
     /** Peticiones del PC para añadir o borrar formas (protocolo v5). Se llaman desde el hilo de lectura. */
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
+
+    /** Modo teclado (protocolo v7). Se llaman desde el hilo de lectura. */
+    override var onKeyboardOpen: () -> Unit = {}
+    override var onKeyboardLeds: (Int) -> Unit = {}
+    override var onKeyboardLayout: (String) -> Unit = {}
 
     /** Versión de MyMouse del PC (protocolo v6). `null` al desconectar. */
     override var onHostAppVersion: (String?) -> Unit = {}
@@ -113,6 +125,26 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
         }
     }
 
+    /**
+     * Una tecla (`KEY`). Solo con versión ≥ 7: un host anterior cerraría la conexión. Nunca se fusionan ni se reordenan: el orden de
+     * pulsar y soltar importa, y la repetición son `KEY down` repetidos.
+     */
+    override fun sendKey(event: KeyEvent) {
+        if (!connected || protocolVersion < Protocol.KEYBOARD_VERSION) return
+        lock.withLock {
+            queue.addLast(Message.Key(event.usage, event.down))
+            notEmpty.signal()
+        }
+    }
+
+    override fun setKeyboardMode(on: Boolean) {
+        if (!connected || protocolVersion < Protocol.KEYBOARD_VERSION) return
+        lock.withLock {
+            queue.addLast(Message.KeyboardMode(on))
+            notEmpty.signal()
+        }
+    }
+
     /** Lista de formas o respuestas de formas para el PC. Solo con versión ≥ 5: un host anterior cerraría la conexión. */
     override fun sendShapes(messages: List<Message>) {
         if (!connected || protocolVersion < Protocol.TOOLBOX_VERSION) return
@@ -155,7 +187,7 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
             is OutputAction.StrokeEnd ->
                 if (protocolVersion >= Protocol.TOOLBOX_VERSION) queue.addLast(Message.StrokeEnd(action.result))
             // Solo feedback local.
-            is OutputAction.GestureRejected, is OutputAction.WidgetPanel -> Unit
+            is OutputAction.GestureRejected, is OutputAction.WidgetPanel, is OutputAction.FourFingerDoubleTap -> Unit
             is OutputAction.Zoom ->
                 if (last is Message.Zoom && fitsI16(last.delta + action.delta)) {
                     queue[queue.lastIndex] = Message.Zoom(last.delta + action.delta)
@@ -244,6 +276,9 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
                     is Message.ShapeAdd -> onShapeAdd(m)
                     is Message.ShapeDelete -> onShapeDelete(m)
                     is Message.HostAppVersion -> onHostAppVersion(m.version)
+                    is Message.KeyboardOpen -> onKeyboardOpen()
+                    is Message.KeyboardLeds -> onKeyboardLeds(m.bits)
+                    is Message.KeyboardLayoutId -> onKeyboardLayout(m.id)
                     else -> Unit // PONG
                 }
             }

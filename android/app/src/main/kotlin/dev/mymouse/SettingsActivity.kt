@@ -15,6 +15,8 @@ import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import dev.mymouse.core.keyboard.KeySize
+import dev.mymouse.core.keyboard.KeyboardLayoutSetting
 import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.theme.Themes
 import dev.mymouse.core.widgets.WidgetPanelSize
@@ -156,6 +158,29 @@ class SettingsActivity : Activity() {
         list.addView(TextView(this).apply {
             text = "Por USB, el panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
                 "toolbox del PC → \"Gestos y widgets\". Por Bluetooth, el panel lleva multimedia, volumen y los botones de \"Botones por Bluetooth…\"."
+            textSize = 13f
+            setTextColor(GlassTheme.TEXT_SECONDARY)
+        })
+
+        section("Teclado")
+        list.addView(choice(
+            "Distribución",
+            KeyboardLayoutSetting.entries.map { it.label },
+            settings.kbLayout.ordinal,
+        ) { settings = settings.copy(kbLayout = KeyboardLayoutSetting.entries[it]) })
+        list.addView(choice(
+            "Tamaño de las teclas",
+            KeySize.entries.map { it.label },
+            settings.kbKeySize.ordinal,
+        ) { settings = settings.copy(kbKeySize = KeySize.entries[it]) })
+        list.addView(switch("Vibrar al pulsar", settings.kbVibrate) { settings = settings.copy(kbVibrate = it) })
+        list.addView(switch("Repetir al mantener pulsada una tecla (por cable)", settings.kbRepeat) { settings = settings.copy(kbRepeat = it) })
+        list.addView(switch("Barra de trackpad sobre el teclado", settings.kbTrackpadBar) { settings = settings.copy(kbTrackpadBar = it) })
+        list.addView(TextView(this).apply {
+            text = "Se abre con el widget Teclado, con doble toque de 4 dedos o con Vol+ ×2 (y se cierra con 🖱, Atrás o Vol+ ×2). " +
+                "Envía teclas de verdad, así que funcionan Ctrl+C, Alt+Tab, Win+Shift+S… \"Automática\" usa la distribución del PC por USB y " +
+                "la de escribir texto por Bluetooth. Por USB, Windows no deja inyectar Ctrl+Alt+Supr (por Bluetooth sí). " +
+                "La repetición al mantener la hace el móvil por USB; por Bluetooth la hace Windows."
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })

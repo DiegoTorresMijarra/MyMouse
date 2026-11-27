@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private var connectionType = AppSettings.Connection.USB
     private lateinit var trackpad: TrackpadView
     private lateinit var panel: WidgetPanelView
+    private lateinit var keyboardView: KeyboardView
     private lateinit var root: FrameLayout
     private lateinit var controls: LinearLayout
 
@@ -66,6 +67,10 @@ class MainActivity : Activity() {
     /** Hueco de las barras del sistema y del notch, para no dibujar los botones debajo. */
     private var systemInsets = Insets.NONE
     private var lastVolumeDownAt = 0L
+    private var lastVolumeUpAt = 0L
+
+    /** ¿Está el móvil en modo teclado (docs/spec-v6-teclado.md)? El teclado cubre el área del trackpad. */
+    private var keyboardMode = false
     private val handler = Handler(Looper.getMainLooper())
     private val autoRelock = Runnable { if (mode == Mode.WINDOW) setMode(Mode.LOCKED) }
     private var settings = AppSettings()
@@ -117,12 +122,35 @@ class MainActivity : Activity() {
                 startActivity(Intent(this, BluetoothActivity::class.java).putExtra(BluetoothActivity.EXTRA_SHOW_DIAGNOSTICS, true))
             }
         }
+        trackpad.onKeyboardGesture = { enterKeyboardMode() } // doble toque con 4 dedos
+        keyboardView = KeyboardView(this).apply {
+            visibility = View.GONE
+            bluetooth = connectionType == AppSettings.Connection.BLUETOOTH && connection is BluetoothHidTransport
+            onKey = connection::sendKey
+            onPointer = connection::send
+            onExit = { exitKeyboardMode() }
+            onCombosChanged = { portrait, landscape ->
+                settings = settings.copy(kbComboPortrait = portrait, kbComboLandscape = landscape).also { it.save(this@MainActivity) }
+            }
+            linkInfo = {
+                if (connectionType == AppSettings.Connection.BLUETOOTH) (connection as? BluetoothHidTransport)?.linkInfo() else "USB"
+            }
+        }
         panel = WidgetPanelView(this, connection::sendWidget, trackpad::noteDebug)
         panel.backdrop = GlassTheme.BackdropBlur(trackpad::drawBackdrop)
         trackpad.cheatSheet.backdrop = GlassTheme.BackdropBlur(trackpad::drawBackdrop)
+        connection.onKeyboardOpen = { handler.post { enterKeyboardMode() } } // widget Teclado (USB: KEYBOARD_OPEN; Bluetooth: botón propio)
+        connection.onKeyboardLeds = { bits -> keyboardView.post { keyboardView.onHostLeds(bits) } }
+        connection.onKeyboardLayout = { id -> keyboardView.post { keyboardView.hostLayoutId = id } }
         connection.onConnectionChanged = { connected ->
             trackpad.post {
                 trackpad.connected = connected
+                keyboardView.connected = connected
+                if (connected) {
+                    if (keyboardMode) connection.setKeyboardMode(true) // se reconectó con el teclado abierto: el PC debe saberlo
+                } else {
+                    keyboardView.onDisconnected()
+                }
                 if (!connected) {
                     trackpad.hostGestureList = phoneGestureList() // por Bluetooth, las acciones son del móvil y se ven sin conexión
                     lastSyncedShapes = null
@@ -158,6 +186,7 @@ class MainActivity : Activity() {
             background = GlassTheme.universe(this@MainActivity, trackpad = true) // universo (estático salvo que se active) detrás del trackpad (también en modo bloqueado)
             addView(trackpad, FrameLayout.LayoutParams(MATCH, MATCH))
             addView(panel, FrameLayout.LayoutParams(MATCH, MATCH)) // el tamaño y el sitio los fija applyMargins
+            addView(keyboardView, FrameLayout.LayoutParams(MATCH, MATCH)) // modo teclado: cubre el área del trackpad y del panel
             // Un toque que empieza en el panel nunca llega al trackpad, ni al revés: todos los dedos van a la vista
             // que recibió el primero (sin esto, un segundo dedo sobre la otra vista le llegaría a ella).
             isMotionEventSplittingEnabled = false
@@ -211,6 +240,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(autoRelock)
         handler.removeCallbacks(dim)
         setDimmed(false)
+        keyboardView.releaseAll() // en segundo plano no puede quedar ninguna tecla pulsada
         connection.stop()
         Updater.removeListener(updateListener)
         Updater.onBackground(this)
@@ -282,6 +312,7 @@ class MainActivity : Activity() {
             AppSettings.Orientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
             AppSettings.Orientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
+        applyKeyboardSettings()
         scheduleDim()
         syncShapes() // las formas pueden haber cambiado en ShapesActivity o RecordShapeActivity
     }
@@ -348,11 +379,13 @@ class MainActivity : Activity() {
         controls.visibility = if (window) View.VISIBLE else View.GONE
         applyMargins()
         trackpad.framed = window
+        keyboardView.framed = window
         panel.framed = window // el panel de widgets: cristal con radio 16 en modo ventana, a pantalla completa sin radio en bloqueado
         trackpad.cheatSheet.rows = CheatSheet.rowsFor(
             windowsGestures = settings.windowsGestures,
             gestureMode = connection.supportsGestures && settings.gestureFingers == 4,
-        ) + CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo")
+        ) + CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo") +
+            CheatSheet.Row(CheatSheet.Icon.VOLUME_UP, "Teclado ⇄ mouse")
         trackpad.invalidate()
         applySystemBars()
     }
@@ -396,7 +429,8 @@ class MainActivity : Activity() {
             }
             panel.requestLayout()
         }
-        panel.visibility = if (showPanel) View.VISIBLE else View.GONE
+        // En modo teclado el teclado ocupa también el sitio del panel de widgets, que se oculta.
+        panel.visibility = if (showPanel && !keyboardMode) View.VISIBLE else View.GONE
         val hidden = ((1f - progress) * panelExtent)
         panel.translationX = if (landscape) hidden else 0f
         panel.translationY = if (landscape) 0f else hidden
@@ -415,6 +449,62 @@ class MainActivity : Activity() {
             bottom + if (landscape) 0 else used,
         )
         trackpad.requestLayout()
+
+        (keyboardView.layoutParams as FrameLayout.LayoutParams).setMargins(left, top, right, bottom)
+        keyboardView.requestLayout()
+    }
+
+    // ---- Modo teclado (docs/spec-v6-teclado.md) ----
+
+    /** Ajustes del teclado (Ajustes → Teclado) y la conexión actual. */
+    private fun applyKeyboardSettings() {
+        keyboardView.bluetooth = connectionType == AppSettings.Connection.BLUETOOTH && connection is BluetoothHidTransport
+        keyboardView.textLayoutId = settings.btKeyboardLayout
+        keyboardView.layoutSetting = settings.kbLayout
+        keyboardView.keySize = settings.kbKeySize
+        keyboardView.vibrate = settings.kbVibrate
+        keyboardView.repeatSetting = settings.kbRepeat
+        keyboardView.trackpadBar = settings.kbTrackpadBar
+        keyboardView.configureTrackpad(settings.trackpadConfig())
+        // La combinación de bloques se recuerda por orientación.
+        keyboardView.setCombos(settings.kbComboPortrait, settings.kbComboLandscape)
+    }
+
+    private fun toggleKeyboardMode() = if (keyboardMode) exitKeyboardMode() else enterKeyboardMode()
+
+    /** Abre el teclado: sube desde abajo y el trackpad se funde (200 ms). Sin teclado en el PC, solo avisa. */
+    private fun enterKeyboardMode() {
+        if (keyboardMode) return
+        if (!connection.supportsKeyboard) {
+            trackpad.showNotice(connection.keyboardUnavailableText)
+            return
+        }
+        keyboardMode = true
+        trackpad.cancelTouches()
+        connection.setKeyboardMode(true)
+        applyMargins() // el panel de widgets se oculta
+        keyboardView.visibility = View.VISIBLE
+        keyboardView.alpha = 0f
+        keyboardView.translationY = root.height * KEYBOARD_SLIDE_FRACTION
+        keyboardView.animate().alpha(1f).translationY(0f).setDuration(KEYBOARD_ANIM_MS).setInterpolator(DecelerateInterpolator(1.5f)).setListener(null).start()
+        trackpad.animate().alpha(0f).setDuration(KEYBOARD_ANIM_MS).start()
+    }
+
+    /** Vuelve al trackpad: se sueltan todas las teclas y el PC sale del modo teclado. */
+    private fun exitKeyboardMode() {
+        if (!keyboardMode) return
+        keyboardMode = false
+        keyboardView.releaseAll()
+        connection.setKeyboardMode(false)
+        applyMargins()
+        keyboardView.animate().alpha(0f).translationY(root.height * KEYBOARD_SLIDE_FRACTION).setDuration(KEYBOARD_ANIM_MS)
+            .setInterpolator(AccelerateInterpolator(1.5f))
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!keyboardMode) keyboardView.visibility = View.GONE
+                }
+            }).start()
+        trackpad.animate().alpha(1f).setDuration(KEYBOARD_ANIM_MS).start()
     }
 
     // ---- Panel de widgets con 4 dedos (docs/spec-v3.1-ajustes.md §1.1) ----
@@ -520,6 +610,16 @@ class MainActivity : Activity() {
             return super.dispatchKeyEvent(event)
         }
         // Las teclas de volumen se consumen siempre: no cambian el volumen del móvil.
+        // Vol+ ×2: teclado ⇄ mouse (docs/spec-v6-teclado.md §3). Vol− ×2 sigue bloqueando y desbloqueando.
+        if (code == KeyEvent.KEYCODE_VOLUME_UP && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            val now = SystemClock.uptimeMillis()
+            if (now - lastVolumeUpAt <= DOUBLE_PRESS_MS) {
+                lastVolumeUpAt = 0
+                toggleKeyboardMode()
+            } else {
+                lastVolumeUpAt = now
+            }
+        }
         if (code == KeyEvent.KEYCODE_VOLUME_DOWN && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             val now = SystemClock.uptimeMillis()
             if (now - lastVolumeDownAt <= DOUBLE_PRESS_MS) {
@@ -543,6 +643,11 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        // Con el teclado abierto, Atrás vuelve al trackpad (también en modo bloqueado).
+        if (keyboardMode) {
+            exitKeyboardMode()
+            return
+        }
         // En modo bloqueado, Atrás no hace nada (cerraría la app). En modo ventana, sale.
         if (mode == Mode.WINDOW) {
             @Suppress("DEPRECATION")
@@ -664,6 +769,8 @@ class MainActivity : Activity() {
         const val TAG = "MyMouse"
         const val KEY_WINDOW = "window_mode"
         const val DOUBLE_PRESS_MS = 500L
+        const val KEYBOARD_ANIM_MS = 200L
+        const val KEYBOARD_SLIDE_FRACTION = 0.4f
         const val AUTO_RELOCK_MS = 30_000L
         const val CONTROLS_HEIGHT_DP = 64
         const val WINDOW_MARGIN_DP = 24

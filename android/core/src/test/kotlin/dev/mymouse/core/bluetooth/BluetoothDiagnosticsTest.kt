@@ -93,4 +93,18 @@ class BluetoothDiagnosticsTest {
         assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("teléfono"))
         assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("Emparejado"))
     }
+
+    @Test
+    fun keyboardLedsLineSaysWhetherTheHostWritesThem() {
+        assertTrue(BluetoothDiagnostics.keyboardLedsLine(good.copy(keyboardLedsReceived = true)).contains("recibidas del PC"))
+        val missing = BluetoothDiagnostics.keyboardLedsLine(good.copy(keyboardLedsReceived = false))
+        assertTrue(missing.contains("no recibidas"))
+        assertTrue(missing.contains("vuelve a emparejarlo"))
+    }
+
+    @Test
+    fun reportIncludesTheKeyboardLedsLine() {
+        assertTrue(BluetoothDiagnostics.report(good, emptyList(), zone = ZoneOffset.UTC).contains("Luces del teclado: no recibidas"))
+        assertTrue(BluetoothDiagnostics.report(good.copy(keyboardLedsReceived = true), emptyList(), zone = ZoneOffset.UTC).contains("Luces del teclado: recibidas"))
+    }
 }

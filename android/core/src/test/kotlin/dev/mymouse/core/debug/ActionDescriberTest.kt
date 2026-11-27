@@ -68,6 +68,7 @@ class ActionDescriberTest {
         assertEquals("4 dedos juntar: mostrar widgets", d.describe(WidgetPanel(true), 30)?.text)
         assertEquals("4 dedos separar: ocultar widgets", d.describe(WidgetPanel(false), 40)?.text)
         assertEquals("4 dedos ↑: abrir la toolbox del PC", d.describe(FourFingerSwipe(true), 50)?.text)
+        assertEquals("4 dedos doble toque: abrir el teclado", d.describe(dev.mymouse.core.gesture.OutputAction.FourFingerDoubleTap, 60)?.text)
     }
 
     @Test

@@ -258,6 +258,10 @@ class BtWidgetsActivity : Activity() {
     }
 
     private fun testAction(action: BtAction) {
+        if (action == BtAction.Keyboard) {
+            toast("Abre el teclado del móvil: pruébalo desde el trackpad")
+            return
+        }
         if (!canTest()) {
             toast("Elige la conexión por Bluetooth en Ajustes")
             return

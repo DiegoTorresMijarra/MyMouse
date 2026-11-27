@@ -51,6 +51,8 @@ data class BluetoothFacts(
     val fineScrollEnabled: Boolean = true,
     /** ¿Ha activado el PC el multiplicador de resolución? (docs/spec-v5-bluetooth-completo.md §4). */
     val fineScrollActive: Boolean = false,
+    /** ¿Ha escrito el PC alguna vez el informe de salida de LEDs del teclado? (docs/spec-v6-teclado.md §5.4). */
+    val keyboardLedsReceived: Boolean = false,
 )
 
 enum class CheckStatus { OK, FAIL, UNKNOWN }
@@ -76,6 +78,16 @@ object BluetoothDiagnostics {
     const val REPAIR_FINE_SCROLL =
         "Si actualizas desde una versión anterior, quita el móvil en Windows y vuelve a emparejarlo " +
             "(Windows guarda en caché el descriptor del ratón y no verá el scroll fino)."
+
+    /** Aviso para quien actualiza desde una versión anterior: el teclado ganó el informe de salida de LEDs y Windows guarda en caché el descriptor. */
+    const val REPAIR_KEYBOARD_LEDS =
+        "Si no se reciben las luces, quita el móvil en Windows y vuelve a emparejarlo " +
+            "(Windows guarda en caché el descriptor del teclado y no verá el informe de LEDs que añadió la v6)."
+
+    /** La línea "Luces del teclado" del diagnóstico (docs/spec-v6-teclado.md §5.4): si Windows nos manda Bloq Mayús y Bloq Num. */
+    fun keyboardLedsLine(f: BluetoothFacts): String =
+        if (f.keyboardLedsReceived) "Luces del teclado: recibidas del PC"
+        else "Luces del teclado: no recibidas (el teclado del móvil las supone). $REPAIR_KEYBOARD_LEDS"
 
     /** La línea "Scroll fino" del diagnóstico (docs/spec-v5-bluetooth-completo.md §4). */
     fun fineScrollLine(f: BluetoothFacts): String = when {
@@ -149,6 +161,7 @@ object BluetoothDiagnostics {
                 append('\n')
             }
             append('\n').append(fineScrollLine(facts)).append('\n')
+            append(keyboardLedsLine(facts)).append('\n')
             if (suspectsStalePairing(checks)) append("\nPosible causa: emparejado antes de activar el modo Bluetooth.\n")
             append("\nÚltimos eventos (").append(events.size).append("):\n")
             if (events.isEmpty()) append("(ninguno)\n")

@@ -1,5 +1,7 @@
 package dev.mymouse.core.hid
 
+import dev.mymouse.core.btactions.BtAction
+import dev.mymouse.core.btactions.KeyboardLayouts
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.protocol.MouseButton
 import dev.mymouse.core.protocol.SystemGestureCommand
@@ -97,6 +99,7 @@ class HidMapperTest {
         assertEquals(emptyList(), m.map(OutputAction.SystemGesture(SystemGestureCommand.APP_SWITCH_NEXT)))
         assertEquals(emptyList(), m.map(OutputAction.WidgetPanel(true)))
         assertEquals(emptyList(), m.map(OutputAction.FourFingerSwipe(true)))
+        assertEquals(emptyList(), m.map(OutputAction.FourFingerDoubleTap))
     }
 
     @Test
@@ -105,6 +108,11 @@ class HidMapperTest {
             listOf(HidReport(3, byteArrayOf(0xE9.toByte(), 0)), HidReport(3, byteArrayOf(0, 0))),
             m.consumer(ConsumerKey.VOLUME_UP),
         )
+    }
+
+    @Test
+    fun keyboardActionSendsNothing_theAppOpensTheKeyboard() {
+        assertEquals(emptyList(), m.action(BtAction.Keyboard, KeyboardLayouts.ES))
     }
 
     @Test

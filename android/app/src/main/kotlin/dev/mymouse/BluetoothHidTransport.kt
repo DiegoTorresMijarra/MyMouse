@@ -29,8 +29,11 @@ import dev.mymouse.core.bluetooth.BluetoothEventLog
 import dev.mymouse.core.bluetooth.BluetoothFacts
 import dev.mymouse.core.bluetooth.HidLinkState
 import dev.mymouse.core.gesture.OutputAction
+import dev.mymouse.core.keyboard.KeyEvent
 import dev.mymouse.core.hid.ConsumerKey
 import dev.mymouse.core.hid.HidDescriptor
+import dev.mymouse.core.hid.HidKeyboardState
+import dev.mymouse.core.hid.HidLeds
 import dev.mymouse.core.hid.HidMapper
 import dev.mymouse.core.hid.HidMotionCoalescer
 import dev.mymouse.core.hid.HidSendStats
@@ -54,6 +57,13 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private val handler = Handler(Looper.getMainLooper())
     private val adapter: BluetoothAdapter? = app.getSystemService(BluetoothManager::class.java)?.adapter
     private val mapper = HidMapper()
+
+    /** Teclas del modo teclado que están pulsadas (informe de teclado id 2, docs/spec-v6-teclado.md §2). Solo desde el hilo principal. */
+    private val keyboard = HidKeyboardState()
+
+    /** ¿Ha escrito Windows el informe de salida de LEDs en esta conexión? Si no, el teclado del móvil supone las luces. */
+    @Volatile var keyboardLedsReceived = false
+        private set
 
     // ---- Acciones guardadas en el móvil (docs/spec-v5-bluetooth-completo.md §2 y §3) ----
     private val actionStore = BtActionStore(app)
@@ -100,6 +110,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onShapeAdd: (Message.ShapeAdd) -> Unit = {}
     override var onShapeDelete: (Message.ShapeDelete) -> Unit = {}
     override var onHostAppVersion: (String?) -> Unit = {}
+    override var onKeyboardOpen: () -> Unit = {}
+    override var onKeyboardLeds: (Int) -> Unit = {}
+    override var onKeyboardLayout: (String) -> Unit = {} // Windows no dice cuál es su distribución por Bluetooth: "Automática" usa el ajuste de texto
+    override val supportsKeyboard = true // informes de teclado HID
+    override val hostRepeatsKeys = true // la repetición al mantener pulsada la tecla la hace Windows
+    override val keyboardUnavailableText = "Sin conexión Bluetooth con el PC"
     override val supportsGestures = true // las acciones de las formas viven en el móvil (bt-gestures.json)
     override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
@@ -207,6 +223,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             link = link,
             fineScrollEnabled = registeredFine,
             fineScrollActive = mapper.resolution.fine,
+            keyboardLedsReceived = keyboardLedsReceived,
         )
     }
 
@@ -263,6 +280,10 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     fun runAction(action: BtAction): Boolean {
         val device = host ?: return false
         reloadActions()
+        if (action == BtAction.Keyboard) {
+            onKeyboardOpen()
+            return true
+        }
         val reports = mapper.action(action, layout)
         sendActionReports(device, action, reports)
         return true
@@ -323,7 +344,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         sender.removeCallbacksAndMessages(null)
         tickScheduled = false
         coalescer.reset()
-        host?.let { device -> mapper.releaseAll().forEach { transmit(device, it) } }
+        host?.let { device -> (mapper.releaseAll() + keyboard.releaseAll()).forEach { transmit(device, it) } }
         log("anulando el registro HID: ninguna pantalla lo usa desde hace un rato")
         try {
             if (registered) h.unregisterApp()
@@ -406,6 +427,10 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                     }
                     return
                 }
+                if (type == BluetoothHidDevice.REPORT_TYPE_OUTPUT && id.toInt() == HidMapper.KEYBOARD_ID) {
+                    hid?.replyReport(device, type, id, ByteArray(HidDescriptor.LED_REPORT_SIZE)) // LEDs: sin saber más, todo apagado
+                    return
+                }
                 // Algunos sistemas piden el estado inicial de cada informe: se responde con ceros.
                 val size = when (id.toInt()) {
                     HidMapper.MOUSE_ID -> 5
@@ -420,9 +445,14 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             }
         }
 
-        /** Windows activa el scroll fino escribiendo el informe feature del multiplicador (`SET_REPORT`). */
+        /** Windows activa el scroll fino escribiendo el informe feature del multiplicador (`SET_REPORT`) y manda las luces del teclado (salida). */
         override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
             try {
+                if (type == BluetoothHidDevice.REPORT_TYPE_OUTPUT && id.toInt() == HidMapper.KEYBOARD_ID) {
+                    onKeyboardLedReport(data, "SET_REPORT")
+                    hid?.reportError(device, BluetoothHidDevice.ERROR_RSP_SUCCESS)
+                    return
+                }
                 if (type == BluetoothHidDevice.REPORT_TYPE_FEATURE && id.toInt() == HidMapper.MOUSE_ID && registeredFine) {
                     val changed = mapper.applyScrollFeature(data)
                     log("el PC escribió el multiplicador de scroll (${data.joinToString(" ") { "%02X".format(it) }}): " +
@@ -439,6 +469,24 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                 Log.w(TAG, "onSetReport sin permiso")
             }
         }
+
+        /** Windows también puede mandar las luces por el canal de interrupción (informe de salida del teclado). */
+        override fun onInterruptData(device: BluetoothDevice, reportId: Byte, data: ByteArray) {
+            if (reportId.toInt() == HidMapper.KEYBOARD_ID) onKeyboardLedReport(data, "interrupción")
+        }
+    }
+
+    /** Un informe de salida de LEDs del PC: Bloq Mayús, Bloq Num y Bloq Despl. (docs/spec-v6-teclado.md §5.4). */
+    private fun onKeyboardLedReport(data: ByteArray, channel: String) {
+        val bits = HidLeds.toProtocolBits(data)
+        if (bits == null) {
+            log("luces del teclado ($channel): informe no válido (${data.joinToString(" ") { "%02X".format(it) }})")
+            return
+        }
+        if (!keyboardLedsReceived) log("luces del teclado recibidas del PC ($channel): descriptor con LEDs aceptado")
+        keyboardLedsReceived = true
+        onKeyboardLeds(bits)
+        statusListener(status)
     }
 
     /** Conecta con un PC ya emparejado. */
@@ -473,6 +521,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         // SET_REPORT puede llegar justo antes del aviso de "conectado" y no debe borrarse.
         handler.removeCallbacks(zoomRelease)
         if (device == null) {
+            keyboard.releaseAll() // las teclas del modo teclado no pueden quedarse "pulsadas" para la próxima conexión
+            if (keyboardLedsReceived) log("luces del teclado: sin conexión, se vuelven a suponer")
+            keyboardLedsReceived = false
             if (mapper.resetScrollResolution()) log("scroll fino desactivado (sin conexión)")
             sender.post { coalescer.reset() }
         }
@@ -517,6 +568,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             onGestureResult(GestureStatus.UNASSIGNED)
             return
         }
+        if (binding.action == BtAction.Keyboard) {
+            log("forma $name → abrir el teclado del móvil")
+            onKeyboardOpen()
+            onGestureResult(GestureStatus.EXECUTED)
+            return
+        }
         val reports = mapper.action(binding.action, layout)
         log("forma $name → ${BtActions.describe(binding.action)}")
         sendActionReports(device, binding.action, reports)
@@ -537,6 +594,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         val device = host ?: return
         if (message is Message.WidgetPress) {
             val button = widgetConfig.buttonFor(message.id)
+            if (button != null && button.action == BtAction.Keyboard) {
+                log("botón ${button.label} → abrir el teclado del móvil")
+                onKeyboardOpen()
+                onWidgetResult(Message.WidgetResult(message.id, GestureStatus.EXECUTED))
+                return
+            }
             if (button != null) {
                 val reports = mapper.action(button.action, layout)
                 log("botón ${button.label} → ${BtActions.describe(button.action)}")
@@ -561,6 +624,20 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         } ?: return
         val reports = mapper.endZoom() + mapper.consumer(key)
         sender.post { process(device, reports) }
+    }
+
+    override fun sendKey(event: KeyEvent) {
+        val device = host ?: return
+        val report = keyboard.apply(event) ?: return
+        sender.post { process(device, listOf(report)) }
+    }
+
+    override fun setKeyboardMode(on: Boolean) {
+        if (on) return
+        // Al salir se envía el informe vacío del teclado: nada se queda pulsado en el PC.
+        val report = keyboard.releaseAll()
+        val device = host ?: return
+        sender.post { process(device, listOf(report)) }
     }
 
     override fun sendShapes(messages: List<Message>) = Unit // sin PC no hay con quién sincronizar las formas

@@ -3,6 +3,8 @@ package dev.mymouse
 import android.content.Context
 import dev.mymouse.core.btactions.KeyboardLayouts
 import dev.mymouse.core.gesture.TrackpadConfig
+import dev.mymouse.core.keyboard.KeySize
+import dev.mymouse.core.keyboard.KeyboardLayoutSetting
 import dev.mymouse.core.theme.ThemeChoice
 import dev.mymouse.core.widgets.WidgetPanelSize
 
@@ -46,6 +48,15 @@ data class AppSettings(
     val btFineScroll: Boolean = true,
     /** Tema, acento y estrellas de este móvil (docs/spec-v4.8-temas.md). Por defecto, Universo. No se sincroniza con el PC. */
     val theme: ThemeChoice = ThemeChoice(),
+    /** Modo teclado (docs/spec-v6-teclado.md §6): distribución que se dibuja ("Automática" = la del PC por cable, el ajuste de texto por Bluetooth). */
+    val kbLayout: KeyboardLayoutSetting = KeyboardLayoutSetting.AUTO,
+    val kbKeySize: KeySize = KeySize.MEDIUM,
+    val kbVibrate: Boolean = true,
+    val kbRepeat: Boolean = true,
+    val kbTrackpadBar: Boolean = false,
+    /** Combinación de bloques recordada por orientación (`fn,nav,num`…); null = la de por defecto. */
+    val kbComboPortrait: String? = null,
+    val kbComboLandscape: String? = null,
 ) {
     enum class Orientation { FREE, PORTRAIT, LANDSCAPE }
 
@@ -94,6 +105,13 @@ data class AppSettings(
             .putBoolean("themeStars", theme.stars)
             .putBoolean("themeTwinkle", theme.twinkle)
             .putBoolean("themeTwinkleTrackpad", theme.twinkleTrackpad)
+            .putString("kbLayout", kbLayout.id)
+            .putString("kbKeySize", kbKeySize.id)
+            .putBoolean("kbVibrate", kbVibrate)
+            .putBoolean("kbRepeat", kbRepeat)
+            .putBoolean("kbTrackpadBar", kbTrackpadBar)
+            .putString("kbComboPortrait", kbComboPortrait)
+            .putString("kbComboLandscape", kbComboLandscape)
             .apply()
     }
 
@@ -153,6 +171,13 @@ data class AppSettings(
                     twinkle = p.getBoolean("themeTwinkle", d.theme.twinkle),
                     twinkleTrackpad = p.getBoolean("themeTwinkleTrackpad", d.theme.twinkleTrackpad),
                 ).normalized(),
+                kbLayout = KeyboardLayoutSetting.fromId(p.getString("kbLayout", null)),
+                kbKeySize = KeySize.fromId(p.getString("kbKeySize", null)),
+                kbVibrate = p.getBoolean("kbVibrate", d.kbVibrate),
+                kbRepeat = p.getBoolean("kbRepeat", d.kbRepeat),
+                kbTrackpadBar = p.getBoolean("kbTrackpadBar", d.kbTrackpadBar),
+                kbComboPortrait = p.getString("kbComboPortrait", null),
+                kbComboLandscape = p.getString("kbComboLandscape", null),
             )
         }
     }

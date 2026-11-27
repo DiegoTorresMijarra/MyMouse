@@ -16,7 +16,7 @@ import dev.mymouse.core.layout.SheetLayout
  */
 class CheatSheet(private val density: Float) {
 
-    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE_UP, THREE_DOWN, THREE_SIDE, FOUR_HOLD, FOUR_PINCH, VOLUME }
+    enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE_UP, THREE_DOWN, THREE_SIDE, FOUR_HOLD, FOUR_PINCH, FOUR_TAP, VOLUME, VOLUME_UP }
 
     data class Row(val icon: Icon, val text: String)
 
@@ -181,6 +181,19 @@ class CheatSheet(private val density: Float) {
                 arrow(c, cx + 12 * d, cy - 11 * d, cx + 12 * d, cy - 3 * d)
                 arrow(c, cx + 12 * d, cy + 11 * d, cx + 12 * d, cy + 3 * d)
             }
+            Icon.FOUR_TAP -> {
+                // Cuatro dedos y un doble toque: dos anillos concéntricos sobre cada dedo.
+                for (dx in listOf(-15 * d, -5 * d, 5 * d, 15 * d)) {
+                    c.drawCircle(cx + dx, cy, dot - 0.5f * d, iconFill)
+                    c.drawCircle(cx + dx, cy, ring - 1.5f * d, iconStroke)
+                    c.drawCircle(cx + dx, cy, ring + 1.5f * d, iconStroke)
+                }
+            }
+            Icon.VOLUME_UP -> {
+                val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
+                c.drawRoundRect(r, 4 * d, 4 * d, iconStroke)
+                c.drawText("VOL+×2", cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
+            }
             Icon.VOLUME -> {
                 val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
                 c.drawRoundRect(r, 4 * d, 4 * d, iconStroke)
@@ -230,6 +243,7 @@ class CheatSheet(private val density: Float) {
             }
             if (gestureMode) add(Row(Icon.FOUR_HOLD, "4 dedos quietos: modo gestos"))
             add(Row(Icon.FOUR_PINCH, "4 dedos juntar / separar: widgets"))
+            add(Row(Icon.FOUR_TAP, "4 dedos doble toque: teclado"))
         }
     }
 }

@@ -32,12 +32,13 @@ class BtActionForm(
     private val allowNone: Boolean,
     private val onChange: () -> Unit = {},
 ) {
-    private enum class Type(val label: String) { KEYS("Atajo"), MEDIA("Multimedia"), TEXT("Texto"), NONE("Ninguna") }
+    private enum class Type(val label: String) { KEYS("Atajo"), MEDIA("Multimedia"), TEXT("Texto"), KEYBOARD("Abrir teclado"), NONE("Ninguna") }
 
     private var type: Type = when (initial) {
         is BtAction.Keys -> Type.KEYS
         is BtAction.Media -> Type.MEDIA
         is BtAction.Text -> Type.TEXT
+        BtAction.Keyboard -> Type.KEYBOARD
         null -> if (allowNone) Type.NONE else Type.KEYS
     }
     private var modifiers = (initial as? BtAction.Keys)?.modifiers ?: 0
@@ -78,13 +79,14 @@ class BtActionForm(
         Type.KEYS -> if (modifiers == 0 && key == 0) null else BtAction.Keys(modifiers, key)
         Type.MEDIA -> BtAction.Media(BtActions.MEDIA[mediaIndex].key)
         Type.TEXT -> if (typedText.isEmpty() || layout.typeStrokes(typedText).isEmpty()) null else BtAction.Text(typedText)
+        Type.KEYBOARD -> BtAction.Keyboard
     }
 
     /** Qué falta para poder guardar, o null si está bien (o es "Ninguna"). */
     fun problem(): String? = when (type) {
         Type.NONE -> null
         Type.KEYS -> if (modifiers == 0 && key == 0) "Elige al menos un modificador o una tecla" else null
-        Type.MEDIA -> null
+        Type.MEDIA, Type.KEYBOARD -> null
         Type.TEXT -> when {
             typedText.isEmpty() -> "Escribe el texto"
             layout.typeStrokes(typedText).isEmpty() -> "Ningún carácter del texto se puede escribir con la distribución ${layout.label}"
@@ -117,6 +119,7 @@ class BtActionForm(
             Type.KEYS -> buildKeys()
             Type.MEDIA -> buildMedia()
             Type.TEXT -> buildText()
+            Type.KEYBOARD -> body.addView(GlassTheme.note(activity, "Abre el teclado del móvil (modo teclado) para escribir en el PC."))
         }
     }
 

@@ -119,6 +119,16 @@ class TrackpadView(
     /** Juntar (true) o separar (false) 4 dedos: mostrar u ocultar el panel de widgets. Lo anima [MainActivity]. */
     var onPanelGesture: (Boolean) -> Unit = {}
 
+    /** Doble toque con 4 dedos: abrir el teclado (docs/spec-v6-teclado.md §3). Lo resuelve [MainActivity]. */
+    var onKeyboardGesture: () -> Unit = {}
+
+    /** Suelta lo que haya a medias (clic pendiente, arrastre, modo gestos) al entrar en el modo teclado. */
+    fun cancelTouches() {
+        interpreter.onTouch(TouchInput.Cancel(SystemClock.uptimeMillis())).forEach(::emit)
+        removeCallbacks(tick)
+        invalidate()
+    }
+
     /** ¿Hay toolbox en el PC? Si no (host anterior a la v5 o Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableText]. */
     var toolboxAvailable: () -> Boolean = { true }
     var toolboxUnavailableText: () -> String = { "Actualiza MyMouse en el PC" }
@@ -136,6 +146,7 @@ class TrackpadView(
                 noteDebug("Gestos de 3 dedos: el PC necesita MyMouse 3.1 o posterior")
             }
             is OutputAction.FourFingerSwipe -> if (!toolboxAvailable()) showNotice(toolboxUnavailableText())
+            is OutputAction.FourFingerDoubleTap -> onKeyboardGesture()
             is OutputAction.GestureMode -> {
                 if (action.active) vibrate()
                 invalidate()
