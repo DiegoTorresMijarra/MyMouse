@@ -29,11 +29,13 @@ El móvil interpreta los toques (mover, clic, scroll, arrastrar) y envía órden
 | [docs/spec-v4-toolbox.md](docs/spec-v4-toolbox.md) | La toolbox del PC (WPF): panel, gesto en vivo, editor y formas sincronizadas |
 | [docs/spec-v4.5-estilo.md](docs/spec-v4.5-estilo.md) | Estilo glass en el PC y el móvil, tarjeta Gestos rediseñada y diagnóstico de Bluetooth |
 | [docs/spec-v4.7-universo.md](docs/spec-v4.7-universo.md) | Fondo "universo", icono propio de la app (`tools/icon/make_icons.py`), icono siempre visible y retoques del móvil |
+| [docs/spec-v4.8-temas.md](docs/spec-v4.8-temas.md) | Temas elegibles en el móvil y en el PC |
+| [docs/spec-v5-bluetooth-completo.md](docs/spec-v5-bluetooth-completo.md) | Bluetooth completo (gestos, botones propios, scroll fino) e instalador de Windows |
 | [protocol/PROTOCOL.md](protocol/PROTOCOL.md) | Protocolo móvil ↔ PC (fuente de verdad) |
 
 ## Puesta en marcha
 
-**Sin compilar nada:** descarga el APK y el host de Windows de la [última release](https://github.com/DiegoTorresMijarra/MyMouse/releases) y sigue [docs/probar.md](docs/probar.md).
+**Sin compilar nada:** descarga el APK y el instalador de Windows (`MyMouse-Setup-<versión>.exe`, con adb incluido; o el zip portátil) de la [última release](https://github.com/DiegoTorresMijarra/MyMouse/releases) y sigue [docs/probar.md](docs/probar.md). El instalador no está firmado: SmartScreen avisará ("Más información" → "Ejecutar de todas formas"). Por Bluetooth (desde la v3, completo en la v5) el PC no necesita nada instalado.
 
 ### Requisitos
 - **PC:** Windows 10/11, [.NET 10 SDK](https://dotnet.microsoft.com/download) y [Android platform-tools](https://developer.android.com/tools/releases/platform-tools) (`adb`). En móviles Huawei, el driver ADB suele venir con HiSuite.
@@ -47,7 +49,7 @@ dotnet test                                   # tests del protocolo y del host
 dotnet run --project src/MyMouse.Host         # app de bandeja
 dotnet run --project src/MyMouse.TestClient   # (otra terminal) simula el móvil: mueve el cursor en círculo
 ```
-El host busca `adb.exe` en el `PATH` o en `%LOCALAPPDATA%\Android\Sdk\platform-tools`. También se puede indicar su ruta en `%APPDATA%\MyMouse\config.json`.
+El host busca `adb.exe` en la ruta de `%APPDATA%\MyMouse\config.json` (si se indica), **junto a su propio exe** (el instalador lo trae), en el `PATH` y en `%LOCALAPPDATA%\Android\Sdk\platform-tools`.
 
 **Recomendado:** desactiva "Mejorar la precisión del puntero" en la configuración del ratón de Windows, porque la aceleración ya la aplica el móvil.
 

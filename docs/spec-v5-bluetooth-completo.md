@@ -2,7 +2,7 @@
 
 > Objetivos: [00-roadmap.md](00-roadmap.md) · Base: [spec-v1-gestos.md](spec-v1-gestos.md), [spec-v2-widgets.md](spec-v2-widgets.md), [spec-v3-bluetooth.md](spec-v3-bluetooth.md), [spec-v4.5-estilo.md](spec-v4.5-estilo.md) (§4, Bluetooth), [spec-v4.8-temas.md](spec-v4.8-temas.md)
 >
-> Estado: **especificada**. Las decisiones marcadas con *(decisión)* se tomaron sin el usuario.
+> Estado: **implementada en la rama de desarrollo** (release `v5.0` pendiente; ver las [notas de implementación](#8-notas-de-implementación)). Las decisiones marcadas con *(decisión)* se tomaron sin el usuario.
 
 ## 1. Objetivo
 
@@ -113,3 +113,43 @@ Por Bluetooth el móvil solo puede "teclear" (informes HID). Las acciones posibl
 - Abrir apps por Bluetooth (no hay forma de hacerlo sin el PC).
 - Firmar el instalador.
 - macOS y Linux (por Bluetooth deberían funcionar, pero no se prueban).
+
+## 8. Notas de implementación
+
+Implementado: toda la lista de la §6. La lógica nueva tiene tests: 66 más en `core` (279 en total: acciones, distribuciones, ficheros, descriptor, multiplicador, mapeador y coalescer, `MiniJson`) y 8 más en `MyMouse.HostCore.Tests` (245 en total: dónde se busca adb).
+
+### Qué hay dónde
+- **`core` (con tests):**
+  - `btactions/BtAction.kt`: `BtAction` (`Keys`, `Media`, `Text`) y `BtActions` (lectura y escritura de atajos `Ctrl+Shift+T`, nombres multimedia, JSON de una acción y texto de lo que hace). Los nombres de las teclas son los del `gestures.json` del PC, con sus alias en español.
+  - `btactions/KeyboardLayout.kt`: `KeyboardLayouts.ES` y `.US` (carácter → pulsaciones: modificadores + uso HID). El español lleva AltGr (`@ # ~ € \ | [ ] { }`), `ñ`, `ç`, `¿ ¡`, `º ª · ¬`, `< >` en la tecla ISO extra y las teclas muertas (acento agudo, diéresis, grave y circunflejo) combinadas con vocal (`á`, `Ü`…), más cada acento suelto (tecla muerta + Espacio). `unsupported(texto)` lista lo que no se puede escribir (para el aviso del editor).
+  - `btactions/BtGestureConfig.kt` (`bt-gestures.json`) y `btactions/BtWidgetConfig.kt` (`bt-widgets.json`): valores por defecto, lectura tolerante (lo inválido se descarta con un aviso por regla o botón), escritura, edición inmutable (`with`, `without`, `add`, `move`…), lista para la hoja de formas (`listEntries`) y los widgets del panel (`entries`, `buttonFor`).
+  - `hid/HidKeys.kt` (usos HID y bits de modificadores, lista del selector), `hid/HidDescriptor.kt` (descriptor con y sin *Resolution Multiplier*; el antiguo es byte a byte el de la v4, con un test que lo fija), `hid/ScrollResolution.kt` (estado del multiplicador y del informe *feature*), `HidMapper.action(...)` (atajo, multimedia y texto), `HidMotionCoalescer.dropScroll()` y la línea de diagnóstico `BluetoothDiagnostics.fineScrollLine`.
+  - `json/MiniJson.kt`: el lector de JSON mínimo que estaba dentro de `ThemeJson`, ahora compartido y con escritor (`ThemeJson` lo usa).
+- **Móvil (`app`):** `BtActionStore` (los dos ficheros en `filesDir`, escritura por fichero temporal y renombrado; sin fichero o ilegible, valores por defecto), `BtActionForm` (el formulario común de acción), `BtGesturesActivity` ("Acciones por Bluetooth…", con la distribución del teclado), `BtWidgetsActivity` ("Botones por Bluetooth…"), y cambios en `BluetoothHidTransport`, `MainActivity`, `TrackpadView`, `SettingsActivity`, `BluetoothActivity` y `AppSettings` (`btKeyboardLayout`, `btFineScroll`).
+- **PC:** `AdbReverseKeeper.FindAdb` busca primero en `config.json`, después **junto al exe**, luego en el PATH y por último en el SDK (con tests); `installer/MyMouse.iss` y los pasos nuevos del job `windows` de `build.yml`.
+
+### Decisiones y desviaciones
+- **Ids de las formas:** `>` es `gt` y `<` es `lt` en `ShapeCatalog` (la tabla de la §2.2 dice `chevron-*`, que no existen). Por defecto se fijan en la chuleta `z` y `v`, como en el PC.
+- **Ficheros:** `bt-gestures.json` = `{"version": 1, "bindings": [{"gesture", "action", "help", "pin"}]}` y `bt-widgets.json` = `{"version": 1, "buttons": [{"label", "icon", "action"}]}`, con acciones como en el `gestures.json` del PC (`{"type": "keys", "keys": "Ctrl+Z"}`, `{"type": "media", "key": "PlayPause"}`, `{"type": "text", "text": "…"}`). No se escribe nada hasta que se guarda un cambio: sin fichero valen los valores por defecto. "Ninguna" borra la regla.
+- **Solo una combinación por atajo:** las secuencias (`Ctrl+K, Ctrl+C`) no se ofrecen por Bluetooth. Un atajo puede ser solo un modificador (`Win`). Teclas del selector: las de la §2.4; el descriptor del teclado llega al uso 0x65, así que no hay F13–F24.
+- **La distribución del teclado y el scroll fino** son ajustes de `AppSettings` (la distribución se elige dentro de "Acciones por Bluetooth…"; "Scroll fino por Bluetooth" está en Ajustes → Conexión).
+- **Texto:** máximo 300 caracteres por acción; sale tecla a tecla (pulsar y soltar cada una) y, si pasa de 4 teclas, con 5 ms entre informes para no desbordar la pila Bluetooth. Los caracteres que la distribución no tiene se saltan; el editor los avisa. Una acción de texto sin ningún carácter escribible no se puede guardar. Los emoji no se pueden escribir.
+- **Scroll fino:**
+  - El informe *feature* tiene el id del ratón (1) y un byte: bits 0–1 = multiplicador de la rueda y bits 2–3 = el de la horizontal (0 = ×1, 1 = ×120). Si Android entrega el dato con el id delante, también se entiende.
+  - Las unidades de `OutputAction.Scroll` ya eran de 1/120 de paso: con el multiplicador activo pasan casi tal cual (en pasos de ≤ 127 por informe; el coalescer las suma); sin él, pasos enteros como antes. Al cambiar el multiplicador se descarta el resto acumulado y lo pendiente en el coalescer (estaba en otras unidades). Al desconectar vuelve a ×1.
+  - **Zoom fino:** con el multiplicador activo, Ctrl se queda pulsado entre un gesto de zoom y el siguiente (si no, cada zoom costaría tres informes de teclado/ratón y a 60 Hz saturaría el enlace) y el transporte lo suelta 150 ms después del último; cualquier otra acción lo suelta antes. Sin multiplicador, el zoom es el de siempre (Ctrl, rueda, soltar).
+  - `onGetReport`/`onSetReport` *feature* se contestan con `replyReport`/`reportError(ERROR_RSP_SUCCESS)`; con el ajuste apagado o un id ajeno, `ERROR_RSP_INVALID_RPT_ID`. Si se cambia el ajuste con la app registrada, se vuelve a registrar el descriptor al abrir la siguiente pantalla (Windows igualmente pide volver a emparejar).
+- **Hoja de formas y resultados:** por Bluetooth, `MainActivity` da al trackpad una lista de formas con acción (`GestureList` "por Bluetooth") construida desde `bt-gestures.json`, así que la hoja, la chuleta y el resultado ("Deshacer", "sin acción") salen del mismo código que por USB. Una forma sin acción avisa "sin acción (Ajustes → Acciones por Bluetooth)". La toolbox y los gestos con 4 dedos ↑ ↓ siguen siendo solo del USB.
+- **Botones propios:** ids de widget 0–3 = multimedia y volumen (como en la v3); los propios, 10 + posición. Icono: un emoji (puede llevar selector de variante) o 1–3 letras (hasta 4 puntos de código); etiqueta hasta 20 caracteres.
+- **Probar:** los editores abren el transporte Bluetooth (como la pantalla de emparejar) solo si la conexión elegida es Bluetooth; si no hay PC conectado, avisan.
+- **Instalador:**
+  - Parámetros por variables de entorno (`MYMOUSE_VERSION`, `MYMOUSE_SOURCE_DIR`, `MYMOUSE_ADB_DIR`, `MYMOUSE_OUTPUT_DIR`, leídas con `GetEnv` en el `.iss`) y, si se prefiere, con `/D` (`AppVersion`, `SourceDir`, `AdbDir`, `OutputDir`): una versión como `0.0-dev.42` o una ruta con barras no se puede pasar por `/D` sin entrecomillar, y las comillas en PowerShell son frágiles.
+  - La casilla "Iniciar con Windows" empieza **desactivada**. El instalador cierra la app si está en marcha (`AppMutex=MyMouse.Host` + Restart Manager). Desinstalar borra el valor `Run` de HKCU aunque se hubiera activado después desde la bandeja, y deja `%APPDATA%\MyMouse`.
+  - El zip portátil no cambia (sin adb: usa el del PATH).
+
+### Sin verificar
+- **El módulo `app` no se ha compilado ni ejecutado** (sin Android SDK local). Se ha pasado el compilador de Kotlin sobre todas las fuentes con `core`, el `android.jar` completo (`android-all`, API 34) y unos stubs de `androidx` en el classpath: la única referencia sin resolver es `R` (recursos generados). No se comprueban las restricciones de nivel de API de lint (las clases nuevas solo llaman a `BluetoothHidTransport` con `Build.VERSION.SDK_INT >= P`).
+- **El scroll fino contra un Windows real:** el descriptor sigue el patrón documentado por Microsoft para *Resolution Multiplier* (colección lógica por eje, lógico 0–1, físico 1–120, informe *feature* con relleno hasta el byte), pero no se ha probado que Windows lo acepte con un dispositivo HID de Android ni que mande el `SET_REPORT` de la forma esperada. Si no lo hace, queda en pasos enteros (diagnóstico: "Scroll fino: no"); el ajuste apagado devuelve el descriptor de la v4.
+- **La distribución española:** las posiciones de teclas (en especial `ç` en el uso 0x32 de la tecla ISO, `€` con AltGr+E y las teclas muertas) siguen el teclado ISO español de Windows, pero no se han probado contra uno. Las teclas muertas dependen de que Windows no tenga un método de entrada que las cambie.
+- **El instalador no se ha compilado** (ni Inno Setup ni PowerShell de Windows disponibles). Riesgos: que `Spanish.isl` no esté en la instalación de Inno Setup del runner (viene con el compilador 6.x), `ArchitecturesAllowed=x64` (obsoleto desde la 6.3, pero válido), la sintaxis del `.iss` (`GetEnv`, `#undef`), y que el zip de platform-tools cambie de nombre de carpeta o de ficheros. El paso falla la build si algo no cuadra.
+- **Todo lo que dibuja en el móvil:** las dos pantallas nuevas y el formulario no se han visto en un dispositivo (chips, `AlertDialog` de teclas, campos de texto con el estilo de cristal, orden con ↑ ↓, pantalla de detalle con `Screen` reconstruido al cambiar de estado).

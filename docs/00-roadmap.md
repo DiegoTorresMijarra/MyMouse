@@ -12,6 +12,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 | **v4.5** | Estilo glass en el PC y el móvil, y depuración del Bluetooth | USB / Bluetooth |
 | **v4.7** | Fondo "universo", icono propio y retoques | USB / Bluetooth |
 | **v4.8** | Temas elegibles en el móvil y en el PC, con un universo más sobrio | USB / Bluetooth |
+| **v5** | Bluetooth completo (gestos, botones propios, scroll fino) e instalador de Windows | Bluetooth / USB |
 
 ---
 
@@ -194,5 +195,22 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 ---
 
+## v5: Bluetooth completo e instalador
+
+**Objetivo:** que el modo Bluetooth (sin programa en el PC) sea casi tan completo como el USB, y que instalar MyMouse en Windows sea un instalador de verdad.
+
+**Alcance:**
+- **Gestos por Bluetooth:** las acciones de las formas viven en el móvil (`bt-gestures.json`: atajos, multimedia y texto; `Win+L` para bloquear). Valores por defecto como en el PC, hoja de formas y chuleta con las acciones del móvil, y editor **Ajustes → Modo gestos → "Acciones por Bluetooth…"** con "Probar" y la distribución del teclado del PC (Español o Inglés EE. UU., con AltGr y teclas muertas) para escribir texto.
+- **Botones propios por Bluetooth:** hasta 16 en `bt-widgets.json` (por defecto Copiar, Pegar, Captura, Deshacer y Bloquear), editor **Widgets → "Botones por Bluetooth…"** con orden ↑ ↓.
+- **Scroll y zoom finos:** el descriptor HID añade el *Resolution Multiplier* de Windows (unidades de 1/120 de paso si el PC lo activa; pasos enteros si no), línea "Scroll fino" en el diagnóstico y ajuste "Scroll fino por Bluetooth" (activado por defecto). **Obliga a volver a emparejar** si se actualiza desde una versión anterior.
+- **Instalador de Windows** (Inno Setup): `MyMouse-Setup-<versión>.exe` en `%LOCALAPPDATA%\Programs\MyMouse` sin administrador, con adb incluido (el host lo busca junto al exe antes que en el PATH), acceso directo, "Iniciar con Windows" opcional y desinstalador que conserva la configuración. Sin firmar: SmartScreen avisará.
+- Detalle: [spec-v5-bluetooth-completo.md](spec-v5-bluetooth-completo.md).
+
+> Estado: implementada en la rama de desarrollo (release `v5.0` pendiente). La lógica nueva tiene tests (acciones, distribuciones ES/US, ficheros, descriptor y multiplicador, mapeador y coalescer, búsqueda de adb); el módulo `app` solo se ha pasado por el compilador de Kotlin y el instalador no se ha compilado aquí: ver las [notas de la spec](spec-v5-bluetooth-completo.md#8-notas-de-implementación).
+
+**Criterios de "hecho":** los de la [§6 de la spec](spec-v5-bluetooth-completo.md#6-criterios-de-hecho).
+
+---
+
 ## Ideas sin versión
-Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio) · instalador y arranque con Windows.
+Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio).

@@ -17,14 +17,15 @@ Cada release (`v0.0`, `v0.1`, …) añade una etapa encima de la anterior. Si al
 
 De la página de la release descarga:
 - `MyMouse-<versión>.apk`: la app del móvil.
-- `MyMouse-Windows-<versión>.zip`: `MyMouse.exe` (el host de bandeja) y `MyMouse.TestClient.exe` (simula el móvil). No necesitan instalar .NET.
+- `MyMouse-Setup-<versión>.exe` (desde la v5): el **instalador** de Windows. Incluye `MyMouse.exe` (el host de bandeja) y adb. Es lo más cómodo; ver [Instalador (v5)](#instalador-de-windows-v5).
+- `MyMouse-Windows-<versión>.zip`: la versión portátil, con `MyMouse.exe` y `MyMouse.TestClient.exe` (simula el móvil). No necesitan instalar .NET. No lleva adb (usa el del `PATH`).
 
 1. **Cerrar el host anterior:** icono de MyMouse en la bandeja → Salir.
 2. **Instalar la app** (sustituye a la anterior y conserva los ajustes, también al bajar de versión):
    ```powershell
    adb install -r -d MyMouse-<versión>.apk
    ```
-3. **Arrancar el host:** descomprime el zip y ejecuta `MyMouse.exe`. Windows SmartScreen puede avisar porque no está firmado: "Más información" → "Ejecutar de todas formas".
+3. **Arrancar el host:** con el instalador, ejecútalo (o, si ya está instalado, ábrelo desde el menú Inicio); con el zip, descomprímelo y ejecuta `MyMouse.exe`. Windows SmartScreen puede avisar porque no está firmado: "Más información" → "Ejecutar de todas formas".
 4. Abre **MyMouse** en el móvil. El punto de la esquina se pone verde al conectar.
 
 Si algo no conecta:
@@ -149,6 +150,28 @@ No hace falta MyMouse ni adb en el PC.
 3. Vuelve al trackpad: el punto de estado se pone verde al conectar.
 4. Si la pantalla de emparejar dice que el perfil HID no está disponible, ese móvil no puede hacer de ratón Bluetooth: apúntalo.
 5. Logs: `adb logcat -s MyMouse` (líneas "Bluetooth: …").
+
+## Instalador de Windows (v5)
+
+1. Descarga `MyMouse-Setup-<versión>.exe` de la release y ejecútalo. **SmartScreen avisará** ("Windows protegió su PC") porque el instalador no está firmado: pulsa **Más información** → **Ejecutar de todas formas**. Lo mismo puede pasar con `MyMouse.exe` la primera vez.
+2. El asistente no pide administrador: instala en `%LOCALAPPDATA%\Programs\MyMouse`. Casillas: acceso directo en el escritorio (apagada) e **Iniciar MyMouse con Windows** (apagada). Al terminar, "Abrir MyMouse".
+3. Comprueba que existen `MyMouse.exe`, `adb.exe`, `AdbWinApi.dll` y `AdbWinUsbApi.dll` en esa carpeta y que el acceso directo del menú Inicio abre MyMouse. **Sin instalar platform-tools** y con el cable puesto, el host debe encontrar adb y conectar el móvil (tooltip de la bandeja: "Conectado").
+4. Con "Iniciar con Windows" marcada, `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` tiene el valor `MyMouse` con la ruta entre comillas, y la casilla de la bandeja (Iniciar con Windows) sale marcada.
+5. Instalar encima de una versión anterior con MyMouse abierto: el instalador pide cerrarlo o lo cierra; los ajustes se conservan.
+6. **Desinstalar** (Configuración → Aplicaciones): borra la carpeta de instalación y el valor `Run`, pero **conserva `%APPDATA%\MyMouse`** (gestos, formas, configuración y logs).
+
+## Bluetooth completo (v5)
+
+**Actualizar desde una versión anterior obliga a volver a emparejar:** el descriptor HID del ratón cambió (lleva scroll fino) y Windows guarda en caché el de la primera vez. En Windows: Configuración → Bluetooth y dispositivos → el móvil → **Quitar dispositivo**; en el móvil, pantalla Bluetooth abierta → **Hacer visible**; y vuelve a añadirlo desde Windows (los pasos de abajo, "volver a emparejar"). Sin hacerlo, todo funciona como antes pero sin scroll fino.
+
+Con la conexión **Bluetooth** elegida y el móvil conectado al PC:
+1. **Gestos:** 4 dedos quietos → dibuja una `Z`: el PC debe hacer **Deshacer** sin tener MyMouse instalado. La hoja de formas (y la chuleta del modo gestos) muestra las acciones del móvil con su ayuda ("Deshacer", "Escritorio"…) y fija arriba `Z` y `V`. Prueba también `←` (atrás), `↓` (escritorio), `↑` (vista de tareas), `V` (reproducir/pausar), `>` (siguiente), `<` (anterior) y `✓` (guardar). Una forma sin acción avisa "sin acción".
+2. **Editor de acciones:** *Ajustes → Modo gestos → Acciones por Bluetooth…*. Toca una forma: elige *Atajo* (marca Ctrl/Alt/Shift/Win y elige la tecla; sale "Hará: Ctrl+Shift+T"), *Multimedia*, *Texto* o *Ninguna*; escribe una ayuda y, si quieres, *Fijar en la chuleta*; **Probar** ejecuta la acción en el PC al momento (solo conectado); **Guardar**. Comprueba que lo guardado se usa al dibujar la forma.
+3. **Texto:** crea una acción de texto con `Hola ¿qué tal? ñandú @ café` y pruébala con la distribución **Español (España)**: debe salir idéntico (acentos, `ñ`, `¿`, `@`). Con **Inglés (EE. UU.)** el editor avisa de los caracteres que no puede escribir (`ñ`, `¿`, `é`…) y se saltan. Si Windows usa otra distribución, el texto sale mal: apúntalo. Los emoji no se pueden escribir.
+4. **Bloquear el PC:** un atajo `Win+L` (por defecto, el botón *Bloquear* del panel).
+5. **Botones propios:** el panel de widgets lleva ⏮ ⏯ ⏭, Vol −, Vol +, Silencio y después Copiar, Pegar, Captura, Deshacer y Bloquear. Pruébalos (Copiar/Pegar en un editor de texto; Captura abre el recorte de Windows). *Ajustes → Widgets → Botones por Bluetooth…*: añade, edita, borra y reordena con ↑ ↓ (máximo 16); al volver al trackpad, el panel cambia.
+6. **Scroll fino:** con el móvil recién emparejado, haz scroll con 2 dedos despacio en un navegador o un documento largo: debe moverse **suave, sin saltos de línea en línea**; el zoom con 2 dedos (Ctrl + rueda) también más fino. En la pantalla Bluetooth → Diagnóstico debe poner **"Scroll fino: activado por el PC"**. Si pone "no" tras volver a emparejar, apunta el PC y la versión de Windows y copia el diagnóstico: el scroll sigue funcionando en pasos enteros. *Ajustes → Conexión → Scroll fino por Bluetooth (avanzado)* lo apaga (vuelve el descriptor antiguo; hay que volver a emparejar).
+7. **Qué sigue siendo solo del USB:** abrir programas, pausar/bloquear MyMouse, reglas por aplicación, la toolbox del PC y el volumen deslizante.
 
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
