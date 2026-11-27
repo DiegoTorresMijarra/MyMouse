@@ -190,6 +190,35 @@ Cómo probarlo sin esperar a la release siguiente:
 
 Notas: las llamadas van a `api.github.com` (límite de 60 por hora y por IP, de sobra) y el log del PC (`%APPDATA%\MyMouse\logs`, líneas "Buscar actualizaciones: instalada …, última …") y `adb logcat -s MyMouse` dicen qué versión vio cada lado.
 
+## Modo teclado (v6)
+
+**Actualizar desde una versión anterior obliga a volver a emparejar por Bluetooth** si quieres las luces de Bloq Mayús y Bloq Num: el descriptor HID del teclado ganó un informe de salida de LEDs y Windows guarda en caché el de la primera vez. En Windows: Configuración → Bluetooth y dispositivos → el móvil → **Quitar dispositivo**; en el móvil, pantalla Bluetooth abierta → **Hacer visible**; y vuelve a añadirlo desde Windows. Sin hacerlo, todo funciona pero las luces se suponen (punto gris).
+
+**Abrir y cerrar** (por USB y por Bluetooth):
+1. **Doble toque con 4 dedos** en el trackpad: el teclado sube desde abajo (200 ms) y el trackpad se funde. Un solo toque no hace nada; dos toques lentos (más de ~⅓ de segundo entre uno y otro) tampoco; mantener los 4 dedos quietos sigue activando el modo gestos.
+2. **Vol+ ×2** alterna teclado ⇄ mouse. **Vol− ×2** sigue bloqueando y desbloqueando.
+3. **Widget Teclado** (⌨): por USB es el botón del panel que viene en un `gestures.json` nuevo (si ya tenías el tuyo, añádelo en la toolbox → Gestos y widgets → acción "Abrir teclado del móvil"); por Bluetooth, el botón *Teclado* de *Botones por Bluetooth…* (también hay un tipo "Abrir teclado" en el editor de acciones).
+4. La tecla **🖱** y el botón **Atrás** (también en modo bloqueado) vuelven al trackpad. Con un PC con MyMouse 5.1 o anterior (protocolo < 7), el móvil avisa "Actualiza MyMouse en el PC (modo teclado)" y no abre nada.
+5. En el PC: al entrar aparece la tarjeta "⌨ Teclado" y al salir "🖱 Mouse" (si *Mostrar gesto en vivo* está activado), y el estado del móvil dice "Conectado · … · Modo teclado" mientras está abierto.
+
+**Teclado:**
+6. **Letras y símbolos:** abre un Bloc de notas con la distribución del PC en Español. Escribe `Hola, ¿qué tal? ñandú @ #` (Shift para mayúsculas, AltGr para `@` y `#`). Las etiquetas son como en un teclado real: en ES la tecla `2` lleva `"` arriba y `@` abajo a la derecha, y con Shift o Bloq Mayús se resaltan las letras.
+7. **Teclas muertas:** `´` y luego `a` debe dar `á` (es Windows quien las resuelve, no el móvil).
+8. **Modificadores:** un toque en Shift lo deja resaltado y se aplica a la **siguiente** tecla; doble toque lo fija (candado) hasta otro toque; mantenerlo mientras pulsas otra tecla funciona como en un teclado normal. Prueba **Ctrl+C / Ctrl+V**, **Win+Shift+S**, **Alt+Tab** (Alt fijado + Tab) y **Ctrl+Shift+Esc**. Por cable, **Ctrl+Alt+Supr no funciona** (Windows no deja inyectarlo); por Bluetooth sí.
+9. **Varios dedos:** Shift mantenido con un dedo y letras con otro; dos teclas a la vez.
+10. **Repetición:** mantén una letra, Retroceso o una flecha. Por USB empieza a los 400 ms y repite cada 40 ms (se puede apagar en Ajustes → Teclado); por Bluetooth repite Windows (con su propio retardo). Shift, Ctrl, Bloq Mayús, `⌨` y `🖱` nunca repiten.
+11. **Luces:** pulsa Bloq Mayús: la tecla y la barra de estado ("Mayús") se encienden en **verde** (el PC lo ha confirmado). Por Bluetooth, tras volver a emparejar, igual; si el diagnóstico (Bluetooth → Diagnóstico → "Luces del teclado") dice "no recibidas", el estado es supuesto y se marca con un punto **gris**. Cambia Bloq Mayús desde el teclado físico del PC: por USB el móvil se entera en menos de un segundo.
+12. **Nada se queda pulsado:** con Shift fijado y una letra mantenida, sal con `🖱` (o Atrás), cambia a otra app, gira el móvil, desconecta el cable o apaga el Bluetooth: en el PC no debe quedar ninguna tecla ni modificador pulsado (prueba a escribir en el Bloc de notas después).
+
+**Bloques** (toca `⌨` para desplegar la barra de chips; se cierra al volver a tocarlo o al pulsar una tecla):
+13. **Fn**, **Flechas**, **Nav** (con las flechas), **Num** y **Solo num** se encienden y apagan al momento con una animación de 150 ms. En **vertical** solo cabe un bloque lateral (encender uno apaga los demás); en **horizontal** se suman. **Solo num** quita todo lo demás. El chip **ES/US** cambia la distribución dibujada solo para esta sesión.
+14. **Deslizar sobre `⌨`** a derecha o izquierda alterna entre las dos últimas combinaciones (p. ej. teclado con numpad ⇄ Solo numpad). La combinación se recuerda por orientación.
+15. **Numpad:** con Bloq Num encendido escribe números; apagado, mueve el cursor (Inicio, Fin, flechas…).
+
+**Ajustes → Teclado:** distribución (*Automática* usa la del PC por USB —por Bluetooth, la de escribir texto—, *Español* o *Inglés*), tamaño de teclas, vibración, repetición y **barra de trackpad**. Con la barra activada, el hueco libre de arriba mueve el puntero (un dedo), hace clic (toque) y scroll (dos dedos); un Ctrl pendiente se aplica al clic (Ctrl+clic).
+
+**Límites conocidos:** por cable no se pueden escribir teclas en ventanas de administrador si MyMouse no lo es (pasa ya con el ratón); más de 6 teclas normales a la vez por Bluetooth se ignoran; la tecla Pausa no está.
+
 ## Qué anotar si algo falla
 - Release en la que falla y la última en la que funcionaba.
 - Qué hiciste y qué pasó (y qué esperabas).

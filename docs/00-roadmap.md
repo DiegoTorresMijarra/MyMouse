@@ -14,6 +14,7 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 | **v4.8** | Temas elegibles en el móvil y en el PC, con un universo más sobrio | USB / Bluetooth |
 | **v5** | Bluetooth completo (gestos, botones propios, scroll fino) e instalador de Windows | Bluetooth / USB |
 | **v5.1** | Avisos de versión nueva en el PC y el móvil, con actualización en un clic | USB / Internet |
+| **v6** | Modo teclado: un teclado de ordenador de verdad en el móvil | USB / Bluetooth |
 
 ---
 
@@ -230,5 +231,24 @@ Cada versión tiene **un objetivo principal**, un alcance cerrado y un **criteri
 
 ---
 
+## v6: modo teclado
+
+**Objetivo:** escribir en el PC con un teclado de ordenador de verdad dibujado en el móvil (no el teclado del sistema), por USB y por Bluetooth.
+
+**Alcance:**
+- **Teclas físicas, no texto:** el móvil envía pulsar/soltar por su uso HID (página 0x07) y Windows convierte las teclas en caracteres con su propia distribución, así que funcionan Ctrl+C, Alt+Tab, Win+Shift+S, las teclas muertas (´ + a = á)… Por USB, protocolo v7 (`KEY` `0x15`, `KEYBOARD_MODE` `0x16`, `KEYBOARD_OPEN` `0x8F`, `KEYBOARD_LEDS` `0x90`, `KEYBOARD_LAYOUT` `0x91`) con `SendInput` y scancodes; por Bluetooth, el informe de teclado HID de siempre con las teclas pulsadas.
+- **Bloques combinables:** Fn, Flechas, Navegación (con flechas), Numpad y Solo numpad, que se encienden y apagan al momento desde una barra de chips (toque en `⌨`) o deslizando sobre `⌨` para alternar las dos últimas combinaciones. Se recuerdan por orientación. Distribuciones **Español (España)** e **Inglés (EE. UU.)** (solo cambian las etiquetas).
+- **Dos teclas fijas:** `⌨` Modo y `🖱` Mouse (vuelve al trackpad).
+- **Modificadores inteligentes** (un toque = en espera, doble toque = fijado con candado, mantener = como un teclado normal), repetición al mantener por USB, luces Bloq Mayús / Bloq Num (del PC por USB; informe de salida HID por Bluetooth, o supuestas con punto gris si Windows no las manda), vibración y nada se queda pulsado al salir, perder la conexión o pasar a segundo plano.
+- **Cómo se abre:** widget **Teclado** (PC: acción `mymouse keyboard`; Bluetooth: acción `keyboard`), **doble toque con 4 dedos** en el trackpad y **Vol+ ×2** (alterna teclado ⇄ mouse). Atrás vuelve al trackpad.
+- **Ajustes → Teclado** (distribución, tamaño de teclas, vibración, repetición y barra de trackpad opcional) y, en el PC, una tarjeta "⌨ Teclado" / "🖱 Mouse" y "Modo teclado" en el estado del móvil.
+- Detalle: [spec-v6-teclado.md](spec-v6-teclado.md).
+
+> Estado: implementada en la rama de desarrollo (release `v6.0` pendiente). La lógica nueva tiene tests en `core` (modelo del teclado, modificadores, repetición, controlador, doble toque de 4 dedos, protocolo v7, LEDs y descriptor HID, acción `keyboard`) y en `HostCore` (tabla HID → scancode, sesión con `KEY`/`KEYBOARD_*`, vigilancia de luces y distribución, vectores v7); el módulo `app` solo se ha pasado por el compilador de Kotlin y nada de lo que toca Windows (`SendInput`, `GetKeyState`) ni el Bluetooth real se ha ejecutado aquí: ver las [notas de la spec](spec-v6-teclado.md#11-notas-de-implementación). **Actualizar desde una versión anterior obliga a volver a emparejar** para recibir las luces por Bluetooth (el descriptor HID del teclado cambió).
+
+**Criterios de "hecho":** los de la [§10 de la spec](spec-v6-teclado.md#10-entrega) y los del apartado "Modo teclado (v6)" de [probar.md](probar.md).
+
+---
+
 ## Ideas sin versión
-Scripts desde gestos · teclado remoto · gestos del sistema (zoom, cambio de escritorio).
+Scripts desde gestos · gestos del sistema (zoom, cambio de escritorio) · más distribuciones de teclado (UK, AZERTY, QWERTZ).

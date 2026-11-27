@@ -1,6 +1,6 @@
 # Protocolo MyMouse
 
-Versión actual: **6** (v5 = toolbox del PC: panel, gesto en vivo y formas sincronizadas; v6 = `APP_VERSION`, avisos de versión cruzados). El host acepta también clientes de versión 1, 2, 3, 4 y 5. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
+Versión actual: **7** (v5 = toolbox del PC: panel, gesto en vivo y formas sincronizadas; v6 = `APP_VERSION`, avisos de versión cruzados; v7 = modo teclado: `KEY`, `KEYBOARD_MODE`, `KEYBOARD_OPEN`, `KEYBOARD_LEDS`, `KEYBOARD_LAYOUT`). El host acepta también clientes de versión 1, 2, 3, 4, 5 y 6. Este documento es la **fuente de verdad**: las implementaciones de Android (`android/`) y de Windows (`windows/`) deben seguirlo, y sus tests usan los vectores de ejemplo del final.
 
 ## Transporte
 
@@ -24,7 +24,7 @@ Tamaño variable:  +--------+-----------+---------------------+
 ```
 
 - Todos los enteros multibyte van en **little-endian**.
-- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`, `STROKE_POINTS`, `SHAPE_INFO`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`) llevan delante la longitud del payload en un `u16`.
+- La mayoría de tipos tienen un payload de tamaño fijo, sin campo de longitud. Los de tamaño variable (`GESTURE`, `GESTURE_LIST`, `WIDGET_LAYOUT`, `MEDIA_STATE`, `STROKE_POINTS`, `SHAPE_INFO`, `SHAPE_RESULT`, `SHAPE_ADD`, `SHAPE_DELETE`, `APP_VERSION`, `KEYBOARD_LAYOUT`) llevan delante la longitud del payload en un `u16`.
 - `str8` = `u8` longitud en bytes + texto UTF-8.
 - Si un extremo recibe un tipo desconocido, **cierra la conexión**: no es posible resincronizar el flujo.
 
@@ -55,6 +55,8 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x12` | `SHAPE_LIST_END` (v5) | `u8` número de formas propias enviadas | 2 |
 | `0x13` | `SHAPE_RESULT` (v5) | `u16 len` + `str8 nombre`, `u8 estado` (0 = guardada, 1 = se confunde, 2 = nombre repetido, 3 = no válida, 4 = borrada, 5 = no existe), `str8` forma con la que se confunde o vacío | variable |
 | `0x14` | `APP_VERSION` (v6) | `u16 len` + `str8 versión` de la app del móvil (p. ej. `5.0` o `0.0-dev.42`) | variable |
+| `0x15` | `KEY` (v7) | `u8 usage` (uso HID, página 0x07), `u8 down` (1 pulsar, 0 soltar) | 3 |
+| `0x16` | `KEYBOARD_MODE` (v7) | `u8 on` (1 entra en el modo teclado, 0 sale) | 2 |
 
 ### Host → cliente
 
@@ -71,6 +73,9 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `0x8C` | `SHAPE_ADD` (v5) | Como `SHAPE_INFO` y, al final, `u8 force` (1 = guardar aunque se confunda) | variable |
 | `0x8D` | `SHAPE_DELETE` (v5) | `u16 len` + `str8 nombre` | variable |
 | `0x8E` | `APP_VERSION` (v6) | Igual que `0x14`, con la versión de la app del PC | variable |
+| `0x8F` | `KEYBOARD_OPEN` (v7) | — (el widget Teclado pide abrir el teclado del móvil) | 1 |
+| `0x90` | `KEYBOARD_LEDS` (v7) | `u8 bits`: 1 = Bloq Mayús, 2 = Bloq Num, 4 = Bloq Despl | 2 |
+| `0x91` | `KEYBOARD_LAYOUT` (v7) | `u16 len` + `str8 id` de la distribución (`es`, `us`) | variable |
 
 ### Detalle
 
@@ -122,6 +127,16 @@ Tamaño variable:  +--------+-----------+---------------------+
 
 - **Versión de la app** (v6). Avisos de versión cruzados ([spec-v5.1-actualizaciones.md](../docs/spec-v5.1-actualizaciones.md) §6). Cada lado envía su versión (`versionName` del móvil, versión del ensamblado del PC) **una vez, justo tras el handshake**, con versión negociada ≥ 6; con una versión negociada < 6 no se envía y un `APP_VERSION` recibido con versión < 6 es un error de protocolo. Es solo informativo y no se responde. El payload es un `str8` de hasta 64 bytes UTF-8 (cadena vacía permitida: "desconocida"). Los dos tipos tienen el mismo formato pero números distintos (`0x14` móvil → PC, `0x8E` PC → móvil) porque los tipos de cada sentido no se solapan. Las versiones `0.0-dev.N` son de desarrollo y no provocan avisos.
 
+- **Modo teclado** (v7). Un teclado de ordenador de verdad en el móvil ([spec-v6-teclado.md](../docs/spec-v6-teclado.md)). Los cinco mensajes solo se envían y aceptan con versión negociada ≥ 7: con una versión menor, recibir cualquiera de ellos es un error de protocolo, y un cliente o host anterior sigue funcionando como siempre. `KEYBOARD_OPEN`, `KEYBOARD_LEDS` y `KEYBOARD_LAYOUT` son solo del PC al móvil: si llegan al host, es un error de protocolo.
+  - **`KEY`.** El móvil envía pulsar y soltar de **teclas físicas** por su uso HID (página 0x07 de teclado): letras `0x04`–`0x1D`, números `0x1E`–`0x27`, `0x28`–`0x39`, F1–F12 `0x3A`–`0x45`, edición y flechas `0x46`–`0x52`, numpad `0x53`–`0x63`, `<>` de la ISO `0x64`, Menú `0x65` y los modificadores `0xE0`–`0xE7` (Ctrl izq. `0xE0`, Shift izq. `0xE1`, Alt `0xE2`, Win `0xE3`, Alt dcha. = AltGr `0xE6`). Quien convierte teclas en caracteres es **Windows**, con su distribución: así funcionan cualquier combinación y las teclas muertas. El host las inyecta con `SendInput` y `KEYEVENTF_SCANCODE` (con `KEYEVENTF_EXTENDEDKEY` en las teclas extendidas), a partir de la tabla HID → scancode (conjunto 1) de `HostCore`.
+  - **Un `KEY` con un uso que el PC no conoce se ignora** (es un valor, no un tipo de mensaje: no rompe el flujo). Un `KEY` con `down` distinto de 0 o 1 es un error de protocolo. Un "soltar" de una tecla que no está pulsada se ignora.
+  - **Repetición.** Windows no repite las teclas inyectadas: por cable el móvil repite el "pulsar" de la tecla mantenida (a los 400 ms y luego cada 40 ms) con `KEY down` repetidos **sin `up` en medio**, como hace un teclado real; el host inyecta cada uno.
+  - **`KEYBOARD_MODE`.** El móvil lo envía al entrar (1) y al salir (0) del modo teclado. No se responde. En pausa, el host lo atiende igual pero no inyecta ninguna tecla.
+  - **Nada se queda pulsado.** El host guarda qué teclas tiene pulsadas cada sesión y las **suelta él solo** si llega `KEYBOARD_MODE` apagado, si el PC pasa a pausa o si la sesión termina (cierre, timeout o error): primero las normales y después los modificadores. El móvil, por su parte, envía "soltar" de todo lo que tenga pulsado al salir, al perder el foco o al cambiar de bloques.
+  - **`KEYBOARD_LEDS` y `KEYBOARD_LAYOUT`.** Al recibir `KEYBOARD_MODE` encendido, el host envía las luces (`KEYBOARD_LEDS`, con `GetKeyState`) y la distribución activa de la ventana en primer plano (`KEYBOARD_LAYOUT`, con `GetKeyboardLayout`: `es` si es español de España, `us` con cualquier otra), y después solo cuando cambian (comprueba cada 250 ms mientras el modo está activo). `KEYBOARD_LAYOUT` lleva un `str8` de hasta 16 bytes.
+  - **`KEYBOARD_OPEN`.** Lo envía el host cuando el widget Teclado (acción `{"type":"mymouse","command":"keyboard"}`) se ejecuta; el móvil abre su teclado. Con un móvil de versión < 7 la acción falla en el PC (no se envía nada).
+  - Por Bluetooth no se usa nada de esto: el móvil envía el informe de teclado HID (id 2) con las teclas pulsadas (hasta 6 normales a la vez) y recibe las luces por el informe de salida de LEDs del mismo teclado.
+
 ## Versionado
 
 - Si se añade un tipo nuevo o cambia un payload, **se incrementa la versión**.
@@ -166,5 +181,13 @@ Tamaño variable:  +--------+-----------+---------------------+
 | `SHAPE_DELETE("a")` | `8D 02 00 01 61` |
 | `APP_VERSION("5.0")` (móvil) | `14 04 00 03 35 2E 30` |
 | `APP_VERSION("5.0")` (PC) | `8E 04 00 03 35 2E 30` |
+| `KEY(0x04, down)` | `15 04 01` |
+| `KEY(0xE1, up)` | `15 E1 00` |
+| `KEYBOARD_MODE(on)` | `16 01` |
+| `KEYBOARD_MODE(off)` | `16 00` |
+| `KEYBOARD_OPEN` | `8F` |
+| `KEYBOARD_LEDS(Mayús + Num)` | `90 03` |
+| `KEYBOARD_LAYOUT("es")` | `91 03 00 02 65 73` |
+| `KEYBOARD_LAYOUT("us")` | `91 03 00 02 75 73` |
 | `PING` | `05` |
 | `PONG` | `85` |
