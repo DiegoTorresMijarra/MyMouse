@@ -27,16 +27,17 @@ import kotlin.math.roundToInt
 class SettingsActivity : Activity() {
 
     private lateinit var settings: AppSettings
+    private val updatesUi by lazy { Flavor.updates.settingsSection(this) }
     private lateinit var screen: GlassTheme.Screen
 
     /** La tarjeta de cristal de la sección actual: lo que se añade a `list` va en ella. */
-    private lateinit var list: LinearLayout
+    internal lateinit var list: LinearLayout
     private val density get() = resources.displayMetrics.density
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = AppSettings.load(this)
-        title = "Ajustes de MyMouse"
+        title = getString(R.string.settings_window_title)
         buildUi()
         restoreScroll(savedInstanceState?.getInt(KEY_SCROLL_Y) ?: 0, savedInstanceState?.getInt(KEY_SWATCHES_X))
     }
@@ -45,191 +46,175 @@ class SettingsActivity : Activity() {
     private fun buildUi() {
         swatchScroll = null
         selectedCell = null
-        screen = GlassTheme.Screen(this, "Ajustes")
+        screen = GlassTheme.Screen(this, getString(R.string.settings_title))
         themeSection()
-        section("Trackpad")
-        list.addView(slider("Sensibilidad", 0.3f, 3f, 0.1f, settings.sensitivity, { "×%.1f".format(it) }) {
+        section(getString(R.string.settings_trackpad))
+        list.addView(slider(getString(R.string.settings_sensitivity), 0.3f, 3f, 0.1f, settings.sensitivity, { "×%.1f".format(it) }) {
             settings = settings.copy(sensitivity = it)
         })
-        list.addView(slider("Aceleración", 0f, 2f, 0.1f, settings.acceleration, { if (it == 0f) "sin aceleración" else "%.1f".format(it) }) {
+        list.addView(slider(getString(R.string.settings_acceleration), 0f, 2f, 0.1f, settings.acceleration, { if (it == 0f) getString(R.string.settings_no_acceleration) else "%.1f".format(it) }) {
             settings = settings.copy(acceleration = it)
         })
-        list.addView(slider("Velocidad de scroll", 0.5f, 6f, 0.5f, settings.scrollSpeed, { "×%.1f".format(it) }) {
+        list.addView(slider(getString(R.string.settings_scroll_speed), 0.5f, 6f, 0.5f, settings.scrollSpeed, { "×%.1f".format(it) }) {
             settings = settings.copy(scrollSpeed = it)
         })
-        list.addView(switch("Scroll natural (el contenido sigue al dedo)", settings.naturalScroll) {
+        list.addView(switch(getString(R.string.settings_natural_scroll), settings.naturalScroll) {
             settings = settings.copy(naturalScroll = it)
         })
-        list.addView(switch("Inercia al hacer scroll (sigue un momento al levantar los dedos)", settings.scrollInertia) {
+        list.addView(switch(getString(R.string.settings_scroll_inertia), settings.scrollInertia) {
             settings = settings.copy(scrollInertia = it)
         })
         list.addView(slider(
-            "Velocidad del zoom", AppSettings.MIN_ZOOM_SPEED, AppSettings.MAX_ZOOM_SPEED, 0.1f, settings.zoomSpeed,
+            getString(R.string.settings_zoom_speed), AppSettings.MIN_ZOOM_SPEED, AppSettings.MAX_ZOOM_SPEED, 0.1f, settings.zoomSpeed,
             { "×%.1f".format(it) },
         ) { settings = settings.copy(zoomSpeed = it) })
-        list.addView(switch("Doble toque y mover = arrastrar (retrasa el clic ~¼ s)", settings.tapToDrag) {
+        list.addView(switch(getString(R.string.settings_tap_to_drag), settings.tapToDrag) {
             settings = settings.copy(tapToDrag = it)
         })
 
-        section("Conexión")
+        section(getString(R.string.settings_connection))
         list.addView(choice(
-            "Conectar por",
-            listOf("USB (con MyMouse en el PC)", "Bluetooth (sin nada en el PC)"),
+            getString(R.string.settings_connect_by),
+            listOf(getString(R.string.settings_connect_usb), getString(R.string.settings_connect_bt)),
             settings.connection.ordinal,
         ) { settings = settings.copy(connection = AppSettings.Connection.entries[it]) })
         list.addView(slider(
-            "Intervalo Bluetooth (avanzado)",
+            getString(R.string.settings_bt_interval),
             AppSettings.MIN_BLUETOOTH_INTERVAL_MS.toFloat(), AppSettings.MAX_BLUETOOTH_INTERVAL_MS.toFloat(), 1f,
             settings.bluetoothIntervalMs.toFloat(), { "${it.roundToInt()} ms" },
         ) { settings = settings.copy(bluetoothIntervalMs = it.roundToInt()) })
-        list.addView(switch("Scroll fino por Bluetooth (avanzado)", settings.btFineScroll) {
+        list.addView(switch(getString(R.string.settings_bt_fine_scroll), settings.btFineScroll) {
             settings = settings.copy(btFineScroll = it)
         })
         list.addView(GlassTheme.note(
             this,
-            "Scroll y zoom suaves, como un ratón de precisión. Si Windows no los acepta, se usan pasos enteros. " +
-                "Al cambiarlo hay que quitar el móvil en Windows y volver a emparejarlo: Windows guarda en caché la descripción del ratón. " +
-                "Desactívalo solo si algún PC se porta mal.",
+            getString(R.string.settings_bt_fine_scroll_note),
         ))
-        list.addView(GlassTheme.button(this, "Emparejar por Bluetooth…") {
+        list.addView(GlassTheme.button(this, getString(R.string.settings_pair_bt)) {
             settings.save(this@SettingsActivity)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 startActivity(android.content.Intent(this@SettingsActivity, BluetoothActivity::class.java))
             }
         }.apply { isEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P })
         list.addView(TextView(this).apply {
-            text = "Por Bluetooth funcionan el trackpad, el zoom, el modo gestos y el panel de widgets con multimedia, volumen y tus botones: " +
-                "sus acciones se configuran en este móvil (Modo gestos → Acciones por Bluetooth; Widgets → Botones por Bluetooth). " +
-                "Abrir programas, la toolbox y los widgets con volumen deslizante necesitan MyMouse en el PC (USB). " +
-                "El intervalo es cada cuánto se envía el movimiento: menos ms = puntero más fluido y más tráfico " +
-                "(8 ms va bien; sube a 12–16 si se nota retraso acumulado). En el trackpad se ve el intervalo real entre informes, no un ping."
+            text = getString(R.string.settings_bt_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
 
-        section("Gestos de varios dedos")
-        list.addView(switch("Gestos de Windows con 3 dedos (↑ vista de tareas, ↓ escritorio, ← → cambiar de app)", settings.windowsGestures) {
+        section(getString(R.string.settings_multi_finger))
+        list.addView(switch(getString(R.string.settings_windows_gestures), settings.windowsGestures) {
             settings = settings.copy(windowsGestures = it)
         })
         list.addView(TextView(this).apply {
-            text = "Pueden interferir con los gestos de 3 dedos de Xiaomi/HyperOS (captura y recorte). " +
-                "Si es así, desactívalos aquí o en los ajustes del sistema (Ajustes adicionales → Atajos de gestos). " +
-                "Por USB, el PC necesita MyMouse 3.1 o posterior."
+            text = getString(R.string.settings_windows_gestures_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
-        section("Modo gestos")
+        section(getString(R.string.settings_gesture_mode))
         list.addView(choice(
-            "Activar con",
-            listOf("4 dedos quietos", "Desactivado"),
+            getString(R.string.settings_activate_with),
+            listOf(getString(R.string.settings_four_fingers_hold), getString(R.string.settings_off)),
             if (settings.gestureFingers == 0) 1 else 0,
         ) { settings = settings.copy(gestureFingers = listOf(4, 0)[it]) })
         list.addView(slider(
-            "Tiempo para empezar a dibujar",
+            getString(R.string.settings_stroke_timeout),
             AppSettings.MIN_STROKE_TIMEOUT_S.toFloat(), AppSettings.MAX_STROKE_TIMEOUT_S.toFloat(), 1f,
             settings.gestureStrokeTimeoutSeconds.toFloat(), { "${it.roundToInt()} s" },
         ) { settings = settings.copy(gestureStrokeTimeoutSeconds = it.roundToInt()) })
-        list.addView(GlassTheme.button(this, "Formas…") {
+        list.addView(GlassTheme.button(this, getString(R.string.settings_shapes_button)) {
             startActivity(android.content.Intent(this@SettingsActivity, ShapesActivity::class.java))
         })
-        list.addView(GlassTheme.button(this, "Acciones por Bluetooth…") {
+        list.addView(GlassTheme.button(this, getString(R.string.settings_bt_actions_button)) {
             settings.save(this@SettingsActivity) // el editor lee la conexión y la distribución del teclado
             startActivity(android.content.Intent(this@SettingsActivity, BtGesturesActivity::class.java))
         })
         list.addView(TextView(this).apply {
-            text = "Por USB, lo que hace cada forma se configura en la toolbox del PC (clic en el icono de la bandeja o 4 dedos ↑) → \"Gestos y widgets\". " +
-                "Por Bluetooth, en \"Acciones por Bluetooth…\" (atajos, multimedia y texto)."
+            text = getString(R.string.settings_gestures_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
 
-        section("Widgets")
-        list.addView(switch("Mostrar el panel de widgets (juntar o separar 4 dedos lo cambia)", settings.showWidgets) {
+        section(getString(R.string.settings_widgets))
+        list.addView(switch(getString(R.string.settings_show_widgets), settings.showWidgets) {
             settings = settings.copy(showWidgets = it)
         })
         list.addView(choice(
-            "Tamaño del panel",
-            listOf("Pequeño (22 %)", "Mediano (30 %)", "Grande (40 %)"),
+            getString(R.string.settings_panel_size),
+            listOf(getString(R.string.settings_panel_small), getString(R.string.settings_panel_medium), getString(R.string.settings_panel_large)),
             settings.widgetPanelSize.ordinal,
         ) { settings = settings.copy(widgetPanelSize = WidgetPanelSize.entries[it]) })
-        list.addView(GlassTheme.button(this, "Botones por Bluetooth…") {
+        list.addView(GlassTheme.button(this, getString(R.string.settings_bt_buttons_button)) {
             settings.save(this@SettingsActivity)
             startActivity(android.content.Intent(this@SettingsActivity, BtWidgetsActivity::class.java))
         })
         list.addView(TextView(this).apply {
-            text = "Por USB, el panel solo aparece si el PC (MyMouse 2 o posterior) tiene widgets configurados: " +
-                "toolbox del PC → \"Gestos y widgets\". Por Bluetooth, el panel lleva multimedia, volumen y los botones de \"Botones por Bluetooth…\"."
+            text = getString(R.string.settings_widgets_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
 
-        section("Teclado")
+        section(getString(R.string.settings_keyboard))
         list.addView(choice(
-            "Distribución",
-            KeyboardLayoutSetting.entries.map { it.label },
+            getString(R.string.settings_layout),
+            KeyboardLayoutSetting.entries.map { UiText.layoutSetting(this, it) },
             settings.kbLayout.ordinal,
         ) { settings = settings.copy(kbLayout = KeyboardLayoutSetting.entries[it]) })
         list.addView(choice(
-            "Tamaño de las teclas",
-            KeySize.entries.map { it.label },
+            getString(R.string.settings_key_size),
+            KeySize.entries.map { UiText.keySize(this, it) },
             settings.kbKeySize.ordinal,
         ) { settings = settings.copy(kbKeySize = KeySize.entries[it]) })
-        list.addView(switch("Vibrar al pulsar", settings.kbVibrate) { settings = settings.copy(kbVibrate = it) })
-        list.addView(switch("Repetir al mantener pulsada una tecla (por cable)", settings.kbRepeat) { settings = settings.copy(kbRepeat = it) })
-        list.addView(switch("Barra de trackpad sobre el teclado", settings.kbTrackpadBar) { settings = settings.copy(kbTrackpadBar = it) })
+        list.addView(switch(getString(R.string.settings_vibrate), settings.kbVibrate) { settings = settings.copy(kbVibrate = it) })
+        list.addView(switch(getString(R.string.settings_key_repeat), settings.kbRepeat) { settings = settings.copy(kbRepeat = it) })
+        list.addView(switch(getString(R.string.settings_trackpad_bar), settings.kbTrackpadBar) { settings = settings.copy(kbTrackpadBar = it) })
         list.addView(TextView(this).apply {
-            text = "Se abre con el widget Teclado, con doble toque de 4 dedos o con Vol+ ×2 (y se cierra con 🖱, Atrás o Vol+ ×2). " +
-                "Envía teclas de verdad, así que funcionan Ctrl+C, Alt+Tab, Win+Shift+S… \"Automática\" usa la distribución del PC por USB y " +
-                "la de escribir texto por Bluetooth. Por USB, Windows no deja inyectar Ctrl+Alt+Supr (por Bluetooth sí). " +
-                "La repetición al mantener la hace el móvil por USB; por Bluetooth la hace Windows."
+            text = getString(R.string.settings_keyboard_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
 
-        section("Pantalla")
-        list.addView(switch("Mostrar la chuleta de gestos", settings.showCheatSheet) {
+        section(getString(R.string.settings_screen))
+        list.addView(switch(getString(R.string.settings_show_cheat), settings.showCheatSheet) {
             settings = settings.copy(showCheatSheet = it)
         })
-        list.addView(slider("Atenuar tras", 0f, 300f, 10f, settings.dimAfterSeconds.toFloat(), { if (it == 0f) "nunca" else "${it.roundToInt()} s" }) {
+        list.addView(slider(getString(R.string.settings_dim_after), 0f, 300f, 10f, settings.dimAfterSeconds.toFloat(), { if (it == 0f) getString(R.string.settings_never) else "${it.roundToInt()} s" }) {
             settings = settings.copy(dimAfterSeconds = it.roundToInt())
         })
         list.addView(choice(
-            "Orientación",
-            listOf("Libre (gira con el móvil)", "Bloqueada en vertical", "Bloqueada en horizontal"),
+            getString(R.string.settings_orientation),
+            listOf(getString(R.string.settings_orient_free), getString(R.string.settings_orient_portrait), getString(R.string.settings_orient_landscape)),
             settings.orientation.ordinal,
         ) { settings = settings.copy(orientation = AppSettings.Orientation.entries[it]) })
 
-        section("Modo bloqueado")
-        list.addView(switch("Fijar la app con Android (Inicio y Recientes no salen de la app)", settings.pinApp) {
+        section(getString(R.string.settings_lock_mode))
+        list.addView(switch(getString(R.string.settings_pin_app), settings.pinApp) {
             settings = settings.copy(pinApp = it)
         })
         list.addView(TextView(this).apply {
-            text = "Si al salir del bloqueo (Vol− ×2) el móvil pide el PIN o muestra la pantalla de bloqueo, " +
-                "desactiva en los ajustes del sistema la opción de pedir desbloqueo al dejar de fijar una app " +
-                "(suele estar en Seguridad → Fijar aplicaciones), o desactiva esta opción. " +
-                "Sin fijar, el modo bloqueado solo oculta las barras y anula el botón Atrás."
+            text = getString(R.string.settings_pin_note)
             textSize = 13f
             setTextColor(GlassTheme.TEXT_SECONDARY)
         })
-        list.addView(switch("Volver solo al modo bloqueado tras 30 s sin tocar", settings.autoRelock) {
+        list.addView(switch(getString(R.string.settings_auto_relock), settings.autoRelock) {
             settings = settings.copy(autoRelock = it)
         })
 
-        updatesSection()
+        updatesUi.build()
 
-        section("Depuración")
-        list.addView(switch("Modo depuración: ver los dedos y las acciones en pantalla", settings.debug) {
+        section(getString(R.string.settings_debug))
+        list.addView(switch(getString(R.string.settings_debug_mode), settings.debug) {
             settings = settings.copy(debug = it)
         })
 
         list = screen.card(null)
-        list.addView(GlassTheme.button(this, "Valores por defecto") {
+        list.addView(GlassTheme.button(this, getString(R.string.settings_defaults)) {
             settings = AppSettings()
             settings.save(this)
             rebuildWithCrossfade()
         })
         list.addView(TextView(this).apply {
-            text = "MyMouse ${packageManager.getPackageInfo(packageName, 0).versionName}"
+            text = "MyMouse ${Flavor.updates.versionText(this@SettingsActivity)}"
             textSize = 13f
             setTextColor(GlassTheme.TEXT_TERTIARY)
             setPadding(0, (16 * density).toInt(), 0, 0)
@@ -253,7 +238,7 @@ class SettingsActivity : Activity() {
     private fun themeSection() {
         val choice = settings.theme.normalized()
         val theme = choice.theme
-        list = screen.card("Tema")
+        list = screen.card(getString(R.string.theme_title))
 
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (t in Themes.ALL) {
@@ -262,12 +247,12 @@ class SettingsActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
                 isClickable = true
-                contentDescription = t.name
+                contentDescription = UiText.theme(this@SettingsActivity, t.id, t.name)
                 setOnClickListener { updateTheme(choice.copy(themeId = t.id)) }
             }
             cell.addView(ThemeSwatchView(this, t, isSelected))
             cell.addView(TextView(this).apply {
-                text = t.name
+                text = UiText.theme(this@SettingsActivity, t.id, t.name)
                 textSize = 12f
                 gravity = Gravity.CENTER
                 maxLines = 1
@@ -290,7 +275,7 @@ class SettingsActivity : Activity() {
         })
 
         list.addView(label().apply {
-            text = "Acento"
+            text = getString(R.string.accent_title)
             setPadding(0, (16 * density).toInt(), 0, (8 * density).toInt())
         })
         val dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -305,8 +290,8 @@ class SettingsActivity : Activity() {
                 },
             )
         }
-        dot(theme.accent, auto = true, id = Themes.ACCENT_AUTO, name = "Automático (el del tema)")
-        for (a in Themes.ACCENTS) dot(a.color, auto = false, id = a.id, name = a.name)
+        dot(theme.accent, auto = true, id = Themes.ACCENT_AUTO, name = getString(R.string.accent_auto))
+        for (a in Themes.ACCENTS) dot(a.color, auto = false, id = a.id, name = UiText.accent(this, a.id, a.name))
         list.addView(HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -314,17 +299,17 @@ class SettingsActivity : Activity() {
         })
 
         if (theme.stars) {
-            list.addView(switch("Estrellas", choice.stars) { updateTheme(choice.copy(stars = it)) })
+            list.addView(switch(getString(R.string.stars_title), choice.stars) { updateTheme(choice.copy(stars = it)) })
             if (choice.stars) {
-                list.addView(switch("Animación de estrellas (parpadeo)", choice.twinkle) { updateTheme(choice.copy(twinkle = it)) })
-                list.addView(switch("Animación también en el trackpad (gasta algo más de batería)", choice.twinkleTrackpad) {
+                list.addView(switch(getString(R.string.stars_twinkle), choice.twinkle) { updateTheme(choice.copy(twinkle = it)) })
+                list.addView(switch(getString(R.string.stars_twinkle_trackpad), choice.twinkleTrackpad) {
                     updateTheme(choice.copy(twinkleTrackpad = it))
                 })
             }
         } else {
-            list.addView(GlassTheme.note(this, "Este tema no lleva estrellas."))
+            list.addView(GlassTheme.note(this, getString(R.string.stars_none)))
         }
-        list.addView(GlassTheme.note(this, "Por cable, el tema, el acento y las estrellas se sincronizan con el PC: gana el último cambio. La animación es solo de este móvil."))
+        list.addView(GlassTheme.note(this, getString(R.string.theme_sync_note)))
     }
 
     /** Guarda y aplica la elección al momento: se recrea la pantalla para que todos los controles tomen el acento y el fondo nuevos. */
@@ -377,70 +362,21 @@ class SettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        Updater.addListener(updatesListener)
-        Updater.onForeground(this) // si había un APK esperando, se abre el instalador desde aquí
-        refreshUpdates()
+        updatesUi.onShown()
     }
 
     override fun onPause() {
         settings.save(this)
-        Updater.removeListener(updatesListener)
-        Updater.onBackground(this)
+        updatesUi.onHidden()
         super.onPause()
     }
 
-    // ---- Actualizaciones (docs/spec-v5.1-actualizaciones.md §5) ----
-
-    private var updatesStatus: TextView? = null
-    private var updatesInstall: View? = null
-    private val updatesListener: () -> Unit = { refreshUpdates() }
-
-    /** La tarjeta "Actualizaciones": versión instalada, estado, "Buscar ahora", "Descargar e instalar" y el ajuste automático. */
-    private fun updatesSection() {
-        section("Actualizaciones")
-        list.addView(label().apply { text = "MyMouse ${Updater.localVersionText(this@SettingsActivity)}" })
-        updatesStatus = GlassTheme.note(this, "").apply { setPadding(0, (4 * density).toInt(), 0, (8 * density).toInt()) }
-        list.addView(updatesStatus)
-        list.addView(GlassTheme.button(this, "Buscar ahora") {
-            updatesStatus?.text = "Buscando…"
-            Updater.checkNow(this@SettingsActivity, manual = true) { refreshUpdates() }
-        })
-        updatesInstall = GlassTheme.button(this, "Descargar e instalar", accent = true) {
-            Updater.banners(this@SettingsActivity).firstOrNull { it.canInstall }?.release?.let { Updater.downloadAndInstall(this@SettingsActivity, it) }
-        }
-        list.addView(updatesInstall)
-        list.addView(switch("Buscar actualizaciones automáticamente", Updater.autoCheck(this)) { Updater.setAutoCheck(this, it) })
-        list.addView(GlassTheme.note(
-            this,
-            "Mira las releases de GitHub al abrir la app y cada 12 horas. Las versiones de desarrollo no avisan. " +
-                "Para instalar, Android pedirá permitir a MyMouse \"Instalar apps desconocidas\" la primera vez.",
-        ))
-        refreshUpdates()
-    }
-
-    private fun refreshUpdates() {
-        val status = updatesStatus ?: return
-        val banners = Updater.banners(this)
-        val download = Updater.download
-        val installable = banners.firstOrNull { it.canInstall }
-        status.text = when {
-            download != null && download.failed -> download.message ?: "No se pudo actualizar."
-            download != null -> "Descargando… ${(download.progress * 100).toInt()} %"
-            Updater.isDev(this) -> "Esta es una versión de desarrollo: no avisa de versiones nuevas."
-            banners.isNotEmpty() -> banners.joinToString("\n") { it.text }
-            Updater.lastOutcome == Updater.Outcome.UP_TO_DATE -> "Tienes la última versión."
-            Updater.lastOutcome == Updater.Outcome.SKIPPED -> "Hay una versión nueva que omitiste. Pulsa \"Buscar ahora\" para verla."
-            else -> "Aún no se ha comprobado."
-        }
-        updatesInstall?.visibility = if (installable != null && download == null) View.VISIBLE else View.GONE
-    }
-
     /** Empieza una sección: una tarjeta de cristal nueva con su título. */
-    private fun section(title: String) {
+    internal fun section(title: String) {
         list = screen.card(title)
     }
 
-    private fun label() = TextView(this).apply {
+    internal fun label() = TextView(this).apply {
         textSize = 16f
         setTextColor(GlassTheme.TEXT)
     }
@@ -495,7 +431,7 @@ class SettingsActivity : Activity() {
         }
 
     @Suppress("UseSwitchCompatOrMaterialCode")
-    private fun switch(name: String, value: Boolean, onChange: (Boolean) -> Unit) = Switch(this).apply {
+    internal fun switch(name: String, value: Boolean, onChange: (Boolean) -> Unit) = Switch(this).apply {
         text = name
         textSize = 16f
         setTextColor(GlassTheme.TEXT)

@@ -36,7 +36,7 @@ class BtActionTest {
             val keys = BtAction.Keys(HidKeys.MOD_CTRL, key.usage)
             assertEquals(keys, BtActions.parseKeys(BtActions.formatKeys(keys)), key.name)
         }
-        assertEquals("Ctrl+Inicio", BtActions.displayKeys(BtActions.parseKeys("Ctrl+Home")))
+        assertEquals("Ctrl+Home", BtActions.displayKeys(BtActions.parseKeys("Ctrl+Home")))
     }
 
     @Test
@@ -86,7 +86,7 @@ class BtActionTest {
         assertEquals(BtAction.Keyboard, BtActions.fromJson(MiniJson.parse("""{"type":"keyboard","x":1}""")))
         assertEquals(mapOf("type" to "keyboard"), BtActions.toJson(BtAction.Keyboard))
         assertEquals("keyboard", BtActions.typeOf(BtAction.Keyboard))
-        assertEquals("Abrir teclado del móvil", BtActions.describe(BtAction.Keyboard))
+        assertEquals("keyboard", BtActions.logText(BtAction.Keyboard))
     }
 
     @Test
@@ -97,11 +97,11 @@ class BtActionTest {
     }
 
     @Test
-    fun describesActions() {
-        assertEquals("Ctrl+Z", BtActions.describe(BtActions.parseKeys("ctrl+z")))
-        assertEquals("Reproducir / pausar", BtActions.describe(BtAction.Media(ConsumerKey.PLAY_PAUSE)))
-        assertEquals("Escribir \"hola\"", BtActions.describe(BtAction.Text("hola")))
-        assertEquals("Escribir \"" + "x".repeat(20) + "…\"", BtActions.describe(BtAction.Text("x".repeat(30))))
+    fun logTextDescribesActionsWithoutTranslating() {
+        assertEquals("Ctrl+Z", BtActions.logText(BtActions.parseKeys("ctrl+z")))
+        assertEquals("media PlayPause", BtActions.logText(BtAction.Media(ConsumerKey.PLAY_PAUSE)))
+        assertEquals("text \"hola\"", BtActions.logText(BtAction.Text("hola")))
+        assertEquals("text \"" + "x".repeat(20) + "…\"", BtActions.logText(BtAction.Text("x".repeat(30))))
     }
 
     private companion object {

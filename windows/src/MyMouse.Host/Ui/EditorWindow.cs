@@ -26,8 +26,8 @@ internal enum EditorTab
 internal sealed class EditorWindow : Window
 {
     private readonly HostApp _app;
-    private readonly Button _gesturesTab = Theme.FlatButton("Gestos");
-    private readonly Button _widgetsTab = Theme.FlatButton("Widgets");
+    private readonly Button _gesturesTab = Theme.FlatButton(Loc.T("card_gestures"));
+    private readonly Button _widgetsTab = Theme.FlatButton(Loc.T("tab_widgets"));
     private readonly Border _body = new();
     private GesturesPane? _gestures;
     private WidgetsPane? _widgets;
@@ -36,7 +36,7 @@ internal sealed class EditorWindow : Window
     public EditorWindow(HostApp app)
     {
         _app = app;
-        Title = "MyMouse · Gestos y widgets";
+        Title = Loc.T("editor_title");
         Width = 940;
         Height = 660;
         MinWidth = 760;
@@ -51,16 +51,16 @@ internal sealed class EditorWindow : Window
         _gesturesTab.Click += (_, _) => ShowTab(EditorTab.Gestures);
         _widgetsTab.Click += (_, _) => ShowTab(EditorTab.Widgets);
         var file = Theme.FlatButton("⋯");
-        file.ToolTip = "Más";
+        file.ToolTip = Loc.T("more");
         file.Click += (_, _) => MiniMenu.Show(file,
         [
-            ("Abrir el fichero (gestures.json)", null, OpenFile),
-            ("Volver a leer el fichero", null, () => Reload(keepSelection: true)),
+            (Loc.T("ed_open_file"), null, OpenFile),
+            (Loc.T("ed_reload_file"), null, () => Reload(keepSelection: true)),
         ]);
 
         // "← Volver" (docs/spec-v4.7-universo.md §3.5): cierra el editor y vuelve a la toolbox. Esc hace lo mismo.
-        var back = Theme.FlatButton("←  Volver");
-        back.ToolTip = "Volver a la toolbox (Esc)";
+        var back = Theme.FlatButton(Loc.T("back_button"));
+        back.ToolTip = Loc.T("back_to_toolbox");
         back.Margin = new Thickness(0, 0, 16, 0);
         back.Click += (_, _) => GoBack();
 
@@ -103,7 +103,7 @@ internal sealed class EditorWindow : Window
 
     /// <summary>
     /// "← Volver" y Esc: cierra el editor y vuelve a abrir la toolbox. Si hay cambios sin guardar, antes pregunta
-    /// "¿Guardar los cambios?" (Guardar / Descartar / Cancelar); con Cancelar no se cierra.
+    /// ¿Guardar los cambios? (Guardar / Descartar / Cancelar); con Cancelar no se cierra.
     /// </summary>
     public void GoBack()
     {
@@ -125,15 +125,15 @@ internal sealed class EditorWindow : Window
         }
         catch (FormatException ex)
         {
-            var choice = Dialogs.Message(IsLoaded ? this : null, "gestures.json tiene errores",
-                ex.Message + "\n\nEl editor no lo toca para no perder lo que hay. ¿Lo abres en el Bloc de notas para arreglarlo?",
-                "Abrir en el Bloc de notas", "Cancelar");
+            var choice = Dialogs.Message(IsLoaded ? this : null, Loc.T("ed_file_errors"),
+                ex.Message + Loc.T("ed_file_errors_note"),
+                Loc.T("ed_open_notepad"), Loc.T("cancel"));
             if (choice == 0) OpenFile();
             return false;
         }
         catch (IOException ex)
         {
-            Dialogs.Message(IsLoaded ? this : null, "No se pudo leer gestures.json", ex.Message);
+            Dialogs.Message(IsLoaded ? this : null, Loc.T("ed_cannot_read"), ex.Message);
             return false;
         }
         _gestures?.SetConfig(_config, keepSelection);
@@ -153,15 +153,15 @@ internal sealed class EditorWindow : Window
         }
         catch (FormatException ex)
         {
-            var choice = Dialogs.Message(this, "No se ha guardado",
-                "El fichero gestures.json tiene errores de sintaxis y no se ha sobrescrito.\n" + ex.Message + "\n\n¿Lo abres en el Bloc de notas?",
-                "Abrir en el Bloc de notas", "Cancelar");
+            var choice = Dialogs.Message(this, Loc.T("ed_not_saved"),
+                Loc.F("ed_syntax_errors", ex.Message),
+                Loc.T("ed_open_notepad"), Loc.T("cancel"));
             if (choice == 0) OpenFile();
             return false;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            Dialogs.Message(this, "No se ha guardado", ex.Message);
+            Dialogs.Message(this, Loc.T("ed_not_saved"), ex.Message);
             return false;
         }
     }
@@ -231,7 +231,7 @@ internal sealed class GesturesPane : Grid
     private readonly HostApp _app;
     private readonly EditorWindow _editor;
     private readonly StackPanel _list = new();
-    private readonly CheckBox _onlyUnassigned = Theme.Check("Solo sin acción");
+    private readonly CheckBox _onlyUnassigned = Theme.Check(Loc.T("ed_only_unassigned"));
     private readonly ScrollViewer _detailScroll;
     private readonly StackPanel _detail = new() { Margin = new Thickness(20, 4, 20, 20) };
     private readonly TextBlock _title = Theme.Label("", 18, weight: FontWeights.SemiBold);
@@ -239,14 +239,14 @@ internal sealed class GesturesPane : Grid
     private readonly ShapeThumb _bigThumb = new(null, 72) { ShowStart = true, Thickness = 3 };
     private readonly ActionEditor _action;
     private readonly TextBox _help = Theme.Input();
-    private readonly CheckBox _pin = Theme.Check("Fijar en la chuleta del móvil");
+    private readonly CheckBox _pin = Theme.Check(Loc.T("ed_pin"));
     private readonly StackPanel _appRules = new();
     private readonly StackPanel _appRulesBox = new();
     private readonly Button _appToggle = Theme.FlatButton("");
     private readonly TextBlock _status = Theme.Label("", 12, Theme.Dim);
-    private readonly Button _save = Theme.AccentButton("Guardar");
-    private readonly Button _test = Theme.FlatButton("Probar");
-    private readonly Button _delete = Theme.FlatButton("Borrar forma", Theme.Hover, Theme.Red);
+    private readonly Button _save = Theme.AccentButton(Loc.T("save"));
+    private readonly Button _test = Theme.FlatButton(Loc.T("try"));
+    private readonly Button _delete = Theme.FlatButton(Loc.T("ed_delete_shape"), Theme.Hover, Theme.Red);
     private readonly List<string> _pendingNames = [];
     private readonly DispatcherTimer _testTimer = new() { Interval = TimeSpan.FromSeconds(3) };
     private GestureConfig _config = GestureConfig.Empty;
@@ -264,13 +264,13 @@ internal sealed class GesturesPane : Grid
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(310) });
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        // Izquierda: filtro, lista y "+ Nueva forma".
+        // Izquierda: filtro, lista y + Nueva forma.
         var left = new DockPanel { Margin = new Thickness(16, 0, 8, 16) };
         _onlyUnassigned.Margin = new Thickness(0, 0, 0, 8);
         _onlyUnassigned.Click += (_, _) => RefreshList();
         DockPanel.SetDock(_onlyUnassigned, Dock.Top);
         left.Children.Add(_onlyUnassigned);
-        var add = CardChrome.HeaderButton("+ Nueva forma");
+        var add = CardChrome.HeaderButton(Loc.T("ed_new_shape_plus"));
         add.Margin = new Thickness(0, 8, 0, 0);
         add.HorizontalAlignment = HorizontalAlignment.Stretch;
         add.Click += (_, _) => NewShape();
@@ -299,9 +299,9 @@ internal sealed class GesturesPane : Grid
         head.Children.Add(titles);
         _detail.Children.Add(head);
 
-        _detail.Children.Add(Section("Acción"));
+        _detail.Children.Add(Section(Loc.T("action")));
         _detail.Children.Add(_action);
-        _detail.Children.Add(Section("Texto de ayuda (chuleta del móvil y gesto en vivo)"));
+        _detail.Children.Add(Section(Loc.T("ed_help_text")));
         _detail.Children.Add(_help);
         _pin.Margin = new Thickness(0, 12, 0, 0);
         _detail.Children.Add(_pin);
@@ -314,7 +314,7 @@ internal sealed class GesturesPane : Grid
             UpdateAppRulesVisibility();
         };
         _detail.Children.Add(_appToggle);
-        var addRule = Theme.FlatButton("+ Añadir regla");
+        var addRule = Theme.FlatButton(Loc.T("ed_add_rule"));
         addRule.HorizontalAlignment = HorizontalAlignment.Left;
         addRule.Click += (_, _) => AddAppRule();
         _appRulesBox.Margin = new Thickness(0, 8, 0, 0);
@@ -393,7 +393,7 @@ internal sealed class GesturesPane : Grid
             if (_onlyUnassigned.IsChecked == true && hasAction) continue;
             _list.Children.Add(BuildRow(name, hasAction));
         }
-        if (_list.Children.Count == 0) _list.Children.Add(new TextBlock { Text = "Todas las formas tienen acción.", Foreground = Theme.Dim, Margin = new Thickness(12), FontFamily = Theme.Font });
+        if (_list.Children.Count == 0) _list.Children.Add(new TextBlock { Text = Loc.T("ed_all_assigned"), Foreground = Theme.Dim, Margin = new Thickness(12), FontFamily = Theme.Font });
     }
 
     /// <summary>La misma fila que la tarjeta Gestos de la toolbox (baldosa, título y chip de la acción).</summary>
@@ -405,8 +405,8 @@ internal sealed class GesturesPane : Grid
     public bool ConfirmDiscard()
     {
         if (!_dirty || _selected is null) return true;
-        var choice = Dialogs.Message(_editor, "¿Guardar los cambios?",
-            $"Has cambiado «{ShapeCatalog.Label(_selected)}» y no lo has guardado.", "Guardar", "Descartar", "Cancelar");
+        var choice = Dialogs.Message(_editor, Loc.T("save_changes_q"),
+            Loc.F("ed_unsaved_shape", ShapeCatalog.Label(_selected)), Loc.T("save"), Loc.T("discard"), Loc.T("cancel"));
         switch (choice)
         {
             case 0:
@@ -466,7 +466,7 @@ internal sealed class GesturesPane : Grid
             return;
         }
         _title.Text = ShapeCatalog.Label(name);
-        _subtitle.Text = name + (ShapeCatalog.ById.ContainsKey(name) ? "" : " · forma propia del móvil");
+        _subtitle.Text = name + (ShapeCatalog.ById.ContainsKey(name) ? "" : Loc.T("ed_phone_shape"));
         _bigThumb.Points = _app.ShapePoints(name);
         _delete.Visibility = name.StartsWith(ShapeCatalog.CustomPrefix, StringComparison.Ordinal) ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -483,7 +483,7 @@ internal sealed class GesturesPane : Grid
     private void UpdateAppRulesVisibility()
     {
         var count = _appRules.Children.OfType<AppRuleRow>().Count();
-        _appToggle.Content = (_appRulesOpen ? "▾" : "▸") + $" Reglas por app (avanzado){(count > 0 ? $" · {count}" : "")}";
+        _appToggle.Content = (_appRulesOpen ? "▾" : "▸") + Loc.F("ed_app_rules", (count > 0 ? $" · {count}" : ""));
         _appRulesBox.Visibility = _appRulesOpen ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -529,7 +529,7 @@ internal sealed class GesturesPane : Grid
         _config = _editor.Config;
         _dirty = false;
         _status.Foreground = Theme.Green;
-        _status.Text = "Guardado. El PC y el móvil ya usan la nueva acción.";
+        _status.Text = Loc.T("ed_saved");
         RefreshList();
         return true;
     }
@@ -542,14 +542,14 @@ internal sealed class GesturesPane : Grid
             if (action is null)
             {
                 _status.Foreground = Theme.Dim;
-                _status.Text = "No hay acción que probar.";
+                _status.Text = Loc.T("ed_no_action_try");
                 return;
             }
             if (action is KeysAction or TextAction)
             {
                 // Las teclas irían a esta misma ventana: se da tiempo para pasar a la app donde probarlas.
                 _status.Foreground = Theme.Amber;
-                _status.Text = "Se ejecutará en 3 segundos: cambia a la ventana donde quieras probarlo.";
+                _status.Text = Loc.T("ed_runs_in_3s");
                 _testTimer.Stop();
                 _testTimer.Start();
                 return;
@@ -570,23 +570,23 @@ internal sealed class GesturesPane : Grid
             if (_action.GetAction() is not { } action) return;
             _app.Executor.Execute(action);
             _status.Foreground = Theme.Green;
-            _status.Text = "Ejecutada.";
+            _status.Text = Loc.T("ed_executed");
         }
         catch (Exception ex)
         {
             _status.Foreground = Theme.Red;
-            _status.Text = "No se pudo ejecutar: " + ex.Message;
+            _status.Text = Loc.T("ed_could_not_run") + ex.Message;
         }
     }
 
     private async Task DeleteAsync()
     {
         if (_selected is not { } name || !name.StartsWith(ShapeCatalog.CustomPrefix, StringComparison.Ordinal)) return;
-        if (Dialogs.Message(_editor, $"Borrar «{ShapeCatalog.Label(name)}»",
-                "Se borra del móvil y se quita su acción de gestures.json. No se puede deshacer.", "Borrar", "Cancelar") != 0) return;
+        if (Dialogs.Message(_editor, Loc.F("ed_delete_shape_title", ShapeCatalog.Label(name)),
+                Loc.T("ed_delete_note"), Loc.T("delete"), Loc.T("cancel")) != 0) return;
         if (!_app.Shapes.CanEdit && _app.Shapes.Contains(name))
         {
-            Dialogs.Message(_editor, "Móvil desconectado", "Conecta el móvil por USB para borrar la forma: vive en el móvil.");
+            Dialogs.Message(_editor, Loc.T("phone_disconnected"), Loc.T("ed_connect_to_delete"));
             return;
         }
 
@@ -594,7 +594,7 @@ internal sealed class GesturesPane : Grid
         if (result is null)
         {
             _status.Foreground = Theme.Red;
-            _status.Text = "El móvil no ha contestado. ¿Sigue conectado por USB?";
+            _status.Text = Loc.T("phone_no_answer");
             return;
         }
         _dirty = false;
@@ -608,7 +608,7 @@ internal sealed class GesturesPane : Grid
         }
     }
 
-    /// <summary>"+ Nueva forma": dibujarla con el ratón o el touchpad y mandarla al móvil.</summary>
+    /// <summary>+ Nueva forma: dibujarla con el ratón o el touchpad y mandarla al móvil.</summary>
     public void NewShape()
     {
         if (!ConfirmDiscard()) return;
@@ -641,7 +641,7 @@ internal sealed class AppRuleRow : Border
 
         var panel = new StackPanel();
         var top = new DockPanel();
-        var remove = Theme.FlatButton("Quitar", Theme.Hover, Theme.Red);
+        var remove = Theme.FlatButton(Loc.T("remove"), Theme.Hover, Theme.Red);
         remove.Margin = new Thickness(8, 0, 0, 0);
         remove.Click += (_, _) => Removed?.Invoke();
         DockPanel.SetDock(remove, Dock.Right);
@@ -652,15 +652,15 @@ internal sealed class AppRuleRow : Border
         DockPanel.SetDock(label, Dock.Left);
         top.Children.Add(label);
         _process.Text = rule?.App ?? "";
-        _process.ToolTip = "Nombre del proceso, p. ej. chrome.exe";
+        _process.ToolTip = Loc.T("ed_process_hint");
         top.Children.Add(_process);
         panel.Children.Add(top);
-        var helpLabel = Theme.Label("Texto de ayuda (opcional)", 12, Theme.Dim);
+        var helpLabel = Theme.Label(Loc.T("ed_help_optional"), 12, Theme.Dim);
         helpLabel.Margin = new Thickness(0, 10, 0, 4);
         panel.Children.Add(helpLabel);
         _help.Text = rule?.Help ?? "";
         panel.Children.Add(_help);
-        var actionLabel = Theme.Label("→ hace", 12, Theme.Dim);
+        var actionLabel = Theme.Label(Loc.T("ed_does"), 12, Theme.Dim);
         actionLabel.Margin = new Thickness(0, 10, 0, 0);
         panel.Children.Add(actionLabel);
         _action.SetAction(rule?.Action);
@@ -679,8 +679,8 @@ internal sealed class AppRuleRow : Border
     public GestureBinding GetBinding(string gesture)
     {
         var app = _process.Text.Trim();
-        if (app.Length == 0) throw new FormatException("Una regla por app necesita el nombre del proceso (p. ej. chrome.exe).");
-        var action = _action.GetAction() ?? throw new FormatException($"La regla de {app} necesita una acción (o quítala).");
+        if (app.Length == 0) throw new FormatException(Loc.T("ed_err_process"));
+        var action = _action.GetAction() ?? throw new FormatException(Loc.F("ed_err_rule_action", app));
         return new GestureBinding(gesture, action, string.IsNullOrWhiteSpace(_help.Text) ? null : _help.Text.Trim(), _pinned, app);
     }
 }

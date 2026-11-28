@@ -14,7 +14,7 @@ object HidKeys {
     /** Alt derecho: en las distribuciones con AltGr (Español) es AltGr. */
     const val MOD_ALTGR = 0x40
 
-    /** Una tecla del selector del editor: nombre canónico (el que se guarda), etiqueta para mostrar y uso HID. */
+    /** Una tecla del selector del editor: nombre canónico (el que se guarda), etiqueta neutra (la app traduce las que cambian por idioma) y uso HID. */
     data class Key(val name: String, val label: String, val usage: Int)
 
     /** Letras A–Z, números, F1–F12, flechas y teclas de edición: lo que ofrece el editor. */
@@ -27,17 +27,17 @@ object HidKeys {
         add(Key("Right", "→", 0x4F))
         add(Key("Up", "↑", 0x52))
         add(Key("Down", "↓", 0x51))
-        add(Key("Home", "Inicio", 0x4A))
-        add(Key("End", "Fin", 0x4D))
-        add(Key("PageUp", "RePág", 0x4B))
-        add(Key("PageDown", "AvPág", 0x4E))
-        add(Key("Delete", "Supr", 0x4C))
-        add(Key("Backspace", "Retroceso", 0x2A))
-        add(Key("Enter", "Intro", 0x28))
+        add(Key("Home", "Home", 0x4A))
+        add(Key("End", "End", 0x4D))
+        add(Key("PageUp", "PgUp", 0x4B))
+        add(Key("PageDown", "PgDn", 0x4E))
+        add(Key("Delete", "Del", 0x4C))
+        add(Key("Backspace", "Backspace", 0x2A))
+        add(Key("Enter", "Enter", 0x28))
         add(Key("Esc", "Esc", 0x29))
         add(Key("Tab", "Tab", 0x2B))
-        add(Key("Space", "Espacio", 0x2C))
-        add(Key("PrintScreen", "Impr Pant", 0x46))
+        add(Key("Space", "Space", 0x2C))
+        add(Key("PrintScreen", "PrtSc", 0x46))
     }
 
     private val byName: Map<String, Key> = PICKER.associateBy { it.name.lowercase() }

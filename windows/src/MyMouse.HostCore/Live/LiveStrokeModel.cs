@@ -195,7 +195,7 @@ public sealed class LiveStrokeModel(TimeProvider? time = null)
         var now = _time.GetUtcNow();
         if (Phase == LivePhase.Finished && Result.Kind == LiveResultKind.Pending && now - _finishedAt >= PendingTimeout)
         {
-            Finish(new LiveResult(LiveResultKind.Failed, Error: "No se ha ejecutado (¿MyMouse en pausa?)"), CloseDelay);
+            Finish(new LiveResult(LiveResultKind.Failed, Error: CoreLoc.T("lsm_not_run")), CloseDelay);
             return;
         }
         if (Phase == LivePhase.Finished && _closeAt is { } at && now >= at) Hide();

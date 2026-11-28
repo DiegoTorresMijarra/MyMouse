@@ -51,7 +51,7 @@ class ShapeStore(context: Context) {
         val outcome = when (request) {
             is Message.ShapeAdd -> ShapeSync.applyAdd(library, request)
             is Message.ShapeDelete -> ShapeSync.applyDelete(library, request)
-            else -> throw IllegalArgumentException("No es una petición de formas: $request")
+            else -> throw IllegalArgumentException("Not a shapes request: $request")
         }
         if (outcome.changed) {
             recorded = outcome.library.recorded
@@ -124,8 +124,7 @@ class ShapeStore(context: Context) {
 
         const val CUSTOM_PREFIX = ShapeLibrary.CUSTOM_PREFIX
 
-        /** Nombre para mostrar: etiqueta del catálogo o el nombre propio sin prefijo. */
-        fun label(name: String): String =
-            ShapeCatalog.BY_ID[name]?.label ?: name.removePrefix(CUSTOM_PREFIX)
+        /** Nombre para mostrar: el del catálogo, traducido, o el nombre propio sin prefijo. */
+        fun label(context: Context, name: String): String = UiText.shape(context, name)
     }
 }

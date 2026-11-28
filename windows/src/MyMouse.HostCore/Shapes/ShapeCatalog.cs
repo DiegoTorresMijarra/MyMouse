@@ -19,17 +19,17 @@ public static class ShapeCatalog
 
     public static IReadOnlyList<Shape> All { get; } =
     [
-        new(LineRight, "Línea →", [new(0f, 0.5f), new(1f, 0.5f)]),
-        new(LineLeft, "Línea ←", [new(1f, 0.5f), new(0f, 0.5f)]),
-        new(LineUp, "Línea ↑", [new(0.5f, 1f), new(0.5f, 0f)]),
-        new(LineDown, "Línea ↓", [new(0.5f, 0f), new(0.5f, 1f)]),
+        new(LineRight, "Line →", [new(0f, 0.5f), new(1f, 0.5f)]),
+        new(LineLeft, "Line ←", [new(1f, 0.5f), new(0f, 0.5f)]),
+        new(LineUp, "Line ↑", [new(0.5f, 1f), new(0.5f, 0f)]),
+        new(LineDown, "Line ↓", [new(0.5f, 0f), new(0.5f, 1f)]),
         new("v", "V", [new(0f, 0f), new(0.5f, 1f), new(1f, 0f)]),
         new("caret", "Λ", [new(0f, 1f), new(0.5f, 0f), new(1f, 1f)]),
         new("lt", "<", [new(0.8f, 0f), new(0f, 0.5f), new(0.8f, 1f)]),
         new("gt", ">", [new(0f, 0f), new(0.8f, 0.5f), new(0f, 1f)]),
-        new("circle", "Círculo", Circle(), Closed: true),
-        new("triangle", "Triángulo", [new(0.5f, 0f), new(0f, 0.9f), new(1f, 0.9f), new(0.5f, 0f)], Closed: true),
-        new("square", "Cuadrado", [new(0f, 0f), new(0f, 1f), new(1f, 1f), new(1f, 0f), new(0f, 0f)], Closed: true),
+        new("circle", "Circle", Circle(), Closed: true),
+        new("triangle", "Triangle", [new(0.5f, 0f), new(0f, 0.9f), new(1f, 0.9f), new(0.5f, 0f)], Closed: true),
+        new("square", "Square", [new(0f, 0f), new(0f, 1f), new(1f, 1f), new(1f, 0f), new(0f, 0f)], Closed: true),
         new("check", "✓", [new(0f, 0.55f), new(0.3f, 1f), new(1f, 0f)]),
         new("z", "Z", [new(0f, 0f), new(1f, 0f), new(0f, 1f), new(1f, 1f)]),
         new("s", "S", SCurve()),
@@ -43,9 +43,11 @@ public static class ShapeCatalog
     /// <summary>Prefijo de las formas propias.</summary>
     public const string CustomPrefix = "custom:";
 
-    /// <summary>Texto para mostrar: etiqueta del catálogo o el nombre propio sin prefijo.</summary>
+    private static readonly HashSet<string> Translated = ["line-right", "line-left", "line-up", "line-down", "circle", "triangle", "square"];
+
+    /// <summary>Texto para mostrar: el nombre del catálogo (traducido; V, Z, ✓… son símbolos) o el nombre propio sin prefijo.</summary>
     public static string Label(string name) =>
-        ById.TryGetValue(name, out var s) ? s.Label : name.StartsWith(CustomPrefix, StringComparison.Ordinal) ? name[CustomPrefix.Length..] : name;
+        ById.TryGetValue(name, out var s) ? (Translated.Contains(s.Id) ? CoreLoc.T("shape_" + s.Id.Replace('-', '_')) : s.Label) : name.StartsWith(CustomPrefix, StringComparison.Ordinal) ? name[CustomPrefix.Length..] : name;
 
     // Empieza arriba y gira en sentido antihorario, como se suele dibujar una "O".
     private static PointF[] Circle() =>

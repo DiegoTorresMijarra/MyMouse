@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="accent" xml:space="preserve"><value>Accent</value></data>
+  <data name="action" xml:space="preserve"><value>Action</value></data>
+  <data name="add_plus" xml:space="preserve"><value>+ Add</value></data>
+  <data name="ae_arguments" xml:space="preserve"><value>Arguments (optional)</value></data>
+  <data name="ae_bring_to_front" xml:space="preserve"><value>If it is already open, bring it to the front</value></data>
+  <data name="ae_choose_program" xml:space="preserve"><value>Choose program…</value></data>
+  <data name="ae_choose_program_title" xml:space="preserve"><value>Choose program</value></data>
+  <data name="ae_click_press_combo" xml:space="preserve"><value>Click and press the combination…</value></data>
+  <data name="ae_err_launch" xml:space="preserve"><value>The program, file or web page to open is missing.</value></data>
+  <data name="ae_err_text" xml:space="preserve"><value>The text to type is missing.</value></data>
+  <data name="ae_file_filter" xml:space="preserve"><value>Programs (*.exe)|*.exe|All files|*.*</value></data>
+  <data name="ae_installed_apps" xml:space="preserve"><value>Installed apps</value></data>
+  <data name="ae_keys_help" xml:space="preserve"><value>Click the field and press the keys (Win too). Several combinations in a row: Ctrl+K, Ctrl+C.</value></data>
+  <data name="ae_launch_hint" xml:space="preserve"><value>Program, file or web address</value></data>
+  <data name="ae_lock_pc" xml:space="preserve"><value>Lock the PC</value></data>
+  <data name="ae_no_apps" xml:space="preserve"><value>No apps found.</value></data>
+  <data name="ae_no_match" xml:space="preserve"><value>Nothing matches.</value></data>
+  <data name="ae_open_phone_keyboard" xml:space="preserve"><value>Open the phone keyboard</value></data>
+  <data name="ae_pause_resume" xml:space="preserve"><value>Pause / resume MyMouse</value></data>
+  <data name="ae_press_combo" xml:space="preserve"><value>Press the combination…</value></data>
+  <data name="ae_searching_apps" xml:space="preserve"><value>Looking for apps…</value></data>
+  <data name="ae_shape_does_nothing" xml:space="preserve"><value>The shape does nothing.</value></data>
+  <data name="ae_text_hint" xml:space="preserve"><value>Text to type (Enter = new line)</value></data>
+  <data name="ae_type_by_hand" xml:space="preserve"><value>Type by hand</value></data>
+  <data name="ae_type_shortcut_hint" xml:space="preserve"><value>Type the shortcut, e.g. Ctrl+Shift+T</value></data>
+  <data name="assign" xml:space="preserve"><value>Assign</value></data>
+  <data name="assigned" xml:space="preserve"><value>Assigned</value></data>
+  <data name="auto" xml:space="preserve"><value>Auto</value></data>
+  <data name="back_button" xml:space="preserve"><value>←  Back</value></data>
+  <data name="back_to_toolbox" xml:space="preserve"><value>Back to the toolbox (Esc)</value></data>
+  <data name="cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="card_gestures" xml:space="preserve"><value>Gestures</value></data>
+  <data name="card_music" xml:space="preserve"><value>Music</value></data>
+  <data name="card_options" xml:space="preserve"><value>Options</value></data>
+  <data name="card_phone_widgets" xml:space="preserve"><value>Phone widgets</value></data>
+  <data name="cc_glass" xml:space="preserve"><value>Glass effect (translucent cards; unticked, solid cards)</value></data>
+  <data name="cc_note" xml:space="preserve"><value>Tick the ones you want to see and reorder them with the arrows. Options is always there.</value></data>
+  <data name="cc_title" xml:space="preserve"><value>Customize cards</value></data>
+  <data name="close" xml:space="preserve"><value>Close</value></data>
+  <data name="delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="discard" xml:space="preserve"><value>Discard</value></data>
+  <data name="done" xml:space="preserve"><value>Done</value></data>
+  <data name="ds_clash" xml:space="preserve"><value>Your shape looks like "{0}": the phone could mistake one for the other. Save it anyway?</value></data>
+  <data name="ds_clash_title" xml:space="preserve"><value>It gets confused with another shape</value></data>
+  <data name="ds_connect_phone" xml:space="preserve"><value>Connect the phone over USB to record shapes</value></data>
+  <data name="ds_draw_it" xml:space="preserve"><value>Draw it with the mouse or touchpad, in a single stroke (sample {0} of {1}).</value></data>
+  <data name="ds_err_exists" xml:space="preserve"><value>There is already a shape with that name: choose another.</value></data>
+  <data name="ds_err_name" xml:space="preserve"><value>A name is needed (up to about 55 characters).</value></data>
+  <data name="ds_err_rejected" xml:space="preserve"><value>The phone does not accept it: draw it bigger or use another name.</value></data>
+  <data name="ds_name_hint" xml:space="preserve"><value>Name (e.g. signature)</value></data>
+  <data name="ds_ready" xml:space="preserve"><value>Ready. You can repeat it or save it on the phone.</value></data>
+  <data name="ds_repeat_it" xml:space="preserve"><value>Repeat it</value></data>
+  <data name="ds_save_anyway" xml:space="preserve"><value>Save anyway</value></data>
+  <data name="ds_save_phone" xml:space="preserve"><value>Save on the phone</value></data>
+  <data name="ds_sending" xml:space="preserve"><value>Sending to the phone…</value></data>
+  <data name="ds_too_small" xml:space="preserve"><value>Too small: draw it bigger (sample {0} of {1}).</value></data>
+  <data name="ed_add_rule" xml:space="preserve"><value>+ Add rule</value></data>
+  <data name="ed_all_assigned" xml:space="preserve"><value>All shapes have an action.</value></data>
+  <data name="ed_app_rules" xml:space="preserve"><value> Per-app rules (advanced){0}</value></data>
+  <data name="ed_cannot_read" xml:space="preserve"><value>Could not read gestures.json</value></data>
+  <data name="ed_connect_to_delete" xml:space="preserve"><value>Connect the phone over USB to delete the shape: it lives on the phone.</value></data>
+  <data name="ed_could_not_run" xml:space="preserve"><value>Could not run: </value></data>
+  <data name="ed_delete_note" xml:space="preserve"><value>It is deleted from the phone and its action is removed from gestures.json. This cannot be undone.</value></data>
+  <data name="ed_delete_shape" xml:space="preserve"><value>Delete shape</value></data>
+  <data name="ed_delete_shape_title" xml:space="preserve"><value>Delete "{0}"</value></data>
+  <data name="ed_does" xml:space="preserve"><value>→ does</value></data>
+  <data name="ed_err_process" xml:space="preserve"><value>A per-app rule needs the process name (e.g. chrome.exe).</value></data>
+  <data name="ed_err_rule_action" xml:space="preserve"><value>The rule for {0} needs an action (or remove it).</value></data>
+  <data name="ed_executed" xml:space="preserve"><value>Done.</value></data>
+  <data name="ed_file_errors" xml:space="preserve"><value>gestures.json has errors</value></data>
+  <data name="ed_file_errors_note" xml:space="preserve"><value>
+
+The editor does not touch it so nothing is lost. Do you want to open it in Notepad to fix it?</value></data>
+  <data name="ed_help_optional" xml:space="preserve"><value>Help text (optional)</value></data>
+  <data name="ed_help_text" xml:space="preserve"><value>Help text (phone cheat sheet and live gesture)</value></data>
+  <data name="ed_new_shape_plus" xml:space="preserve"><value>+ New shape</value></data>
+  <data name="ed_no_action_try" xml:space="preserve"><value>There is no action to try.</value></data>
+  <data name="ed_not_saved" xml:space="preserve"><value>Not saved</value></data>
+  <data name="ed_only_unassigned" xml:space="preserve"><value>Only without action</value></data>
+  <data name="ed_open_file" xml:space="preserve"><value>Open the file (gestures.json)</value></data>
+  <data name="ed_open_notepad" xml:space="preserve"><value>Open in Notepad</value></data>
+  <data name="ed_phone_shape" xml:space="preserve"><value> · custom phone shape</value></data>
+  <data name="ed_pin" xml:space="preserve"><value>Pin to the phone cheat sheet</value></data>
+  <data name="ed_process_hint" xml:space="preserve"><value>Process name, e.g. chrome.exe</value></data>
+  <data name="ed_reload_file" xml:space="preserve"><value>Reload the file</value></data>
+  <data name="ed_runs_in_3s" xml:space="preserve"><value>It will run in 3 seconds: switch to the window where you want to try it.</value></data>
+  <data name="ed_saved" xml:space="preserve"><value>Saved. The PC and the phone now use the new action.</value></data>
+  <data name="ed_syntax_errors" xml:space="preserve"><value>The file gestures.json has syntax errors and was not overwritten.
+{0}
+
+Do you want to open it in Notepad?</value></data>
+  <data name="ed_unsaved_shape" xml:space="preserve"><value>You changed "{0}" and have not saved it.</value></data>
+  <data name="editor_title" xml:space="preserve"><value>MyMouse · Gestures and widgets</value></data>
+  <data name="err_phone_not_connected" xml:space="preserve"><value>The phone is not connected over USB.</value></data>
+  <data name="exit" xml:space="preserve"><value>Exit</value></data>
+  <data name="gr_pinned" xml:space="preserve"><value>Pinned to the phone cheat sheet</value></data>
+  <data name="gr_some_apps" xml:space="preserve"><value>only in some apps</value></data>
+  <data name="ha_could_not_run" xml:space="preserve"><value>Could not run '{0}': {1}</value></data>
+  <data name="ha_help" xml:space="preserve"><value>Open and close this toolbox with a click on the tray icon, or from the phone with 4 fingers up and down.
+
+Gesture mode: hold 4 fingers still on the trackpad and draw a shape; here you will see the stroke and what it does.
+
+"Gestures and widgets" opens the editor: assign actions to shapes, create new shapes with the mouse and set up the phone panel.
+
+If you do not see the icon next to the clock, drag it from the ˄ arrow to the taskbar (in Windows 11, the "Always show the icon in the taskbar" option in Settings does it for you).</value></data>
+  <data name="ha_manual_icon_help" xml:space="preserve"><value>Windows does not let an app take its icon out of the hidden area. Drag the MyMouse icon from the ˄ arrow (next to the clock) to the taskbar and it will stay there.</value></data>
+  <data name="ha_new_shape" xml:space="preserve"><value>New shape "{0}": what should it do?</value></data>
+  <data name="ha_unassigned" xml:space="preserve"><value>Shape '{0}' has no action. Assign one in the toolbox → Gestures.</value></data>
+  <data name="help" xml:space="preserve"><value>Help</value></data>
+  <data name="hint_no_adb" xml:space="preserve"><value>adb was not found: reinstall MyMouse with the installer (it includes it), add it to the PATH or set its path in config.json (AdbPath). Using Bluetooth mode? Then the PC does not need MyMouse.</value></data>
+  <data name="hint_no_device" xml:space="preserve"><value>Connect the cable and turn on USB debugging. Using Bluetooth mode? Then the PC does not need MyMouse.</value></data>
+  <data name="hint_waiting" xml:space="preserve"><value>Open the MyMouse app on the phone.</value></data>
+  <data name="keyboard_mode_note" xml:space="preserve"><value>Type with the phone keyboard</value></data>
+  <data name="keyboard_mode_title" xml:space="preserve"><value>⌨ Keyboard</value></data>
+  <data name="lg_cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="lg_draw" xml:space="preserve"><value>Draw a shape…</value></data>
+  <data name="lg_draw_hint" xml:space="preserve"><value>Draw a shape with one finger on the phone trackpad</value></data>
+  <data name="lg_mode" xml:space="preserve"><value>Gesture mode</value></data>
+  <data name="lg_no_action" xml:space="preserve"><value>Shape "{0}": no action</value></data>
+  <data name="lg_not_recognized" xml:space="preserve"><value>The shape was not recognized</value></data>
+  <data name="lg_not_run" xml:space="preserve"><value>It could not be run</value></data>
+  <data name="maximize" xml:space="preserve"><value>Maximize</value></data>
+  <data name="more" xml:space="preserve"><value>More</value></data>
+  <data name="mouse_mode_title" xml:space="preserve"><value>🖱 Mouse</value></data>
+  <data name="new_shape" xml:space="preserve"><value>New shape</value></data>
+  <data name="no_action" xml:space="preserve"><value>No action</value></data>
+  <data name="no_widgets" xml:space="preserve"><value>There are no widgets: the phone shows no panel.</value></data>
+  <data name="nothing_playing" xml:space="preserve"><value>Nothing playing</value></data>
+  <data name="ok" xml:space="preserve"><value>OK</value></data>
+  <data name="open_mymouse" xml:space="preserve"><value>Open MyMouse</value></data>
+  <data name="pause" xml:space="preserve"><value>Pause</value></data>
+  <data name="phone_disconnected" xml:space="preserve"><value>Phone disconnected</value></data>
+  <data name="phone_no_answer" xml:space="preserve"><value>The phone did not answer. Is it still connected over USB?</value></data>
+  <data name="pinned" xml:space="preserve"><value>Pinned</value></data>
+  <data name="remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="repeat" xml:space="preserve"><value>Repeat</value></data>
+  <data name="restore" xml:space="preserve"><value>Restore</value></data>
+  <data name="resume" xml:space="preserve"><value>Resume</value></data>
+  <data name="save" xml:space="preserve"><value>Save</value></data>
+  <data name="save_changes_q" xml:space="preserve"><value>Save the changes?</value></data>
+  <data name="search" xml:space="preserve"><value>Search</value></data>
+  <data name="settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="skip" xml:space="preserve"><value>Skip</value></data>
+  <data name="stars" xml:space="preserve"><value>Stars</value></data>
+  <data name="status_connected" xml:space="preserve"><value>Connected</value></data>
+  <data name="status_connected_name" xml:space="preserve"><value>Connected · {0}</value></data>
+  <data name="status_keyboard_suffix" xml:space="preserve"><value> · Keyboard mode</value></data>
+  <data name="status_no_device" xml:space="preserve"><value>No device</value></data>
+  <data name="status_paused" xml:space="preserve"><value>Paused</value></data>
+  <data name="status_waiting" xml:space="preserve"><value>Waiting for the phone</value></data>
+  <data name="tab_gestures" xml:space="preserve"><value>Gestures</value></data>
+  <data name="tab_widgets" xml:space="preserve"><value>Widgets</value></data>
+  <data name="tb_always_icon" xml:space="preserve"><value>Always show the icon in the taskbar</value></data>
+  <data name="tb_auto_updates" xml:space="preserve"><value>Check for updates automatically</value></data>
+  <data name="tb_autostart" xml:space="preserve"><value>Start with Windows</value></data>
+  <data name="tb_check_failed" xml:space="preserve"><value>Could not check for a new version. Check your Internet connection and try again.</value></data>
+  <data name="tb_check_now" xml:space="preserve"><value>Check for updates now</value></data>
+  <data name="tb_customize" xml:space="preserve"><value>Customize cards…</value></data>
+  <data name="tb_dev_build" xml:space="preserve"><value>This is a development version ({0}): it does not announce new versions.</value></data>
+  <data name="tb_downloading" xml:space="preserve"><value>Downloading and installing…</value></data>
+  <data name="tb_gestures_widgets" xml:space="preserve"><value>Gestures and widgets</value></data>
+  <data name="tb_glass" xml:space="preserve"><value>Glass effect</value></data>
+  <data name="tb_installed_version" xml:space="preserve"><value>Installed version: {0}</value></data>
+  <data name="tb_live_gesture" xml:space="preserve"><value>Show the live gesture</value></data>
+  <data name="tb_no_shapes" xml:space="preserve"><value>There are no shapes yet.</value></data>
+  <data name="tb_nothing_matches" xml:space="preserve"><value>Nothing matches "{0}".</value></data>
+  <data name="tb_open_logs" xml:space="preserve"><value>Open the logs folder</value></data>
+  <data name="tb_quit" xml:space="preserve"><value>Quit MyMouse</value></data>
+  <data name="tb_skipped" xml:space="preserve"><value>There is a newer version, but you skipped it.</value></data>
+  <data name="tb_theme" xml:space="preserve"><value>Theme…</value></data>
+  <data name="tb_up_to_date" xml:space="preserve"><value>You have the latest version (MyMouse {0}).</value></data>
+  <data name="theme" xml:space="preserve"><value>Theme</value></data>
+  <data name="try" xml:space="preserve"><value>Try</value></data>
+  <data name="tw_auto_accent" xml:space="preserve"><value>Automatic (from the theme)</value></data>
+  <data name="tw_no_stars" xml:space="preserve"><value>This theme has no stars.</value></data>
+  <data name="tw_sync" xml:space="preserve"><value>Over cable it syncs with the phone: the latest change wins.</value></data>
+  <data name="tw_twinkle" xml:space="preserve"><value>Star animation (twinkle)</value></data>
+  <data name="uc_download_failed" xml:space="preserve"><value>Could not download the update. Check your connection.</value></data>
+  <data name="uc_invalid" xml:space="preserve"><value>The download is not valid. Try again.</value></data>
+  <data name="uc_new_version" xml:space="preserve"><value>New version {0} available. Click to see it.</value></data>
+  <data name="update" xml:space="preserve"><value>Update</value></data>
+  <data name="view_download" xml:space="preserve"><value>View download</value></data>
+  <data name="volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="wa_keys_rejected" xml:space="preserve"><value>Windows did not accept the keys (administrator window or locked screen?)</value></data>
+  <data name="wa_text_rejected" xml:space="preserve"><value>Windows did not accept the text</value></data>
+  <data name="whats_new" xml:space="preserve"><value>What's new</value></data>
+  <data name="wp_add_hint" xml:space="preserve"><value>Add a widget with "+ Add" or pick one from the list.</value></data>
+  <data name="wp_button" xml:space="preserve"><value>Button</value></data>
+  <data name="wp_emojis" xml:space="preserve"><value>😀 Emojis (Win+.)</value></data>
+  <data name="wp_err_action" xml:space="preserve"><value>The button needs an action.</value></data>
+  <data name="wp_err_icon" xml:space="preserve"><value>The icon is too long: an emoji or 1–3 letters.</value></data>
+  <data name="wp_err_label" xml:space="preserve"><value>The button needs a label.</value></data>
+  <data name="wp_err_label_long" xml:space="preserve"><value>The label can have at most 40 characters.</value></data>
+  <data name="wp_icon" xml:space="preserve"><value>Icon (an emoji or 1–3 letters)</value></data>
+  <data name="wp_label" xml:space="preserve"><value>Label</value></data>
+  <data name="wp_max" xml:space="preserve"><value>At most {0} widgets.</value></data>
+  <data name="wp_music" xml:space="preserve"><value>Music (what is playing)</value></data>
+  <data name="wp_music_help" xml:space="preserve"><value>Music: shows on the phone what is playing on the PC, with ⏮ ⏯ ⏭. It has no more settings.</value></data>
+  <data name="wp_new" xml:space="preserve"><value>New</value></data>
+  <data name="wp_not_applied" xml:space="preserve"><value> (not applied until it is fixed)</value></data>
+  <data name="wp_preview" xml:space="preserve"><value>Phone panel preview</value></data>
+  <data name="wp_saved" xml:space="preserve"><value>Saved. The phone gets the new panel right away.</value></data>
+  <data name="wp_unsaved" xml:space="preserve"><value>You changed the widgets and have not saved them.</value></data>
+  <data name="wp_volume_help" xml:space="preserve"><value>Volume: a slider with mute for the PC volume. It has no more settings.</value></data>
+</root>

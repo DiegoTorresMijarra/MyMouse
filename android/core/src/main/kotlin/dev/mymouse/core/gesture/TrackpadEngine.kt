@@ -3,6 +3,7 @@ package dev.mymouse.core.gesture
 import dev.mymouse.core.protocol.StrokeResult
 import dev.mymouse.core.shapes.P
 import dev.mymouse.core.shapes.Recognizer
+import dev.mymouse.core.shapes.RejectReason
 
 /**
  * Une el trackpad ([GestureInterpreter]) y el modo gestos (docs/spec-v1-gestos.md §1):
@@ -65,7 +66,7 @@ class TrackpadEngine(
             mode = if (down.isEmpty()) Mode.Trackpad else Mode.Draining
             return listOf(
                 OutputAction.StrokeEnd(StrokeResult.TIMED_OUT),
-                OutputAction.GestureRejected("Tiempo agotado"),
+                OutputAction.GestureRejected(RejectReason.TIMEOUT),
                 OutputAction.GestureMode(false),
             )
         }
@@ -86,7 +87,7 @@ class TrackpadEngine(
             Mode.Trackpad -> afterInterpreter(interpreter.onTouch(event), event.timeMs)
             Mode.ReleasingActivation -> {
                 forwardRelease(event)
-                if (event is TouchInput.Cancel) return exit("Cancelado")
+                if (event is TouchInput.Cancel) return exit(RejectReason.CANCELLED)
                 if (down.isEmpty()) mode = Mode.WaitingStroke(event.timeMs + config.gestureStrokeTimeoutMs)
                 emptyList()
             }
@@ -96,11 +97,11 @@ class TrackpadEngine(
                     batcher = if (areaWidthPx > 0f && areaHeightPx > 0f) StrokeBatcher(areaWidthPx, areaHeightPx) else null
                     batcher?.add(event.x, event.y, event.timeMs) ?: emptyList() // el primer punto sale enseguida
                 }
-                is TouchInput.Cancel -> exit("Cancelado")
+                is TouchInput.Cancel -> exit(RejectReason.CANCELLED)
                 else -> emptyList()
             }
             is Mode.Drawing -> when (event) {
-                is TouchInput.Down -> exit("Cancelado") // un segundo dedo cancela
+                is TouchInput.Down -> exit(RejectReason.CANCELLED) // un segundo dedo cancela
                 is TouchInput.Move -> {
                     if (event.id != m.id) return emptyList()
                     m.points += P(event.x, event.y)
@@ -112,7 +113,7 @@ class TrackpadEngine(
                     val last = batcher?.let { it.add(event.x, event.y, event.timeMs) + it.flush(event.timeMs) } ?: emptyList()
                     last + finish(m.points)
                 }
-                is TouchInput.Cancel -> exit("Cancelado")
+                is TouchInput.Cancel -> exit(RejectReason.CANCELLED)
             }
             Mode.Draining -> {
                 forwardRelease(event)
@@ -143,15 +144,15 @@ class TrackpadEngine(
     private fun finish(points: List<P>): List<OutputAction> {
         batcher = null
         mode = if (down.isEmpty()) Mode.Trackpad else Mode.Draining
-        val result = recognizer?.recognize(points) ?: Recognizer.Result.NoMatch("Sin reconocedor")
+        val result = recognizer?.recognize(points) ?: Recognizer.Result.NoMatch(RejectReason.NO_RECOGNIZER)
         val (end, outcome) = when (result) {
             is Recognizer.Result.Match -> StrokeResult.RECOGNIZED to OutputAction.Gesture(result.name, result.score)
-            is Recognizer.Result.NoMatch -> StrokeResult.NOT_RECOGNIZED to OutputAction.GestureRejected(result.reason)
+            is Recognizer.Result.NoMatch -> StrokeResult.NOT_RECOGNIZED to OutputAction.GestureRejected(result.reason, result.second)
         }
         return listOf(OutputAction.StrokeEnd(end), outcome, OutputAction.GestureMode(false))
     }
 
-    private fun exit(reason: String): List<OutputAction> {
+    private fun exit(reason: RejectReason): List<OutputAction> {
         batcher = null
         mode = if (down.isEmpty()) Mode.Trackpad else Mode.Draining
         return listOf(OutputAction.StrokeEnd(StrokeResult.CANCELLED), OutputAction.GestureRejected(reason), OutputAction.GestureMode(false))

@@ -30,7 +30,7 @@ Spec: [spec-v7-guia.md](spec-v7-guia.md).
 
 | Fase | Objetivo |
 |---|---|
-| **v7.0** | Textos en español e inglés, y dos variantes de la app: Play (sin autoactualizador) y GitHub |
+| **v7.0** ✅ | Textos en español e inglés, y dos variantes de la app: Play (sin autoactualizador) y GitHub. Hecha, pendiente de probar en un móvil y un PC reales |
 | **v7.1** | Guía para empezar: bienvenida, conexión paso a paso, zona de práctica y consejos |
 | **v7.2** | Modo demo, material de la ficha de Play y primera subida a un test cerrado |
 

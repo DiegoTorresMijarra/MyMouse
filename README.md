@@ -57,7 +57,7 @@ El host busca `adb.exe` en la ruta de `%APPDATA%\MyMouse\config.json` (si se ind
 ```bash
 cd android
 ./gradlew :core:test           # tests de la lógica pura, sin emulador
-./gradlew :app:assembleDebug   # APK
+./gradlew :app:assembleGithubDebug   # APK de GitHub (con autoactualizador); :app:assemblePlayDebug para la variante de Play
 ```
 
 ### Releases

@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class ActionDescriberTest {
-    private val d = ActionDescriber()
+    private val d = ActionDescriber(SpanishTexts)
 
     @Test
     fun clickThenDoubleClick() {
@@ -47,7 +47,7 @@ class ActionDescriberTest {
     fun gestureEvents() {
         assertEquals("Modo gestos: dibuja una forma", d.describe(dev.mymouse.core.gesture.OutputAction.GestureMode(true), 0)?.text)
         assertEquals("Forma: circle (93 %)", d.describe(dev.mymouse.core.gesture.OutputAction.Gesture("circle", 0.93f), 10)?.text)
-        assertEquals("Forma: No reconocido", d.describe(dev.mymouse.core.gesture.OutputAction.GestureRejected("No reconocido"), 20)?.text)
+        assertEquals("Forma: not_recognized", d.describe(dev.mymouse.core.gesture.OutputAction.GestureRejected(dev.mymouse.core.shapes.RejectReason.NOT_RECOGNIZED), 20)?.text)
     }
 
     @Test

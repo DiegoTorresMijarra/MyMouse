@@ -8,7 +8,7 @@ using MyMouse.HostCore.Theming;
 namespace MyMouse.Host.Ui;
 
 /// <summary>
-/// "Tema…" en los Ajustes de la toolbox (docs/spec-v4.8-temas.md §3): rejilla de 4 columnas con muestras de 72 × 96 que dibujan el
+/// Tema… en los Ajustes de la toolbox (docs/spec-v4.8-temas.md §3): rejilla de 4 columnas con muestras de 72 × 96 que dibujan el
 /// fondo real en pequeño, el acento (Automático y 7 colores) y las casillas de estrellas. Cada cambio se aplica al momento a la
 /// toolbox, al gesto en vivo y al editor, y se guarda en <c>toolbox.json</c>. Por cable se sincroniza con el móvil (gana el último cambio).
 /// </summary>
@@ -25,7 +25,7 @@ internal sealed class ThemeWindow : Window
     public ThemeWindow(HostApp app)
     {
         _app = app;
-        Title = "Tema";
+        Title = Loc.T("theme");
         Width = 4 * (SwatchW + 16) + 2 * 20 + 24;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -40,20 +40,20 @@ internal sealed class ThemeWindow : Window
         };
 
         var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(Theme.Label("Tema", 17, weight: FontWeights.SemiBold));
-        var hint = Theme.Label("Por cable se sincroniza con el móvil: gana el último cambio.", 12, Theme.Dim);
+        panel.Children.Add(Theme.Label(Loc.T("theme"), 17, weight: FontWeights.SemiBold));
+        var hint = Theme.Label(Loc.T("tw_sync"), 12, Theme.Dim);
         hint.TextWrapping = TextWrapping.Wrap;
         hint.TextTrimming = TextTrimming.None;
         hint.Margin = new Thickness(0, 6, 0, 14);
         panel.Children.Add(hint);
         panel.Children.Add(_swatches);
-        var accentTitle = Theme.Label("Acento", 13, Theme.Dim, FontWeights.SemiBold);
+        var accentTitle = Theme.Label(Loc.T("accent"), 13, Theme.Dim, FontWeights.SemiBold);
         accentTitle.Margin = new Thickness(0, 14, 0, 0);
         panel.Children.Add(accentTitle);
         panel.Children.Add(_accents);
         _stars.Margin = new Thickness(0, 14, 0, 0);
         panel.Children.Add(_stars);
-        var close = Theme.AccentButton("Listo");
+        var close = Theme.AccentButton(Loc.T("done"));
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.Margin = new Thickness(0, 16, 0, 0);
         close.Click += (_, _) => Close();
@@ -77,7 +77,7 @@ internal sealed class ThemeWindow : Window
             _swatches.Children.Add(Swatch(theme, selected: theme.Id == choice.ThemeId, c => Choose(choice with { ThemeId = theme.Id })));
 
         _accents.Children.Clear();
-        _accents.Children.Add(Dot(choice.Theme.Accent, "Auto", "Automático (el del tema)", choice.AccentId == ThemeCatalog.AccentAuto,
+        _accents.Children.Add(Dot(choice.Theme.Accent, Loc.T("auto"), Loc.T("tw_auto_accent"), choice.AccentId == ThemeCatalog.AccentAuto,
             () => Choose(choice with { AccentId = ThemeCatalog.AccentAuto })));
         foreach (var a in ThemeCatalog.Accents)
             _accents.Children.Add(Dot(a.Color, null, a.Name, choice.AccentId == a.Id, () => Choose(choice with { AccentId = a.Id })));
@@ -85,12 +85,12 @@ internal sealed class ThemeWindow : Window
         _stars.Children.Clear();
         if (choice.Theme.Stars)
         {
-            var stars = Theme.Check("Estrellas", choice.Stars);
+            var stars = Theme.Check(Loc.T("stars"), choice.Stars);
             stars.Click += (_, _) => Choose(choice with { Stars = stars.IsChecked == true });
             _stars.Children.Add(stars);
             if (choice.Stars)
             {
-                var twinkle = Theme.Check("Animación de estrellas (parpadeo)", choice.Twinkle);
+                var twinkle = Theme.Check(Loc.T("tw_twinkle"), choice.Twinkle);
                 twinkle.Margin = new Thickness(0, 8, 0, 0);
                 twinkle.Click += (_, _) => Choose(choice with { Twinkle = twinkle.IsChecked == true });
                 _stars.Children.Add(twinkle);
@@ -98,7 +98,7 @@ internal sealed class ThemeWindow : Window
         }
         else
         {
-            _stars.Children.Add(Theme.Label("Este tema no lleva estrellas.", 12, Theme.Dim));
+            _stars.Children.Add(Theme.Label(Loc.T("tw_no_stars"), 12, Theme.Dim));
         }
     }
 
@@ -159,7 +159,7 @@ internal sealed class ThemeWindow : Window
         return cell;
     }
 
-    /// <summary>Círculo de acento de 32 px; el elegido lleva un anillo claro. Con <paramref name="text"/> ("Auto") lo lleva escrito.</summary>
+    /// <summary>Círculo de acento de 32 px; el elegido lleva un anillo claro. Con <paramref name="text"/> (Auto) lo lleva escrito.</summary>
     private static FrameworkElement Dot(int rgb, string? text, string tooltip, bool selected, Action click)
     {
         var color = Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);

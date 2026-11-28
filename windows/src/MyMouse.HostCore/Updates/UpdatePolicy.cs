@@ -53,17 +53,17 @@ public static class UpdatePolicy
         var cmp = b.CompareTo(a);
         if (cmp == 0) return CrossDeviceNotice.None;
 
-        var otherName = side == VersionSide.Pc ? "El móvil" : "El PC";
-        var mineName = side == VersionSide.Pc ? "este PC la" : "este móvil la";
+        var otherName = side == VersionSide.Pc ? CoreLoc.T("up_the_phone") : CoreLoc.T("up_the_pc");
+        var mineName = side == VersionSide.Pc ? CoreLoc.T("up_this_pc") : CoreLoc.T("up_this_phone");
         if (cmp > 0)
-            return new(CrossDeviceKind.OtherNewer, $"{otherName} tiene MyMouse {b.Display} y {mineName} {a.Display}: actualízalo.", b);
+            return new(CrossDeviceKind.OtherNewer, CoreLoc.F("up_other_newer", otherName, b.Display, mineName, a.Display), b);
 
-        var where = side == VersionSide.Pc ? "desde el móvil" : "desde el PC";
-        return new(CrossDeviceKind.OtherOlder, $"{otherName} tiene una versión anterior ({b.Display}): actualízalo {where}.", b);
+        var where = side == VersionSide.Pc ? CoreLoc.T("up_from_phone") : CoreLoc.T("up_from_pc");
+        return new(CrossDeviceKind.OtherOlder, CoreLoc.F("up_other_older", otherName, b.Display, where), b);
     }
 
     /// <summary>Texto corto del banner de una versión nueva.</summary>
-    public static string NewVersionText(ReleaseInfo release) => $"Nueva versión {release.Version.Display} disponible";
+    public static string NewVersionText(ReleaseInfo release) => CoreLoc.F("up_new_version", release.Version.Display);
 
     /// <summary>Notas de la release recortadas para una hoja o un aviso: sin líneas en blanco de más y como mucho <paramref name="max"/> caracteres.</summary>
     public static string TrimNotes(string notes, int max = 600)

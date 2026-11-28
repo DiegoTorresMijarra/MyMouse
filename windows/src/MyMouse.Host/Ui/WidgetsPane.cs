@@ -24,7 +24,7 @@ internal sealed class WidgetsPane : Grid
     private readonly TextBlock _info = Theme.Label("", 13, Theme.Dim);
     private readonly TextBlock _status = Theme.Label("", 12, Theme.Dim);
     private readonly UniformGrid _preview = new() { Columns = 4 };
-    private readonly Button _save = Theme.AccentButton("Guardar");
+    private readonly Button _save = Theme.AccentButton(Loc.T("save"));
     private GestureConfig _config = GestureConfig.Empty;
     private List<WidgetDefinition> _widgets = [];
     private int _selected = -1;
@@ -41,7 +41,7 @@ internal sealed class WidgetsPane : Grid
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var left = new DockPanel { Margin = new Thickness(16, 0, 8, 16) };
-        var add = Theme.AccentButton("+ Añadir");
+        var add = Theme.AccentButton(Loc.T("add_plus"));
         add.Margin = new Thickness(0, 8, 0, 0);
         add.Click += (_, _) => ShowAddMenu();
         DockPanel.SetDock(add, Dock.Bottom);
@@ -56,28 +56,28 @@ internal sealed class WidgetsPane : Grid
         Children.Add(left);
 
         _detail.Children.Add(_info);
-        var labelTitle = Theme.Label("Etiqueta", 12, Theme.Dim, FontWeights.SemiBold);
+        var labelTitle = Theme.Label(Loc.T("wp_label"), 12, Theme.Dim, FontWeights.SemiBold);
         labelTitle.Margin = new Thickness(0, 0, 0, 4);
         _buttonForm.Children.Add(labelTitle);
         _buttonForm.Children.Add(_label);
-        var iconTitle = Theme.Label("Icono (un emoji o 1–3 letras)", 12, Theme.Dim, FontWeights.SemiBold);
+        var iconTitle = Theme.Label(Loc.T("wp_icon"), 12, Theme.Dim, FontWeights.SemiBold);
         iconTitle.Margin = new Thickness(0, 14, 0, 4);
         _buttonForm.Children.Add(iconTitle);
         var iconRow = new DockPanel();
-        var emoji = Theme.FlatButton("😀 Emojis (Win+.)");
+        var emoji = Theme.FlatButton(Loc.T("wp_emojis"));
         emoji.Margin = new Thickness(6, 0, 0, 0);
         emoji.Click += (_, _) => OpenEmojiPicker();
         DockPanel.SetDock(emoji, Dock.Right);
         iconRow.Children.Add(emoji);
         iconRow.Children.Add(_icon);
         _buttonForm.Children.Add(iconRow);
-        var actionTitle = Theme.Label("Acción", 12, Theme.Dim, FontWeights.SemiBold);
+        var actionTitle = Theme.Label(Loc.T("action"), 12, Theme.Dim, FontWeights.SemiBold);
         actionTitle.Margin = new Thickness(0, 14, 0, 6);
         _buttonForm.Children.Add(actionTitle);
         _buttonForm.Children.Add(_action);
         _detail.Children.Add(_buttonForm);
 
-        var previewTitle = Theme.Label("Vista previa del panel del móvil", 12, Theme.Dim, FontWeights.SemiBold);
+        var previewTitle = Theme.Label(Loc.T("wp_preview"), 12, Theme.Dim, FontWeights.SemiBold);
         previewTitle.Margin = new Thickness(0, 24, 0, 6);
         _detail.Children.Add(previewTitle);
         _detail.Children.Add(new Border
@@ -121,7 +121,7 @@ internal sealed class WidgetsPane : Grid
     public bool ConfirmDiscard()
     {
         if (!_dirty) return true;
-        var choice = Dialogs.Message(_editor, "¿Guardar los cambios?", "Has cambiado los widgets y no los has guardado.", "Guardar", "Descartar", "Cancelar");
+        var choice = Dialogs.Message(_editor, Loc.T("save_changes_q"), Loc.T("wp_unsaved"), Loc.T("save"), Loc.T("discard"), Loc.T("cancel"));
         if (choice == 0) return Save();
         if (choice != 1) return false;
         _dirty = false;
@@ -138,9 +138,9 @@ internal sealed class WidgetsPane : Grid
 
     public void ShowAddMenu()
     {
-        var items = new List<(string, bool?, Action)> { ("Botón", null, () => Add(new ButtonWidget("Nuevo", "▫", new TextAction("hola")))) };
-        if (_widgets.All(w => w is not MediaWidget)) items.Add(("Música (lo que suena)", null, () => Add(new MediaWidget())));
-        if (_widgets.All(w => w is not VolumeWidget)) items.Add(("Volumen", null, () => Add(new VolumeWidget())));
+        var items = new List<(string, bool?, Action)> { (Loc.T("wp_button"), null, () => Add(new ButtonWidget(Loc.T("wp_new"), "▫", new TextAction("hola")))) };
+        if (_widgets.All(w => w is not MediaWidget)) items.Add((Loc.T("wp_music"), null, () => Add(new MediaWidget())));
+        if (_widgets.All(w => w is not VolumeWidget)) items.Add((Loc.T("volume"), null, () => Add(new VolumeWidget())));
         MiniMenu.Show(_list.Parent as UIElement ?? this, items);
     }
 
@@ -149,7 +149,7 @@ internal sealed class WidgetsPane : Grid
         if (_widgets.Count >= ProtocolInfo.MaxWidgets)
         {
             _status.Foreground = Theme.Red;
-            _status.Text = $"Como máximo {ProtocolInfo.MaxWidgets} widgets.";
+            _status.Text = Loc.F("wp_max", ProtocolInfo.MaxWidgets);
             return;
         }
         _widgets.Add(widget);
@@ -199,7 +199,7 @@ internal sealed class WidgetsPane : Grid
             _list.Children.Add(button);
         }
         if (_widgets.Count == 0)
-            _list.Children.Add(new TextBlock { Text = "No hay widgets: el móvil no muestra panel.", Foreground = Theme.Dim, Margin = new Thickness(12), FontFamily = Theme.Font, TextWrapping = TextWrapping.Wrap });
+            _list.Children.Add(new TextBlock { Text = Loc.T("no_widgets"), Foreground = Theme.Dim, Margin = new Thickness(12), FontFamily = Theme.Font, TextWrapping = TextWrapping.Wrap });
     }
 
     private void Remove(int index)
@@ -236,13 +236,13 @@ internal sealed class WidgetsPane : Grid
                     _action.SetAction(b.Action);
                     break;
                 case MediaWidget:
-                    _info.Text = "Música: muestra en el móvil lo que suena en el PC, con ⏮ ⏯ ⏭. No tiene más ajustes.";
+                    _info.Text = Loc.T("wp_music_help");
                     break;
                 case VolumeWidget:
-                    _info.Text = "Volumen: un control deslizante con silencio para el volumen del PC. No tiene más ajustes.";
+                    _info.Text = Loc.T("wp_volume_help");
                     break;
                 default:
-                    _info.Text = "Añade un widget con «+ Añadir» o elige uno de la lista.";
+                    _info.Text = Loc.T("wp_add_hint");
                     break;
             }
             _info.TextWrapping = TextWrapping.Wrap;
@@ -261,11 +261,11 @@ internal sealed class WidgetsPane : Grid
         try
         {
             var label = _label.Text.Trim();
-            if (label.Length == 0) throw new FormatException("El botón necesita una etiqueta.");
-            if (label.Length > 40) throw new FormatException("La etiqueta puede tener como mucho 40 caracteres.");
+            if (label.Length == 0) throw new FormatException(Loc.T("wp_err_label"));
+            if (label.Length > 40) throw new FormatException(Loc.T("wp_err_label_long"));
             var icon = _icon.Text.Trim();
-            if (System.Text.Encoding.UTF8.GetByteCount(icon) > 8) throw new FormatException("El icono es demasiado largo: un emoji o 1–3 letras.");
-            var action = _action.GetAction() ?? throw new FormatException("El botón necesita una acción.");
+            if (System.Text.Encoding.UTF8.GetByteCount(icon) > 8) throw new FormatException(Loc.T("wp_err_icon"));
+            var action = _action.GetAction() ?? throw new FormatException(Loc.T("wp_err_action"));
             _widgets[_selected] = new ButtonWidget(label, icon, action);
             _dirty = true;
             _status.Text = "";
@@ -275,7 +275,7 @@ internal sealed class WidgetsPane : Grid
         catch (FormatException ex)
         {
             _status.Foreground = Theme.Amber;
-            _status.Text = ex.Message + " (no se aplica hasta que esté bien)";
+            _status.Text = ex.Message + Loc.T("wp_not_applied");
         }
     }
 
@@ -309,7 +309,7 @@ internal sealed class WidgetsPane : Grid
         if (!_editor.TrySave(_editor.Config.WithWidgets(_widgets))) return false;
         _dirty = false;
         _status.Foreground = Theme.Green;
-        _status.Text = "Guardado. El móvil recibe el panel nuevo al momento.";
+        _status.Text = Loc.T("wp_saved");
         return true;
     }
 

@@ -8,6 +8,7 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup
+import androidx.annotation.StringRes
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -32,7 +33,10 @@ class BtActionForm(
     private val allowNone: Boolean,
     private val onChange: () -> Unit = {},
 ) {
-    private enum class Type(val label: String) { KEYS("Atajo"), MEDIA("Multimedia"), TEXT("Texto"), KEYBOARD("Abrir teclado"), NONE("Ninguna") }
+    private enum class Type(@StringRes val label: Int) {
+        KEYS(R.string.form_type_keys), MEDIA(R.string.form_type_media), TEXT(R.string.form_type_text),
+        KEYBOARD(R.string.form_type_keyboard), NONE(R.string.form_type_none),
+    }
 
     private var type: Type = when (initial) {
         is BtAction.Keys -> Type.KEYS
@@ -85,11 +89,11 @@ class BtActionForm(
     /** Qué falta para poder guardar, o null si está bien (o es "Ninguna"). */
     fun problem(): String? = when (type) {
         Type.NONE -> null
-        Type.KEYS -> if (modifiers == 0 && key == 0) "Elige al menos un modificador o una tecla" else null
+        Type.KEYS -> if (modifiers == 0 && key == 0) activity.getString(R.string.form_pick_key) else null
         Type.MEDIA, Type.KEYBOARD -> null
         Type.TEXT -> when {
-            typedText.isEmpty() -> "Escribe el texto"
-            layout.typeStrokes(typedText).isEmpty() -> "Ningún carácter del texto se puede escribir con la distribución ${layout.label}"
+            typedText.isEmpty() -> activity.getString(R.string.form_type_something)
+            layout.typeStrokes(typedText).isEmpty() -> activity.getString(R.string.form_no_typable, UiText.layout(activity, layout.id))
             else -> null
         }
     }
@@ -100,7 +104,7 @@ class BtActionForm(
         typeRow.removeAllViews()
         for (t in Type.entries) {
             if (t == Type.NONE && !allowNone) continue
-            typeRow.addView(chip(t.label, t == type) {
+            typeRow.addView(chip(activity.getString(t.label), t == type) {
                 type = t
                 buildTypeRow()
                 buildBody()
@@ -115,11 +119,11 @@ class BtActionForm(
     private fun buildBody() {
         body.removeAllViews()
         when (type) {
-            Type.NONE -> body.addView(GlassTheme.note(activity, "Esta forma no hará nada por Bluetooth."))
+            Type.NONE -> body.addView(GlassTheme.note(activity, activity.getString(R.string.form_none_note)))
             Type.KEYS -> buildKeys()
             Type.MEDIA -> buildMedia()
             Type.TEXT -> buildText()
-            Type.KEYBOARD -> body.addView(GlassTheme.note(activity, "Abre el teclado del móvil (modo teclado) para escribir en el PC."))
+            Type.KEYBOARD -> body.addView(GlassTheme.note(activity, activity.getString(R.string.form_keyboard_note)))
         }
     }
 
@@ -138,23 +142,23 @@ class BtActionForm(
         body.addView(mods, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = (12 * density).toInt()
         })
-        val keyLabel = if (key == 0) "ninguna" else HidKeys.labelOf(key) ?: "?"
-        body.addView(GlassTheme.button(activity, "Tecla: $keyLabel") { pickKey() })
+        val keyLabel = if (key == 0) activity.getString(R.string.form_key_none) else HidKeys.PICKER.firstOrNull { it.usage == key }?.let { UiText.key(activity, it) } ?: "?"
+        body.addView(GlassTheme.button(activity, activity.getString(R.string.form_key_button, keyLabel)) { pickKey() })
     }
 
     /** Lista de teclas: letras, números, F1–F12, flechas, Inicio/Fin, RePág/AvPág, Supr, Retroceso, Intro, Esc, Tab, Espacio e Impr Pant. */
     private fun pickKey() {
         val keys = HidKeys.PICKER
-        val labels: List<CharSequence> = listOf<CharSequence>("(ninguna: solo modificadores)") + keys.map { it.label as CharSequence }
+        val labels: List<CharSequence> = listOf<CharSequence>(activity.getString(R.string.form_key_modifiers_only)) + keys.map { UiText.key(activity, it) as CharSequence }
         AlertDialog.Builder(activity)
-            .setTitle("Tecla")
+            .setTitle(R.string.form_key_title)
             .setItems(labels.toTypedArray()) { _, which ->
                 key = if (which == 0) 0 else keys[which - 1].usage
                 buildBody()
                 updateSummary()
                 onChange()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
@@ -163,7 +167,7 @@ class BtActionForm(
             BtActions.MEDIA.forEachIndexed { i, option ->
                 addView(RadioButton(activity).apply {
                     id = android.view.View.generateViewId()
-                    this.text = option.label
+                    this.text = UiText.media(activity, option.key)
                     textSize = 16f
                     setTextColor(GlassTheme.TEXT)
                     GlassTheme.tint(this)
@@ -181,7 +185,7 @@ class BtActionForm(
     }
 
     private fun buildText() {
-        val field = field(activity, "Texto que se escribirá en el PC").apply {
+        val field = field(activity, activity.getString(R.string.form_text_hint)).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             minLines = 2
             gravity = Gravity.TOP or Gravity.START
@@ -206,8 +210,7 @@ class BtActionForm(
         updateWarning()
         body.addView(GlassTheme.note(
             activity,
-            "Se escribe tecla a tecla según la distribución del teclado del PC (${layout.label}; se cambia en esta pantalla). " +
-                "Máximo ${BtAction.MAX_TEXT} caracteres.",
+            activity.getString(R.string.form_text_note, UiText.layout(activity, layout.id), BtAction.MAX_TEXT),
         ))
     }
 
@@ -215,7 +218,7 @@ class BtActionForm(
     private fun updateWarning() {
         val bad = layout.unsupported(typedText)
         warning.text = if (bad.isEmpty()) "" else
-            "No se pueden escribir con ${layout.label} y se saltarán: ${bad.joinToString(" ") { if (it == "\t") "⇥" else it }}"
+            activity.getString(R.string.form_text_warning, UiText.layout(activity, layout.id), bad.joinToString(" ") { if (it == "\t") "⇥" else it })
         warning.visibility = if (bad.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
     }
 
@@ -223,7 +226,7 @@ class BtActionForm(
         val a = action()
         summary.text = when {
             type == Type.NONE -> ""
-            a != null -> "Hará: " + BtActions.describe(a)
+            a != null -> activity.getString(R.string.form_will_do, UiText.action(activity, a))
             else -> problem().orEmpty()
         }
     }

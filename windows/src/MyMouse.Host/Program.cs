@@ -15,7 +15,7 @@ internal static class Program
         FileLog.Cleanup();
         FileLog.Write("Arrancando MyMouse");
 
-        // WPF sin App.xaml: la aplicación se crea aquí y vive en la bandeja hasta que se pulsa "Salir".
+        // WPF sin App.xaml: la aplicación se crea aquí y vive en la bandeja hasta que se pulsa Salir.
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         Theme.Apply(app.Resources);
         app.DispatcherUnhandledException += (_, e) =>

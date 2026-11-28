@@ -5,7 +5,7 @@ using MyMouse.HostCore.Toolbox;
 
 namespace MyMouse.Host.Ui;
 
-/// <summary>"Personalizar tarjetas…" (docs/spec-v4-toolbox.md §2.3): marcar o desmarcar cada tarjeta (salvo Opciones) y reordenarlas con ↑ ↓.</summary>
+/// <summary>Personalizar tarjetas… (docs/spec-v4-toolbox.md §2.3): marcar o desmarcar cada tarjeta (salvo Opciones) y reordenarlas con ↑ ↓.</summary>
 internal sealed class CustomizeCardsWindow : Window
 {
     private readonly HostApp _app;
@@ -14,7 +14,7 @@ internal sealed class CustomizeCardsWindow : Window
     public CustomizeCardsWindow(HostApp app)
     {
         _app = app;
-        Title = "Personalizar tarjetas";
+        Title = Loc.T("cc_title");
         Width = 380;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -29,18 +29,18 @@ internal sealed class CustomizeCardsWindow : Window
         };
 
         var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(Theme.Label("Personalizar tarjetas", 17, weight: FontWeights.SemiBold));
-        var hint = Theme.Label("Marca las que quieres ver y ordénalas con las flechas. Opciones siempre está.", 12, Theme.Dim);
+        panel.Children.Add(Theme.Label(Loc.T("cc_title"), 17, weight: FontWeights.SemiBold));
+        var hint = Theme.Label(Loc.T("cc_note"), 12, Theme.Dim);
         hint.TextWrapping = TextWrapping.Wrap;
         hint.TextTrimming = TextTrimming.None;
         hint.Margin = new Thickness(0, 6, 0, 14);
         panel.Children.Add(hint);
         panel.Children.Add(_rows);
-        var glass = Theme.Check("Efecto cristal (tarjetas translúcidas; desmarcado, tarjetas sólidas)", _app.Layout.GlassEffect);
+        var glass = Theme.Check(Loc.T("cc_glass"), _app.Layout.GlassEffect);
         glass.Margin = new Thickness(0, 6, 0, 0);
         glass.Click += (_, _) => _app.Layout = _app.Layout.WithGlass(glass.IsChecked == true);
         panel.Children.Add(glass);
-        var close = Theme.AccentButton("Listo");
+        var close = Theme.AccentButton(Loc.T("done"));
         close.HorizontalAlignment = HorizontalAlignment.Right;
         close.Margin = new Thickness(0, 16, 0, 0);
         close.Click += (_, _) => Close();
@@ -51,10 +51,10 @@ internal sealed class CustomizeCardsWindow : Window
 
     private static string NameOf(ToolboxCard card) => card switch
     {
-        ToolboxCard.Options => "Opciones",
-        ToolboxCard.Music => "Música",
-        ToolboxCard.Gestures => "Gestos",
-        _ => "Widgets del móvil",
+        ToolboxCard.Options => Loc.T("card_options"),
+        ToolboxCard.Music => Loc.T("card_music"),
+        ToolboxCard.Gestures => Loc.T("card_gestures"),
+        _ => Loc.T("card_phone_widgets"),
     };
 
     private void Rebuild()

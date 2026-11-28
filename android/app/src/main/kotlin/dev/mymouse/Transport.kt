@@ -1,5 +1,6 @@
 package dev.mymouse
 
+import androidx.annotation.StringRes
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.keyboard.KeyEvent
 import dev.mymouse.core.protocol.GestureStatus
@@ -62,11 +63,11 @@ interface Transport {
     /** Por Bluetooth la repetición de teclas la hace Windows; por USB, el móvil (docs/spec-v6-teclado.md §5.2). */
     val hostRepeatsKeys: Boolean
 
-    /** Qué decirle al usuario cuando no se puede abrir el teclado ([supportsKeyboard] = false). */
-    val keyboardUnavailableText: String
+    /** Texto (recurso) para decirle al usuario cuando no se puede abrir el teclado ([supportsKeyboard] = false). */
+    @get:StringRes val keyboardUnavailableRes: Int
 
-    /** Qué decirle al usuario cuando 4 dedos ↑ / ↓ no pueden abrir la toolbox ([supportsToolbox] = false). */
-    val toolboxUnavailableText: String
+    /** Texto (recurso) para decirle al usuario cuando 4 dedos ↑ / ↓ no pueden abrir la toolbox ([supportsToolbox] = false). */
+    @get:StringRes val toolboxUnavailableRes: Int
 
     fun start()
     fun stop()

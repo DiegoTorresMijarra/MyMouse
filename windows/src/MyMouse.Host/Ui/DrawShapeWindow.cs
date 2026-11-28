@@ -80,7 +80,7 @@ internal sealed class InkSurface : FrameworkElement
 }
 
 /// <summary>
-/// "+ Nueva forma" en el PC (docs/spec-v4-toolbox.md §4.2): se da un nombre y se dibujan 3 muestras con el ratón o el touchpad.
+/// + Nueva forma en el PC (docs/spec-v4-toolbox.md §4.2): se da un nombre y se dibujan 3 muestras con el ratón o el touchpad.
 /// Al terminar se envían al móvil (<c>SHAPE_ADD</c>), que comprueba si se confunde con otra y contesta.
 /// </summary>
 internal sealed class DrawShapeWindow : Window
@@ -92,8 +92,8 @@ internal sealed class DrawShapeWindow : Window
     private readonly TextBox _name = Theme.Input();
     private readonly InkSurface _ink = new();
     private readonly TextBlock _info = Theme.Label("", 13, Theme.Dim);
-    private readonly TextBlock _offline = Theme.Label("Conecta el móvil por USB para grabar formas", 12, Theme.Amber);
-    private readonly Button _save = Theme.AccentButton("Guardar en el móvil");
+    private readonly TextBlock _offline = Theme.Label(Loc.T("ds_connect_phone"), 12, Theme.Amber);
+    private readonly Button _save = Theme.AccentButton(Loc.T("ds_save_phone"));
     private readonly StackPanel _thumbs = new() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
     private readonly List<IReadOnlyList<Point>> _samples = [];
     private bool _busy;
@@ -104,7 +104,7 @@ internal sealed class DrawShapeWindow : Window
     public DrawShapeWindow(HostApp app, Window? owner)
     {
         _app = app;
-        Title = "Nueva forma";
+        Title = Loc.T("new_shape");
         Width = 360;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -115,8 +115,8 @@ internal sealed class DrawShapeWindow : Window
         if (owner is { IsLoaded: true }) Owner = owner;
 
         var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(Theme.Label("Nueva forma", 17, weight: FontWeights.SemiBold));
-        var nameLabel = Theme.Label("Nombre (p. ej. firma)", 12, Theme.Dim);
+        panel.Children.Add(Theme.Label(Loc.T("new_shape"), 17, weight: FontWeights.SemiBold));
+        var nameLabel = Theme.Label(Loc.T("ds_name_hint"), 12, Theme.Dim);
         nameLabel.Margin = new Thickness(0, 12, 0, 4);
         panel.Children.Add(nameLabel);
         panel.Children.Add(_name);
@@ -128,8 +128,8 @@ internal sealed class DrawShapeWindow : Window
         _offline.Margin = new Thickness(0, 10, 0, 0);
         panel.Children.Add(_offline);
 
-        var again = Theme.FlatButton("Repetir");
-        var cancel = Theme.FlatButton("Cancelar");
+        var again = Theme.FlatButton(Loc.T("repeat"));
+        var cancel = Theme.FlatButton(Loc.T("cancel"));
         again.Margin = new Thickness(0, 0, 8, 0);
         cancel.Margin = new Thickness(8, 0, 0, 0);
         again.Click += (_, _) => Reset();
@@ -172,7 +172,7 @@ internal sealed class DrawShapeWindow : Window
         if (_busy || _samples.Count >= Samples) return;
         if (stroke.Max(p => p.X) - stroke.Min(p => p.X) < MinExtent && stroke.Max(p => p.Y) - stroke.Min(p => p.Y) < MinExtent)
         {
-            _info.Text = $"Demasiado pequeña: dibújala más grande (muestra {_samples.Count + 1} de {Samples}).";
+            _info.Text = Loc.F("ds_too_small", _samples.Count + 1, Samples);
             return;
         }
         _samples.Add(stroke);
@@ -198,9 +198,9 @@ internal sealed class DrawShapeWindow : Window
         _ink.IsEnabled = !_busy;
         if (_busy) return;
         if (_samples.Count < Samples)
-            _info.Text = $"Dibújala con el ratón o el touchpad, de un solo trazo (muestra {_samples.Count + 1} de {Samples}).";
+            _info.Text = Loc.F("ds_draw_it", _samples.Count + 1, Samples);
         else
-            _info.Text = "Lista. Puedes repetirla o guardarla en el móvil.";
+            _info.Text = Loc.T("ds_ready");
         _save.IsEnabled = canEdit && _samples.Count == Samples && ShapeNames.Normalize(_name.Text) is not null;
     }
 
@@ -209,7 +209,7 @@ internal sealed class DrawShapeWindow : Window
         var name = ShapeNames.Normalize(_name.Text);
         if (name is null)
         {
-            _info.Text = "Hace falta un nombre (hasta unos 55 caracteres).";
+            _info.Text = Loc.T("ds_err_name");
             return;
         }
         var wire = _samples
@@ -218,7 +218,7 @@ internal sealed class DrawShapeWindow : Window
 
         _busy = true;
         _save.IsEnabled = false;
-        _info.Text = "Enviando al móvil…";
+        _info.Text = Loc.T("ds_sending");
         try
         {
             var force = false;
@@ -233,9 +233,9 @@ internal sealed class DrawShapeWindow : Window
                         return;
                     case ShapeStatus.Clashes:
                         var other = ShapeCatalog.Label(result.Other);
-                        var choice = Dialogs.Message(this, "Se confunde con otra forma",
-                            $"Tu forma se parece a «{other}»: el móvil podría reconocer una por la otra. ¿La guardas igualmente?",
-                            "Guardar igualmente", "Repetirla");
+                        var choice = Dialogs.Message(this, Loc.T("ds_clash_title"),
+                            Loc.F("ds_clash", other),
+                            Loc.T("ds_save_anyway"), Loc.T("ds_repeat_it"));
                         if (choice == 0)
                         {
                             force = true;
@@ -244,13 +244,13 @@ internal sealed class DrawShapeWindow : Window
                         Reset();
                         return;
                     case ShapeStatus.DuplicateName:
-                        _info.Text = "Ya hay una forma con ese nombre: elige otro.";
+                        _info.Text = Loc.T("ds_err_exists");
                         return;
                     case ShapeStatus.Invalid:
-                        _info.Text = "El móvil no la acepta: dibújala más grande o con otro nombre.";
+                        _info.Text = Loc.T("ds_err_rejected");
                         return;
                     default:
-                        _info.Text = "El móvil no ha contestado. ¿Sigue conectado por USB?";
+                        _info.Text = Loc.T("phone_no_answer");
                         return;
                 }
             }

@@ -114,7 +114,7 @@ class AccentDotView(context: Context, private val rgb: Int, private val auto: Bo
         canvas.drawCircle(cx, cy, r, fill)
         canvas.drawCircle(cx, cy, r, edge)
         if (selected) canvas.drawCircle(cx, cy, width / 2f - d, ring)
-        if (auto) canvas.drawText("Auto", cx, cy - (label.ascent() + label.descent()) / 2, label)
+        if (auto) canvas.drawText(context.getString(R.string.accent_auto_short), cx, cy - (label.ascent() + label.descent()) / 2, label)
     }
 
     companion object {

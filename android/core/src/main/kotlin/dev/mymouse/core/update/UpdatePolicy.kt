@@ -14,16 +14,26 @@ enum class CrossDeviceKind {
 }
 
 /** Resultado de comparar la versión de este dispositivo con la del otro (docs/spec-v5.1-actualizaciones.md §6). */
-data class CrossDeviceNotice(val kind: CrossDeviceKind, val message: String, val otherVersion: AppVersion?) {
+data class CrossDeviceNotice(val kind: CrossDeviceKind, val mineVersion: AppVersion?, val otherVersion: AppVersion?) {
     companion object {
-        val NONE = CrossDeviceNotice(CrossDeviceKind.NONE, "", null)
+        val NONE = CrossDeviceNotice(CrossDeviceKind.NONE, null, null)
     }
 }
 
 enum class BannerKind { NEW_VERSION, PC_NEWER, PC_OLDER }
 
-/** Un aviso. [release] es lo que instalaría "Descargar e instalar" (null si no se encontró en GitHub). */
-data class UpdateBanner(val kind: BannerKind, val text: String, val release: ReleaseInfo?, val canInstall: Boolean, val canSkip: Boolean)
+/**
+ * Un aviso. [release] es lo que instalaría "Descargar e instalar" (null si no se encontró en GitHub). El texto lo compone la app según
+ * [kind], para que salga en el idioma del móvil: [version] es la que se nombra (la nueva, o la del PC) y [mineVersion] la de este móvil.
+ */
+data class UpdateBanner(
+    val kind: BannerKind,
+    val version: AppVersion,
+    val mineVersion: AppVersion?,
+    val release: ReleaseInfo?,
+    val canInstall: Boolean,
+    val canSkip: Boolean,
+)
 
 /** Decisiones puras de las actualizaciones: si avisar y qué decir. */
 object UpdatePolicy {
@@ -50,16 +60,8 @@ object UpdatePolicy {
         val cmp = b.compareTo(a)
         if (cmp == 0) return CrossDeviceNotice.NONE
 
-        val otherName = if (side == VersionSide.PC) "El móvil" else "El PC"
-        val mineName = if (side == VersionSide.PC) "este PC la" else "este móvil la"
-        if (cmp > 0) {
-            return CrossDeviceNotice(CrossDeviceKind.OTHER_NEWER, "$otherName tiene MyMouse ${b.display} y $mineName ${a.display}: actualízalo.", b)
-        }
-        val where = if (side == VersionSide.PC) "desde el móvil" else "desde el PC"
-        return CrossDeviceNotice(CrossDeviceKind.OTHER_OLDER, "$otherName tiene una versión anterior (${b.display}): actualízalo $where.", b)
+        return CrossDeviceNotice(if (cmp > 0) CrossDeviceKind.OTHER_NEWER else CrossDeviceKind.OTHER_OLDER, a, b)
     }
-
-    fun newVersionText(release: ReleaseInfo) = "Nueva versión ${release.version.display} disponible"
 
     /**
      * Los avisos de este móvil (el de versión nueva primero; como mucho dos). Si ya se ofrece una release (al menos tan alta como la del PC), el
@@ -69,16 +71,16 @@ object UpdatePolicy {
         val result = mutableListOf<UpdateBanner>()
         val offer = highestOffer(local, releases, skipped)
         if (offer != null) {
-            result += UpdateBanner(BannerKind.NEW_VERSION, newVersionText(offer), offer, canInstall = Releases.pickAsset(offer, AssetKind.ANDROID_APK) != null, canSkip = true)
+            result += UpdateBanner(BannerKind.NEW_VERSION, offer.version, local, offer, canInstall = Releases.pickAsset(offer, AssetKind.ANDROID_APK) != null, canSkip = true)
         }
 
         val cross = crossDevice(VersionSide.PHONE, local?.display ?: localText, pcVersion)
         when (cross.kind) {
             CrossDeviceKind.OTHER_NEWER -> if (offer == null) {
                 val target = Releases.find(releases, cross.otherVersion!!)
-                result += UpdateBanner(BannerKind.PC_NEWER, cross.message, target, canInstall = target != null && Releases.pickAsset(target, AssetKind.ANDROID_APK) != null, canSkip = false)
+                result += UpdateBanner(BannerKind.PC_NEWER, cross.otherVersion!!, cross.mineVersion, target, canInstall = target != null && Releases.pickAsset(target, AssetKind.ANDROID_APK) != null, canSkip = false)
             }
-            CrossDeviceKind.OTHER_OLDER -> result += UpdateBanner(BannerKind.PC_OLDER, cross.message, null, canInstall = false, canSkip = false)
+            CrossDeviceKind.OTHER_OLDER -> result += UpdateBanner(BannerKind.PC_OLDER, cross.otherVersion!!, cross.mineVersion, null, canInstall = false, canSkip = false)
             CrossDeviceKind.NONE -> Unit
         }
         return result

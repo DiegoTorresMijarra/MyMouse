@@ -32,12 +32,15 @@ class BtWidgetConfig(buttons: List<BtButton>) {
         return BtWidgetConfig(buttons.toMutableList().also { val b = it.removeAt(index); it.add(to, b) })
     }
 
-    /** Los widgets del panel: multimedia, volumen (Vol −, Vol +, Silencio) y después los botones propios. */
-    fun entries(): List<WidgetEntry> = buildList {
+    /**
+     * Los widgets del panel: multimedia, volumen (con las etiquetas [volumeDown], [volumeUp] y [mute], en el idioma de la app)
+     * y después los botones propios.
+     */
+    fun entries(volumeDown: String = "Vol −", volumeUp: String = "Vol +", mute: String = "Silencio"): List<WidgetEntry> = buildList {
         add(WidgetEntry(ID_MEDIA, WidgetKind.MEDIA, "", ""))
-        add(WidgetEntry(ID_VOLUME_DOWN, WidgetKind.BUTTON, "Vol −", "🔉"))
-        add(WidgetEntry(ID_VOLUME_UP, WidgetKind.BUTTON, "Vol +", "🔊"))
-        add(WidgetEntry(ID_MUTE, WidgetKind.BUTTON, "Silencio", "🔇"))
+        add(WidgetEntry(ID_VOLUME_DOWN, WidgetKind.BUTTON, volumeDown, "🔉"))
+        add(WidgetEntry(ID_VOLUME_UP, WidgetKind.BUTTON, volumeUp, "🔊"))
+        add(WidgetEntry(ID_MUTE, WidgetKind.BUTTON, mute, "🔇"))
         buttons.forEachIndexed { i, b -> add(WidgetEntry(FIRST_CUSTOM_ID + i, WidgetKind.BUTTON, b.label, b.icon)) }
     }
 
@@ -69,14 +72,21 @@ class BtWidgetConfig(buttons: List<BtButton>) {
 
         private fun keys(modifiers: Int, key: String) = BtAction.Keys(modifiers, HidKeys.byName(key)!!.usage)
 
-        val DEFAULT = BtWidgetConfig(listOf(
-            BtButton("Copiar", "📋", keys(HidKeys.MOD_CTRL, "C")),
-            BtButton("Pegar", "📄", keys(HidKeys.MOD_CTRL, "V")),
-            BtButton("Captura", "✂️", keys(HidKeys.MOD_GUI or HidKeys.MOD_SHIFT, "S")),
-            BtButton("Deshacer", "↩️", keys(HidKeys.MOD_CTRL, "Z")),
-            BtButton("Bloquear", "🔒", keys(HidKeys.MOD_GUI, "L")),
-            BtButton("Teclado", "⌨", BtAction.Keyboard),
-        ))
+        /** Los botones de fábrica; las etiquetas se escriben en el idioma del móvil ([language] = `es`; cualquier otro, inglés). */
+        fun defaultFor(language: String): BtWidgetConfig {
+            val es = language == "es"
+            fun t(spanish: String, english: String) = if (es) spanish else english
+            return BtWidgetConfig(listOf(
+                BtButton(t("Copiar", "Copy"), "📋", keys(HidKeys.MOD_CTRL, "C")),
+                BtButton(t("Pegar", "Paste"), "📄", keys(HidKeys.MOD_CTRL, "V")),
+                BtButton(t("Captura", "Snip"), "✂️", keys(HidKeys.MOD_GUI or HidKeys.MOD_SHIFT, "S")),
+                BtButton(t("Deshacer", "Undo"), "↩️", keys(HidKeys.MOD_CTRL, "Z")),
+                BtButton(t("Bloquear", "Lock"), "🔒", keys(HidKeys.MOD_GUI, "L")),
+                BtButton(t("Teclado", "Keyboard"), "⌨", BtAction.Keyboard),
+            ))
+        }
+
+        val DEFAULT = defaultFor("es")
 
         /** El icono es un emoji o 1–3 letras: como mucho 4 puntos de código (un emoji puede llevar un selector de variante). */
         fun validIcon(icon: String): Boolean = icon.isNotBlank() && icon.codePointCount(0, icon.length) <= 4

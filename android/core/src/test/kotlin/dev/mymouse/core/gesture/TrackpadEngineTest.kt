@@ -8,6 +8,7 @@ import dev.mymouse.core.gesture.TouchInput.Down
 import dev.mymouse.core.gesture.TouchInput.Move
 import dev.mymouse.core.gesture.TouchInput.Up
 import dev.mymouse.core.shapes.Recognizer
+import dev.mymouse.core.shapes.RejectReason
 import dev.mymouse.core.shapes.ShapeCatalog
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -81,7 +82,7 @@ class TrackpadEngineTest {
         activate()
         val deadline = engine.nextDeadlineMs!!
         assertEquals(
-            listOf(GestureRejected("Tiempo agotado"), GestureMode(false)),
+            listOf(GestureRejected(RejectReason.TIMEOUT), GestureMode(false)),
             engine.onTick(deadline).filterNot { it is OutputAction.StrokeEnd },
         )
     }
@@ -90,7 +91,7 @@ class TrackpadEngineTest {
     fun secondFingerCancels() {
         activate()
         val out = feed(Down(5, 100f, 400f, 600), Down(6, 200f, 400f, 650))
-        assertEquals(listOf(GestureRejected("Cancelado"), GestureMode(false)), out)
+        assertEquals(listOf(GestureRejected(RejectReason.CANCELLED), GestureMode(false)), out)
         // Hasta que no se levantan todos, no se mueve nada.
         assertEquals(emptyList(), feed(Move(5, 300f, 400f, 700), Up(5, 300f, 400f, 710), Up(6, 200f, 400f, 720)))
     }

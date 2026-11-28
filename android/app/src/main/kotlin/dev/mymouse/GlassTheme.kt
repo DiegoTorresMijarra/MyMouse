@@ -343,7 +343,7 @@ object GlassTheme {
             refresh(activity) // el tema guardado, antes de crear ninguna vista
             WindowCompat.setDecorFitsSystemWindows(activity.window, false)
             val back = IconButton(activity, IconButton.Kind.BACK, circle = true)
-            back.contentDescription = "Volver"
+            back.contentDescription = activity.getString(R.string.back)
             back.setOnClickListener { onBack() }
             val bar = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL

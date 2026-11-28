@@ -3,7 +3,7 @@ using Microsoft.Win32;
 namespace MyMouse.Host;
 
 /// <summary>
-/// "Iniciar con Windows" (docs/spec-v3-bluetooth.md §3): entrada en HKCU\...\Run, sin permisos de administrador.
+/// Iniciar con Windows (docs/spec-v3-bluetooth.md §3): entrada en HKCU\...\Run, sin permisos de administrador.
 /// Si el ejecutable se ha movido, la entrada guardada no coincide y cuenta como desactivado.
 /// </summary>
 internal static class Autostart

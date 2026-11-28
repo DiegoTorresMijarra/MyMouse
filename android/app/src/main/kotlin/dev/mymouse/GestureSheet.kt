@@ -1,5 +1,7 @@
 package dev.mymouse
 
+import android.content.Context
+import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -14,7 +16,7 @@ import dev.mymouse.core.shapes.P
  * Chuleta del modo gestos (docs/spec-v1-gestos.md §6): miniatura de cada forma + texto de ayuda (del PC por cable; de las acciones por Bluetooth del móvil).
  * Primero "Tus formas" (las fijadas en el PC), después el resto.
  */
-class GestureSheet(private val density: Float) {
+class GestureSheet(private val density: Float, private val res: Resources) {
 
     data class Item(val name: String, val label: String, val help: String, val pinned: Boolean, val preview: List<P>?)
 
@@ -70,8 +72,8 @@ class GestureSheet(private val density: Float) {
         val pinned = items.filter { it.pinned }
         val others = items.filterNot { it.pinned }
         val sections = listOfNotNull(
-            if (pinned.isNotEmpty()) "Tus formas" to pinned else null,
-            if (others.isNotEmpty()) (if (pinned.isEmpty()) "Formas" else "Otras") to others else null,
+            if (pinned.isNotEmpty()) res.getString(R.string.sheet_your_shapes) to pinned else null,
+            if (others.isNotEmpty()) (if (pinned.isEmpty()) res.getString(R.string.sheet_shapes) else res.getString(R.string.sheet_others)) to others else null,
         )
         val headerH = 22 * density
         val rows = sections.sumOf { (_, list) -> (list.size + columns - 1) / columns }
@@ -93,7 +95,7 @@ class GestureSheet(private val density: Float) {
         canvas.clipRect(box)
 
         var y = box.top + pad + 14 * density
-        val title = if (context.isNotEmpty()) "Modo gestos · $context" else "Modo gestos: dibuja una forma"
+        val title = if (context.isNotEmpty()) res.getString(R.string.sheet_title_context, context) else res.getString(R.string.sheet_title)
         canvas.drawText(ellipsize(title, w - 2 * pad, textPaint), box.left + pad, y, textPaint)
         y += titleH - 14 * density
         if (note != null) {
@@ -101,7 +103,7 @@ class GestureSheet(private val density: Float) {
             y += noteH
         }
         if (items.isEmpty()) {
-            canvas.drawText(ellipsize("No hay formas activas. Actívalas en Ajustes → Formas.", w - 2 * pad, dimPaint), box.left + pad, y + 16 * density, dimPaint)
+            canvas.drawText(ellipsize(res.getString(R.string.sheet_no_shapes), w - 2 * pad, dimPaint), box.left + pad, y + 16 * density, dimPaint)
         }
         for ((header, list) in sections) {
             canvas.drawText(header.uppercase(), box.left + pad, y + 15 * density, headerPaint)
@@ -121,7 +123,7 @@ class GestureSheet(private val density: Float) {
             y += cellH
         }
         // El teclado (docs/spec-v6-teclado.md §6): cómo abrirlo, a mano en la hoja de gestos.
-        canvas.drawText(ellipsize(KEYBOARD_HINT, w - 2 * pad, dimPaint), box.left + pad, y + 13 * density, dimPaint)
+        canvas.drawText(ellipsize(res.getString(R.string.sheet_keyboard_hint), w - 2 * pad, dimPaint), box.left + pad, y + 13 * density, dimPaint)
         canvas.restore()
     }
 
@@ -139,7 +141,6 @@ class GestureSheet(private val density: Float) {
     }
 
     companion object {
-        private const val KEYBOARD_HINT = "Teclado: doble toque con 4 dedos · 2× vol +: teclado ⇄ mouse"
 
         /** Hueco entre las dos columnas, en dp. */
         private const val COLUMN_GAP_DP = 16f
@@ -176,15 +177,15 @@ class GestureSheet(private val density: Float) {
             startPaint?.let { canvas.drawCircle(ox + points[0].x * scale, oy + points[0].y * scale, 2.5f * density, it) }
         }
 
-        fun items(store: ShapeStore, hostList: List<GestureListEntry>?): List<Item> {
+        fun items(context: Context, store: ShapeStore, hostList: List<GestureListEntry>?): List<Item> {
             val enabled = store.enabled
             return if (hostList != null) {
                 hostList.filter { it.name in enabled }.map {
-                    Item(it.name, ShapeStore.label(it.name), it.help, it.pinned, store.preview(it.name))
+                    Item(it.name, ShapeStore.label(context, it.name), it.help, it.pinned, store.preview(it.name))
                 }
             } else {
                 enabled.sortedBy { dev.mymouse.core.shapes.ShapeCatalog.IDS.indexOf(it).let { i -> if (i < 0) 999 else i } }
-                    .map { Item(it, ShapeStore.label(it), "", false, store.preview(it)) }
+                    .map { Item(it, ShapeStore.label(context, it), "", false, store.preview(it)) }
             }
         }
     }

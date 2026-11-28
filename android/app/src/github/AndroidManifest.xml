@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo la variante `github`: autoactualizador (instalar el APK de la release) y modo quiosco. La variante `play` no lleva nada de esto. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Actualizaciones: abrir el instalador de paquetes con el APK descargado de la release. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- Sirve el APK descargado al instalador de paquetes con un content:// (no exportado: solo con permiso de URI temporal). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Solo actúa si se registra como propietaria del dispositivo (modo bloqueado completo). -->
+        <receiver
+            android:name=".AdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

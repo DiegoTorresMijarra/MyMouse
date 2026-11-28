@@ -22,7 +22,7 @@ public static class ActionChip
         MyMouseAction { Command: MyMouseCommand.Pause } => Plain("Pause"),
         MyMouseAction { Command: MyMouseCommand.Lock } => Plain("Lock"),
         MyMouseAction { Command: MyMouseCommand.Keyboard } => Plain("Keyboard"),
-        _ => Plain("Sin acción"),
+        _ => Plain(CoreLoc.T("no_action")),
     };
 
     /// <summary>Nombre del fichero de una ruta (con <c>\</c> o <c>/</c> en cualquier sistema) o el host de una URL.</summary>

@@ -263,16 +263,16 @@ object Updater {
             val asset = downloadAsset ?: return
             val state = ApkInstaller.query(context, downloadId)
             when {
-                state == null -> fail("La descarga se canceló.")
+                state == null -> fail(context.getString(R.string.upd_fail_cancelled))
                 state.status == DownloadManager.STATUS_SUCCESSFUL -> {
                     val file = ApkInstaller.targetFile(context, asset)
                     val release = downloadRelease
                     clearDownload()
-                    if (file == null || release == null) fail("No se encontró el fichero descargado.") else verifyThenInstall(file, asset)
+                    if (file == null || release == null) fail(context.getString(R.string.upd_fail_missing_file)) else verifyThenInstall(file, asset)
                 }
                 state.status == DownloadManager.STATUS_FAILED -> {
                     ApkInstaller.cancel(context, downloadId)
-                    fail("No se pudo descargar la actualización. Revisa la conexión.")
+                    fail(context.getString(R.string.upd_fail_download))
                 }
                 else -> {
                     download = download?.copy(progress = state.progress)
@@ -315,7 +315,7 @@ object Updater {
             handler.post {
                 if (!ok) {
                     file.delete()
-                    fail("La descarga no es válida. Inténtalo de nuevo.")
+                    fail(appContext?.getString(R.string.upd_fail_invalid) ?: "")
                     return@post
                 }
                 pendingInstall = file
@@ -332,13 +332,10 @@ object Updater {
             if (askedPermission) return
             askedPermission = true
             AlertDialog.Builder(activity)
-                .setTitle("Permitir instalar desde MyMouse")
-                .setMessage(
-                    "Para instalar la actualización, Android necesita que permitas a MyMouse instalar apps. " +
-                        "Se abrirá la pantalla \"Instalar apps desconocidas\": activa el interruptor de MyMouse y vuelve atrás.",
-                )
-                .setPositiveButton("Abrir ajustes") { _, _ -> ApkInstaller.openUnknownSourcesSettings(activity) }
-                .setNegativeButton("Cancelar", null)
+                .setTitle(R.string.upd_permission_title)
+                .setMessage(R.string.upd_permission_message)
+                .setPositiveButton(R.string.upd_open_settings) { _, _ -> ApkInstaller.openUnknownSourcesSettings(activity) }
+                .setNegativeButton(R.string.cancel, null)
                 .show()
             return
         }
@@ -347,7 +344,7 @@ object Updater {
             ApkInstaller.install(activity, file)
         } catch (e: IOException) {
             Log.w(TAG, "No se pudo abrir el instalador: ${e.message}")
-            fail("No se pudo abrir el instalador de Android.")
+            fail(activity.getString(R.string.upd_fail_installer))
         }
     }
 

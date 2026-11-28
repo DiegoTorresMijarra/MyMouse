@@ -16,7 +16,7 @@ class BtActionStore(context: Context) {
     private val gesturesFile = File(context.filesDir, GESTURES_FILE)
     private val widgetsFile = File(context.filesDir, WIDGETS_FILE)
 
-    fun gestures(): BtGestureConfig = read(gesturesFile, BtGestureConfig.DEFAULT) { BtGestureConfig.parse(it).config }
+    fun gestures(): BtGestureConfig = read(gesturesFile, BtGestureConfig.defaultFor(language())) { BtGestureConfig.parse(it).config }
 
     fun saveGestures(config: BtGestureConfig) = write(gesturesFile, config.toJson())
 
@@ -25,7 +25,7 @@ class BtActionStore(context: Context) {
         gesturesFile.delete()
     }
 
-    fun widgets(): BtWidgetConfig = read(widgetsFile, BtWidgetConfig.DEFAULT) { BtWidgetConfig.parse(it).config }
+    fun widgets(): BtWidgetConfig = read(widgetsFile, BtWidgetConfig.defaultFor(language())) { BtWidgetConfig.parse(it).config }
 
     fun saveWidgets(config: BtWidgetConfig) = write(widgetsFile, config.toJson())
 
@@ -53,8 +53,11 @@ class BtActionStore(context: Context) {
         }
     }
 
-    private companion object {
-        const val GESTURES_FILE = "bt-gestures.json"
-        const val WIDGETS_FILE = "bt-widgets.json"
+    companion object {
+        /** El idioma con el que se escriben las etiquetas de fábrica (`es` o inglés). */
+        fun language(): String = java.util.Locale.getDefault().language
+
+        private const val GESTURES_FILE = "bt-gestures.json"
+        private const val WIDGETS_FILE = "bt-widgets.json"
     }
 }

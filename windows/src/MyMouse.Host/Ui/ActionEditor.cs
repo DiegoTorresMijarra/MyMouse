@@ -35,7 +35,7 @@ internal sealed class ChordBox : DockPanel
         _box.Unloaded += (_, _) => StopRecording();
 
         _manual = Theme.FlatButton("✎");
-        _manual.ToolTip = "Escribir a mano";
+        _manual.ToolTip = Loc.T("ae_type_by_hand");
         _manual.Margin = new Thickness(6, 0, 0, 0);
         _manual.Click += (_, _) => ToggleManual();
         SetDock(_manual, Dock.Right);
@@ -62,7 +62,7 @@ internal sealed class ChordBox : DockPanel
     private void ShowHint()
     {
         // Sin texto, el cuadro no tiene sitio para una pista: se usa el tooltip.
-        _box.ToolTip = _typing ? "Escribe el atajo, p. ej. Ctrl+Shift+T" : "Haz clic y pulsa la combinación…";
+        _box.ToolTip = _typing ? Loc.T("ae_type_shortcut_hint") : Loc.T("ae_click_press_combo");
     }
 
     private void ToggleManual()
@@ -142,7 +142,7 @@ internal sealed class ActionEditor : StackPanel
     private readonly ChordBox _chord = new();
     private readonly TextBox _target = Theme.Input();
     private readonly TextBox _args = Theme.Input();
-    private readonly CheckBox _focus = Theme.Check("Si ya está abierta, traerla al frente");
+    private readonly CheckBox _focus = Theme.Check(Loc.T("ae_bring_to_front"));
     private readonly TextBox _text = Theme.Input(multiline: true);
     private string _mediaKey = "PlayPause";
     private MyMouseCommand _command = MyMouseCommand.Pause;
@@ -164,7 +164,7 @@ internal sealed class ActionEditor : StackPanel
             var k = kind;
             var b = Theme.FlatButton(ActionText.KindLabel(kind), padding: new Thickness(10, 5, 10, 5));
             b.Margin = new Thickness(0, 0, 6, 6);
-            b.Focusable = true; // para poder llevar el foco aquí al abrir el editor desde "Asignar"
+            b.Focusable = true; // para poder llevar el foco aquí al abrir el editor desde Asignar
             b.Click += (_, _) => SetKind(k, raise: true);
             _kindButtons[kind] = b;
             _kindRow.Children.Add(b);
@@ -183,9 +183,9 @@ internal sealed class ActionEditor : StackPanel
         BuildChoiceChips(_mediaChips, ActionText.MediaChoices.Select(kv => (kv.Value, (Action)(() => { _mediaKey = kv.Key; Raise(); }), (Func<bool>)(() => _mediaKey == kv.Key))));
         BuildChoiceChips(_commandChips,
         [
-            ("Pausar / reanudar MyMouse", () => { _command = MyMouseCommand.Pause; Raise(); }, () => _command == MyMouseCommand.Pause),
-            ("Bloquear el PC", () => { _command = MyMouseCommand.Lock; Raise(); }, () => _command == MyMouseCommand.Lock),
-            ("Abrir teclado del móvil", () => { _command = MyMouseCommand.Keyboard; Raise(); }, () => _command == MyMouseCommand.Keyboard),
+            (Loc.T("ae_pause_resume"), () => { _command = MyMouseCommand.Pause; Raise(); }, () => _command == MyMouseCommand.Pause),
+            (Loc.T("ae_lock_pc"), () => { _command = MyMouseCommand.Lock; Raise(); }, () => _command == MyMouseCommand.Lock),
+            (Loc.T("ae_open_phone_keyboard"), () => { _command = MyMouseCommand.Keyboard; Raise(); }, () => _command == MyMouseCommand.Keyboard),
         ]);
         SetKind(ActionKind.None, raise: false);
     }
@@ -200,7 +200,7 @@ internal sealed class ActionEditor : StackPanel
         if (!_suspend) Changed?.Invoke();
     }
 
-    /// <summary>Pone el foco en el selector de tipo (al abrir el editor desde "Asignar").</summary>
+    /// <summary>Pone el foco en el selector de tipo (al abrir el editor desde Asignar).</summary>
     public void FocusFirst()
     {
         BringIntoView();
@@ -257,10 +257,10 @@ internal sealed class ActionEditor : StackPanel
         ActionKind.Keys => new KeysAction(KeyChord.Parse(_chord.Text)),
         ActionKind.Launch => !string.IsNullOrWhiteSpace(_target.Text)
             ? new LaunchAction(_target.Text.Trim(), string.IsNullOrWhiteSpace(_args.Text) ? null : _args.Text.Trim(), _focus.IsChecked == true)
-            : throw new FormatException("Falta el programa, el archivo o la web que se abre."),
+            : throw new FormatException(Loc.T("ae_err_launch")),
         ActionKind.Text => !string.IsNullOrEmpty(_text.Text)
             ? new TextAction(_text.Text)
-            : throw new FormatException("Falta el texto que se escribe."),
+            : throw new FormatException(Loc.T("ae_err_text")),
         ActionKind.Media => new MediaAction(_mediaKey, KeyChord.Parse(_mediaKey)[0]),
         ActionKind.MyMouse => new MyMouseAction(_command),
         _ => null,
@@ -282,19 +282,19 @@ internal sealed class ActionEditor : StackPanel
         switch (kind)
         {
             case ActionKind.None:
-                panel.Children.Add(Theme.Label("La forma no hace nada.", 12, Theme.Dim));
+                panel.Children.Add(Theme.Label(Loc.T("ae_shape_does_nothing"), 12, Theme.Dim));
                 break;
             case ActionKind.Keys:
-                panel.Children.Add(Theme.Label("Pulsa la combinación…", 12, Theme.Dim));
+                panel.Children.Add(Theme.Label(Loc.T("ae_press_combo"), 12, Theme.Dim));
                 _chord.Margin = new Thickness(0, 4, 0, 0);
                 panel.Children.Add(_chord);
-                panel.Children.Add(Pad(Theme.Label("Haz clic en el campo y pulsa las teclas (también Win). Varias combinaciones seguidas: Ctrl+K, Ctrl+C.", 11, Theme.Dim)));
+                panel.Children.Add(Pad(Theme.Label(Loc.T("ae_keys_help"), 11, Theme.Dim)));
                 break;
             case ActionKind.Launch:
                 BuildLaunchForm(panel);
                 break;
             case ActionKind.Text:
-                panel.Children.Add(Theme.Label("Texto que se escribe (Intro = salto de línea)", 12, Theme.Dim));
+                panel.Children.Add(Theme.Label(Loc.T("ae_text_hint"), 12, Theme.Dim));
                 _text.Margin = new Thickness(0, 4, 0, 0);
                 panel.Children.Add(_text);
                 break;
@@ -310,13 +310,13 @@ internal sealed class ActionEditor : StackPanel
 
     private void BuildLaunchForm(StackPanel panel)
     {
-        panel.Children.Add(Theme.Label("Programa, archivo o dirección web", 12, Theme.Dim));
+        panel.Children.Add(Theme.Label(Loc.T("ae_launch_hint"), 12, Theme.Dim));
         var targetRow = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
-        var pick = Theme.FlatButton("Elegir programa…");
+        var pick = Theme.FlatButton(Loc.T("ae_choose_program"));
         pick.Margin = new Thickness(6, 0, 0, 0);
         pick.Click += (_, _) =>
         {
-            var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Programas (*.exe)|*.exe|Todos los archivos|*.*", Title = "Elegir programa" };
+            var dialog = new Microsoft.Win32.OpenFileDialog { Filter = Loc.T("ae_file_filter"), Title = Loc.T("ae_choose_program_title") };
             if (dialog.ShowDialog(_owner) == true) _target.Text = dialog.FileName;
         };
         DockPanel.SetDock(pick, Dock.Right);
@@ -324,7 +324,7 @@ internal sealed class ActionEditor : StackPanel
         targetRow.Children.Add(_target);
         panel.Children.Add(targetRow);
 
-        panel.Children.Add(Pad(Theme.Label("Apps instaladas", 12, Theme.Dim), 12));
+        panel.Children.Add(Pad(Theme.Label(Loc.T("ae_installed_apps"), 12, Theme.Dim), 12));
         _search.Margin = new Thickness(0, 4, 0, 4);
         _search.TextChanged += (_, _) => FillApps();
         panel.Children.Add(_search);
@@ -337,7 +337,7 @@ internal sealed class ActionEditor : StackPanel
             Child = new ScrollViewer { MaxHeight = 160, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _appRows, Focusable = false },
         });
 
-        panel.Children.Add(Pad(Theme.Label("Argumentos (opcional)", 12, Theme.Dim), 12));
+        panel.Children.Add(Pad(Theme.Label(Loc.T("ae_arguments"), 12, Theme.Dim), 12));
         _args.Margin = new Thickness(0, 4, 0, 0);
         panel.Children.Add(_args);
         _focus.Margin = new Thickness(0, 10, 0, 0);
@@ -348,7 +348,7 @@ internal sealed class ActionEditor : StackPanel
     {
         if (_apps is not null || _loadingApps) return;
         _loadingApps = true;
-        _appRows.Children.Add(Theme.Label("Buscando apps…", 12, Theme.Dim));
+        _appRows.Children.Add(Theme.Label(Loc.T("ae_searching_apps"), 12, Theme.Dim));
         _ = Task.Run(() =>
         {
             try
@@ -379,7 +379,7 @@ internal sealed class ActionEditor : StackPanel
             row.Background = Theme.Bg;
             _appRows.Children.Add(row);
         }
-        if (shown.Count == 0) _appRows.Children.Add(Pad(Theme.Label(_apps.Count == 0 ? "No se han encontrado apps." : "Nada coincide.", 12, Theme.Dim), 8));
+        if (shown.Count == 0) _appRows.Children.Add(Pad(Theme.Label(_apps.Count == 0 ? Loc.T("ae_no_apps") : Loc.T("ae_no_match"), 12, Theme.Dim), 8));
     }
 
     private void BuildChoiceChips(StackPanel host, IEnumerable<(string Text, Action Click, Func<bool> Selected)> choices)

@@ -56,12 +56,12 @@ internal sealed class HostApp : IDisposable
         StartMenu = StartMenuScanner.ForCurrentUser();
 
         // El icono de la bandeja: clic izquierdo abre o cierra la toolbox; el derecho, un menú mínimo.
-        _pauseItem = new WinForms.ToolStripMenuItem("Pausar", null, (_, _) => TogglePause());
+        _pauseItem = new WinForms.ToolStripMenuItem(Loc.T("pause"), null, (_, _) => TogglePause());
         var menu = new WinForms.ContextMenuStrip();
-        menu.Items.Add("Abrir MyMouse", null, (_, _) => Toolbox.Open(fromPhone: false));
+        menu.Items.Add(Loc.T("open_mymouse"), null, (_, _) => Toolbox.Open(fromPhone: false));
         menu.Items.Add(_pauseItem);
         menu.Items.Add(new WinForms.ToolStripSeparator());
-        menu.Items.Add("Salir", null, (_, _) => Quit());
+        menu.Items.Add(Loc.T("exit"), null, (_, _) => Quit());
         _icon = new WinForms.NotifyIcon { Icon = TrayIcons.NoDevice, ContextMenuStrip = menu, Visible = true };
         _icon.MouseClick += (_, e) =>
         {
@@ -87,7 +87,7 @@ internal sealed class HostApp : IDisposable
         Gestures.Failed += (name, ex) =>
         {
             FileLog.Write($"Error al ejecutar la forma '{name}': {ex.Message}");
-            if (!Layout.ShowLiveGesture) Post(() => Notify($"No se pudo ejecutar '{name}': {ex.Message}"));
+            if (!Layout.ShowLiveGesture) Post(() => Notify(Loc.F("ha_could_not_run", name, ex.Message)));
         };
 
         Volume = new WasapiVolumeController(FileLog.Write);
@@ -96,7 +96,7 @@ internal sealed class HostApp : IDisposable
         _widgets.Failed += (what, ex) =>
         {
             FileLog.Write($"Error en el widget '{what}': {ex.Message}");
-            Post(() => Notify($"No se pudo ejecutar '{what}': {ex.Message}"));
+            Post(() => Notify(Loc.F("ha_could_not_run", what, ex.Message)));
         };
         Volume.Changed += () => Post(() => StateChanged?.Invoke());
         Media.Changed += () => Post(() => StateChanged?.Invoke());
@@ -148,8 +148,8 @@ internal sealed class HostApp : IDisposable
         {
             if (!Layout.ShowLiveGesture) return;
             _ = LiveWindow;
-            if (on) Live.ShowNotice("⌨ Teclado", "Escribe con el teclado del móvil");
-            else Live.ShowNotice("🖱 Mouse");
+            if (on) Live.ShowNotice(Loc.T("keyboard_mode_title"), Loc.T("keyboard_mode_note"));
+            else Live.ShowNotice(Loc.T("mouse_mode_title"));
         });
 
         // gestures.json: se recarga solo al guardarlo (también cuando lo guarda el editor).
@@ -211,7 +211,7 @@ internal sealed class HostApp : IDisposable
 
     public string StatusText { get; private set; } = "";
 
-    /// <summary>Línea secundaria bajo el estado (null si no hace falta): en "Sin dispositivo", recuerda el modo Bluetooth.</summary>
+    /// <summary>Línea secundaria bajo el estado (null si no hace falta): en Sin dispositivo, recuerda el modo Bluetooth.</summary>
     public string? StatusHint { get; private set; }
 
     public Brush StatusBrush { get; private set; } = Theme.Gray;
@@ -308,8 +308,8 @@ internal sealed class HostApp : IDisposable
         }
     }
 
-    private const string ManualIconHelp =
-        "Windows no deja que una app saque su icono de la zona oculta. Arrastra el icono de MyMouse desde la flecha ˄ (junto al reloj) a la barra de tareas y se quedará ahí.";
+    private static string ManualIconHelp =>
+        Loc.T("ha_manual_icon_help");
 
     public bool EditorOpen => _editor is { IsVisible: true };
 
@@ -331,11 +331,11 @@ internal sealed class HostApp : IDisposable
 
     // ---- Del móvil ----
 
-    /// <summary>Acción "Abrir teclado del móvil" (widget o gesto): pide al móvil que abra su teclado (<c>KEYBOARD_OPEN</c>).</summary>
+    /// <summary>Acción Abrir teclado del móvil (widget o gesto): pide al móvil que abra su teclado (<c>KEYBOARD_OPEN</c>).</summary>
     private void OpenPhoneKeyboard()
     {
         if (!Phone.Connected)
-            throw new InvalidOperationException("El móvil no está conectado por USB.");
+            throw new InvalidOperationException(Loc.T("err_phone_not_connected"));
         _ = Phone.SendAsync(KeyboardOpenMessage.Instance);
     }
 
@@ -364,7 +364,7 @@ internal sealed class HostApp : IDisposable
     {
         if (Config.HasAction(name)) return;
         FileLog.Write($"Forma nueva del móvil: {name}");
-        Notify($"Nueva forma «{ShapeCatalog.Label(name)}»: ¿qué quieres que haga?", () => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
+        Notify(Loc.F("ha_new_shape", ShapeCatalog.Label(name)), () => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
     }
 
     // ---- Acciones de las ventanas ----
@@ -372,7 +372,7 @@ internal sealed class HostApp : IDisposable
     public void TogglePause()
     {
         _paused = !_paused;
-        _pauseItem.Text = _paused ? "Reanudar" : "Pausar";
+        _pauseItem.Text = _paused ? Loc.T("resume") : Loc.T("pause");
         UpdateStatus();
     }
 
@@ -425,7 +425,7 @@ internal sealed class HostApp : IDisposable
 
     public void CustomizeCards() => new CustomizeCardsWindow(this).Show();
 
-    /// <summary>Ajustes → "Tema…" (docs/spec-v4.8-temas.md §3).</summary>
+    /// <summary>Ajustes → Tema… (docs/spec-v4.8-temas.md §3).</summary>
     public void ChooseTheme()
     {
         if (_themeWindow is { IsVisible: true } open)
@@ -444,7 +444,7 @@ internal sealed class HostApp : IDisposable
 
     private ThemeWindow? _themeWindow;
 
-    /// <summary>El panel "Tema…" está abierto: la toolbox no se cierra al perder el foco, para verse cambiar con el tema.</summary>
+    /// <summary>El panel Tema… está abierto: la toolbox no se cierra al perder el foco, para verse cambiar con el tema.</summary>
     public bool ThemePanelOpen => _themeWindow is { IsVisible: true };
 
     public void OpenLogs()
@@ -456,10 +456,7 @@ internal sealed class HostApp : IDisposable
     public void ShowHelp()
     {
         Dialogs.Message(null, "MyMouse",
-            "Abre y cierra esta toolbox con un clic en el icono de la bandeja, o desde el móvil con 4 dedos hacia arriba y hacia abajo.\n\n" +
-            "Modo gestos: mantén 4 dedos quietos en el trackpad y dibuja una forma; aquí verás el trazo y lo que hace.\n\n" +
-            "«Gestos y widgets» abre el editor: asigna acciones a las formas, crea formas nuevas con el ratón y configura el panel del móvil.\n\n" +
-            "Si no ves el icono junto al reloj, arrástralo desde la flecha ˄ a la barra de tareas (en Windows 11, la opción «Mostrar siempre el icono en la barra de tareas» de Ajustes lo hace sola).");
+            Loc.T("ha_help"));
     }
 
     public void Quit()
@@ -489,11 +486,11 @@ internal sealed class HostApp : IDisposable
         // Texto corto en la píldora; la explicación larga va debajo, como texto secundario (docs/spec-v4.7-universo.md §3.2).
         var (status, icon, brush) = (_paused, _connected, _adb.Status) switch
         {
-            (true, _, _) => ("En pausa", TrayIcons.Paused, Theme.Gray),
-            (_, true, _) => ((_adb.DeviceName is { } name ? $"Conectado · {name}" : "Conectado") + (Phone.KeyboardMode ? " · Modo teclado" : ""), TrayIcons.Connected, Theme.Green),
-            (_, _, AdbStatus.AdbNotFound) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
-            (_, _, AdbStatus.NoDevice) => ("Sin dispositivo", TrayIcons.NoDevice, Theme.Red),
-            _ => ("Esperando al móvil", TrayIcons.Waiting, Theme.Amber),
+            (true, _, _) => (Loc.T("status_paused"), TrayIcons.Paused, Theme.Gray),
+            (_, true, _) => ((_adb.DeviceName is { } name ? Loc.F("status_connected_name", name) : Loc.T("status_connected")) + (Phone.KeyboardMode ? Loc.T("status_keyboard_suffix") : ""), TrayIcons.Connected, Theme.Green),
+            (_, _, AdbStatus.AdbNotFound) => (Loc.T("status_no_device"), TrayIcons.NoDevice, Theme.Red),
+            (_, _, AdbStatus.NoDevice) => (Loc.T("status_no_device"), TrayIcons.NoDevice, Theme.Red),
+            _ => (Loc.T("status_waiting"), TrayIcons.Waiting, Theme.Amber),
         };
         StatusText = status;
         StatusBrush = brush;
@@ -512,12 +509,12 @@ internal sealed class HostApp : IDisposable
         StateChanged?.Invoke();
     }
 
-    /// <summary>Es normal que el host diga "Sin dispositivo" en el modo Bluetooth (docs/spec-v4.5-estilo.md §4).</summary>
-    public const string SinDispositivoHint = "Conecta el cable y activa la depuración USB. ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
+    /// <summary>Es normal que el host diga Sin dispositivo en el modo Bluetooth (docs/spec-v4.5-estilo.md §4).</summary>
+    public static string SinDispositivoHint => Loc.T("hint_no_device");
 
-    public const string SinAdbHint = "No se encuentra adb: reinstala MyMouse con el instalador (lo incluye), añádelo al PATH o indica su ruta en config.json (AdbPath). ¿Usas el modo Bluetooth? Entonces el PC no necesita MyMouse.";
+    public static string SinAdbHint => Loc.T("hint_no_adb");
 
-    public const string EsperandoHint = "Abre la app MyMouse en el móvil.";
+    public static string EsperandoHint => Loc.T("hint_waiting");
 
     private readonly Dictionary<string, DateTime> _lastUnassignedNotice = [];
 
@@ -526,7 +523,7 @@ internal sealed class HostApp : IDisposable
         // Un aviso por forma cada 30 s como mucho.
         if (_lastUnassignedNotice.TryGetValue(name, out var last) && DateTime.UtcNow - last < TimeSpan.FromSeconds(30)) return;
         _lastUnassignedNotice[name] = DateTime.UtcNow;
-        Notify($"Forma '{name}' sin asignar. Asígnala en la toolbox → Gestos.", () => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
+        Notify(Loc.F("ha_unassigned", name), () => OpenEditor(EditorTab.Gestures, gesture: name, focusAction: true));
     }
 
     /// <summary>

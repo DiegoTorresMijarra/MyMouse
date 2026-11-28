@@ -331,8 +331,9 @@ class KeyboardView(context: Context) : View(context) {
     private class Chip(val label: String, val block: KeyboardBlock?)
 
     private fun chips(): List<Chip> = listOf(
-        Chip("Fn", KeyboardBlock.FN), Chip("Flechas", KeyboardBlock.ARROWS), Chip("Nav", KeyboardBlock.NAV),
-        Chip("Num", KeyboardBlock.NUMPAD), Chip("Solo num", KeyboardBlock.NUMPAD_ONLY), Chip(currentLayoutId().uppercase(), null),
+        Chip(UiText.keyboardBlock(context, "fn"), KeyboardBlock.FN), Chip(UiText.keyboardBlock(context, "arrows"), KeyboardBlock.ARROWS),
+        Chip(UiText.keyboardBlock(context, "nav"), KeyboardBlock.NAV), Chip(UiText.keyboardBlock(context, "num"), KeyboardBlock.NUMPAD),
+        Chip(UiText.keyboardBlock(context, "numonly"), KeyboardBlock.NUMPAD_ONLY), Chip(currentLayoutId().uppercase(), null),
     )
 
     private fun chipsTop(): Float = (current?.top ?: height.toFloat()) - CHIPS_HEIGHT_DP * density * chipsProgress
@@ -603,19 +604,19 @@ class KeyboardView(context: Context) : View(context) {
         canvas.drawCircle(x + 4 * d, y - 4 * d, 4 * d, fillPaint)
         x += 14 * d
         statusPaint.color = GlassTheme.TEXT_SECONDARY
-        val link = if (connected) linkInfo() ?: "Conectado" else "Sin conexión"
+        val link = if (connected) linkInfo() ?: context.getString(R.string.kb_connected) else context.getString(R.string.kb_not_connected)
         canvas.drawText(link, x, y, statusPaint)
         x += statusPaint.measureText(link) + 14 * d
 
         statusPaint.color = GlassTheme.TEXT
-        val parts = listOf(currentLayoutId().uppercase()) + history.current.normalized(landscape).labels()
+        val parts = listOf(currentLayoutId().uppercase()) + history.current.normalized(landscape).blocks().map { UiText.keyboardBlock(context, it) }
         val blocks = parts.joinToString(" · ")
         canvas.drawText(blocks, x, y, statusPaint)
         x += statusPaint.measureText(blocks) + 14 * d
 
         // Luces: verde si las manda el PC; gris (supuestas) si el móvil las conmuta él mismo.
         val leds = controller.leds
-        for ((name, on) in listOf("Mayús" to leds.caps, "Num" to leds.num)) {
+        for ((name, on) in listOf(context.getString(R.string.kb_led_caps) to leds.caps, context.getString(R.string.kb_led_num) to leds.num)) {
             val cx = x + 4 * d
             fillPaint.color = if (!on) GlassTheme.TEXT_TERTIARY else if (leds.known) GlassTheme.GREEN else GlassTheme.TEXT_SECONDARY
             if (on) {
@@ -641,7 +642,7 @@ class KeyboardView(context: Context) : View(context) {
         canvas.drawRoundRect(r, rad, rad, strokePaint)
         statusPaint.color = GlassTheme.TEXT_TERTIARY
         statusPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText("Trackpad", r.centerX(), r.centerY() + statusPaint.textSize / 3, statusPaint)
+        canvas.drawText(context.getString(R.string.kb_trackpad_bar), r.centerX(), r.centerY() + statusPaint.textSize / 3, statusPaint)
         statusPaint.textAlign = Paint.Align.LEFT
     }
 

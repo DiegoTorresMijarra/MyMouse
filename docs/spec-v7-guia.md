@@ -39,6 +39,8 @@ Cada fase es una release que se cierra antes de empezar la siguiente.
 - El código específico de cada variante va en `src/github/` y `src/play/`. La interfaz común (por ejemplo, `UpdateChecker`) va en `main`, con una implementación vacía en `play`.
 - La CI construye las dos. La release de GitHub publica solo el APK `github`. El AAB `play` se sube a mano a Play Console *(decisión: no automatizamos la subida todavía)*.
 - Antes de cerrar la fase, hay que revisar el `targetSdk` mínimo que pide Play en ese momento *(comprobar)*.
+  - Comprobado el 28-11-2026 en <https://developer.android.com/google/play/requirements/target-sdk>: desde el 31 de agosto de 2026, las apps nuevas y las actualizaciones tienen que apuntar a **Android 16 (API 36)** o superior (con prórroga a petición hasta el 1 de noviembre de 2026, ya pasada). Las apps existentes deben apuntar a API 35 o más para seguir visibles a usuarios nuevos en Android más recientes.
+  - La app sigue en `targetSdk 35` en la v7.0 (el variante `github` se comporta como la v6.1). **Hay que subir a 36 antes de la primera subida a Play (v7.2)**, y probarlo en un móvil real. *(comprobar)*
 
 ### 1.3. Criterios de "hecho"
 1. Con el móvil en inglés, toda la app está en inglés; en español, toda en español. Igual en el PC con Windows.

@@ -154,20 +154,23 @@ class UpdatePolicyTest {
     fun phoneSeesNewerPc() {
         val n = UpdatePolicy.crossDevice(VersionSide.PHONE, "5.0", "5.2")
         assertEquals(CrossDeviceKind.OTHER_NEWER, n.kind)
-        assertEquals("El PC tiene MyMouse 5.2 y este móvil la 5.0: actualízalo.", n.message)
+        assertEquals("5.2", n.otherVersion!!.display)
+        assertEquals("5.0", n.mineVersion!!.display)
     }
 
     @Test
     fun phoneSeesOlderPc() {
         val n = UpdatePolicy.crossDevice(VersionSide.PHONE, "5.2", "5.0")
         assertEquals(CrossDeviceKind.OTHER_OLDER, n.kind)
-        assertEquals("El PC tiene una versión anterior (5.0): actualízalo desde el PC.", n.message)
+        assertEquals("5.0", n.otherVersion!!.display)
     }
 
     @Test
-    fun pcSideMessages() {
-        assertEquals("El móvil tiene MyMouse 5.2 y este PC la 5.0: actualízalo.", UpdatePolicy.crossDevice(VersionSide.PC, "5.0", "5.2").message)
-        assertEquals("El móvil tiene una versión anterior (5.0): actualízalo desde el móvil.", UpdatePolicy.crossDevice(VersionSide.PC, "5.2", "5.0").message)
+    fun pcSideNotices() {
+        val newer = UpdatePolicy.crossDevice(VersionSide.PC, "5.0", "5.2")
+        assertEquals(CrossDeviceKind.OTHER_NEWER, newer.kind)
+        assertEquals("5.2", newer.otherVersion!!.display)
+        assertEquals(CrossDeviceKind.OTHER_OLDER, UpdatePolicy.crossDevice(VersionSide.PC, "5.2", "5.0").kind)
     }
 
     @Test
@@ -190,7 +193,7 @@ class UpdatePolicyTest {
         val banners = UpdatePolicy.banners(v("5.0"), "5.0", fixture(), null, null)
         val b = banners.single()
         assertEquals(BannerKind.NEW_VERSION, b.kind)
-        assertEquals("Nueva versión 5.0.1 disponible", b.text)
+        assertEquals("5.0.1", b.version.display)
         assertTrue(b.canInstall && b.canSkip)
         assertEquals("v5.0.1", b.release!!.tag)
     }
@@ -220,11 +223,12 @@ class UpdatePolicyTest {
         assertEquals(BannerKind.PC_NEWER, newer.kind)
         assertEquals("v5.0.1", newer.release!!.tag)
         assertTrue(newer.canInstall)
-        assertEquals("El PC tiene MyMouse 5.0.1 y este móvil la 5.0: actualízalo.", newer.text)
+        assertEquals("5.0.1", newer.version.display)
+        assertEquals("5.0", newer.mineVersion!!.display)
 
         val unknown = UpdatePolicy.banners(v("5.0"), "5.0", fixture(), skipped, "7.0").single() // no está en GitHub: solo texto
         assertFalse(unknown.canInstall)
-        assertNotNull(unknown.text)
+        assertEquals("7.0", unknown.version.display)
     }
 
     @Test

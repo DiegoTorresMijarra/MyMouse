@@ -97,13 +97,14 @@ class BtGestureConfigTest {
 
     @Test
     fun helpFallsBackToTheActionDescription() {
-        assertEquals("Ctrl+Z", BtBinding("z", BtActions.parseKeys("Ctrl+Z")).helpText)
-        assertEquals("Atrás", BtBinding("z", BtActions.parseKeys("Ctrl+Z"), "Atrás").helpText)
+        val describe = { action: BtAction -> "<" + BtActions.logText(action) + ">" }
+        assertEquals("<Ctrl+Z>", BtBinding("z", BtActions.parseKeys("Ctrl+Z")).helpText(describe))
+        assertEquals("Atrás", BtBinding("z", BtActions.parseKeys("Ctrl+Z"), "Atrás").helpText(describe))
     }
 
     @Test
     fun listEntriesOnlyIncludeEnabledShapesWithAnAction() {
-        val entries = BtGestureConfig.DEFAULT.listEntries(setOf("z", "v", "circle"))
+        val entries = BtGestureConfig.DEFAULT.listEntries(setOf("z", "v", "circle")) { BtActions.logText(it) }
         assertEquals(listOf("z", "v"), entries.map { it.name })
         assertEquals("Deshacer", entries[0].help)
         assertTrue(entries[0].pinned)
@@ -216,5 +217,16 @@ class BtWidgetConfigTest {
         assertFalse(BtWidgetConfig.validLabel("x".repeat(21)))
         assertTrue(BtWidgetConfig.validLabel("x".repeat(20)))
         assertEquals(HidKeys.MOD_CTRL, (BtWidgetConfig.DEFAULT.buttons[0].action as BtAction.Keys).modifiers)
+    }
+
+    @Test
+    fun factoryDefaultsComeInBothLanguages() {
+        val en = BtWidgetConfig.defaultFor("en")
+        assertEquals(listOf("Copy", "Paste", "Snip", "Undo", "Lock", "Keyboard"), en.buttons.map { it.label })
+        assertEquals(BtWidgetConfig.DEFAULT.buttons.map { it.action }, en.buttons.map { it.action })
+        assertEquals(BtWidgetConfig.DEFAULT, BtWidgetConfig.defaultFor("es"))
+        val gestures = BtGestureConfig.defaultFor("fr")
+        assertEquals("Undo", gestures.find("z")!!.help)
+        assertEquals(BtGestureConfig.DEFAULT.bindings.map { it.gesture to it.action }, gestures.bindings.map { it.gesture to it.action })
     }
 }

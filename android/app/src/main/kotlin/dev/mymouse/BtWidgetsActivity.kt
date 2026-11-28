@@ -78,8 +78,8 @@ class BtWidgetsActivity : Activity() {
     private fun show() {
         val index = editing
         val title = when {
-            index == null -> "Botones por Bluetooth"
-            index == NEW -> "Botón nuevo"
+            index == null -> getString(R.string.btw_title)
+            index == NEW -> getString(R.string.btw_new)
             else -> config.buttons[index].label
         }
         screen = GlassTheme.Screen(this, title, onBack = { onBackPressed() })
@@ -94,22 +94,20 @@ class BtWidgetsActivity : Activity() {
         var card = screen.card(null)
         card.addView(GlassTheme.note(
             this,
-            "Botones propios del panel de widgets cuando el móvil está conectado por Bluetooth. El panel lleva siempre multimedia " +
-                "(⏮ ⏯ ⏭) y volumen (Vol −, Vol +, Silencio); estos botones van detrás, en la rejilla de siempre. " +
-                "Cada uno pulsa un atajo, una tecla multimedia o escribe un texto en el PC (máximo ${BtWidgetConfig.MAX_BUTTONS}).",
+            getString(R.string.btw_intro, BtWidgetConfig.MAX_BUTTONS),
         ))
 
-        card = screen.card("Botones (${config.buttons.size} de ${BtWidgetConfig.MAX_BUTTONS})")
-        if (config.buttons.isEmpty()) card.addView(GlassTheme.note(this, "No hay botones propios."))
+        card = screen.card(getString(R.string.btw_buttons_card, config.buttons.size, BtWidgetConfig.MAX_BUTTONS))
+        if (config.buttons.isEmpty()) card.addView(GlassTheme.note(this, getString(R.string.btw_none)))
         config.buttons.forEachIndexed { i, b -> card.addView(row(i, b)) }
-        card.addView(GlassTheme.button(this, "Añadir un botón", accent = true) {
+        card.addView(GlassTheme.button(this, getString(R.string.btw_add), accent = true) {
             editing = NEW
             show()
         }.apply { isEnabled = !config.isFull })
-        if (config.isFull) card.addView(GlassTheme.note(this, "Ya hay ${BtWidgetConfig.MAX_BUTTONS} botones: borra alguno para añadir otro."))
+        if (config.isFull) card.addView(GlassTheme.note(this, getString(R.string.btw_full, BtWidgetConfig.MAX_BUTTONS)))
 
         card = screen.card(null)
-        card.addView(GlassTheme.button(this, "Restaurar los valores por defecto") { confirmReset() })
+        card.addView(GlassTheme.button(this, getString(R.string.bt_restore_defaults)) { confirmReset() })
     }
 
     private fun row(index: Int, b: BtButton): LinearLayout = LinearLayout(this).apply {
@@ -134,7 +132,7 @@ class BtWidgetsActivity : Activity() {
             }
             addView(GlassTheme.text(this@BtWidgetsActivity, b.label, 14f, bold = true))
             addView(TextView(this@BtWidgetsActivity).apply {
-                text = BtActions.describe(b.action)
+                text = UiText.action(this@BtWidgetsActivity, b.action)
                 textSize = 11f
                 typeface = android.graphics.Typeface.MONOSPACE
                 setTextColor(GlassTheme.TEXT_SECONDARY)
@@ -144,9 +142,9 @@ class BtWidgetsActivity : Activity() {
                 topMargin = (2 * density).toInt()
             })
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        addView(smallButton("↑", enabled = index > 0, description = "Subir") { change(config.move(index, -1)) })
-        addView(smallButton("↓", enabled = index < config.buttons.size - 1, description = "Bajar") { change(config.move(index, 1)) })
-        addView(smallButton("✕", enabled = true, description = "Borrar") { confirmDelete(index, b) })
+        addView(smallButton("↑", enabled = index > 0, description = getString(R.string.btw_up)) { change(config.move(index, -1)) })
+        addView(smallButton("↓", enabled = index < config.buttons.size - 1, description = getString(R.string.btw_down)) { change(config.move(index, 1)) })
+        addView(smallButton("✕", enabled = true, description = getString(R.string.btw_delete)) { confirmDelete(index, b) })
     }
 
     private fun smallButton(label: String, enabled: Boolean, description: String, onClick: () -> Unit) =
@@ -167,22 +165,22 @@ class BtWidgetsActivity : Activity() {
 
     private fun confirmDelete(index: Int, b: BtButton) {
         AlertDialog.Builder(this)
-            .setTitle("Borrar \"${b.label}\"")
-            .setPositiveButton("Borrar") { _, _ -> change(config.remove(index)) }
-            .setNegativeButton("Cancelar", null)
+            .setTitle(getString(R.string.btw_delete_title, b.label))
+            .setPositiveButton(R.string.btw_delete) { _, _ -> change(config.remove(index)) }
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun confirmReset() {
         AlertDialog.Builder(this)
-            .setTitle("Restaurar los valores por defecto")
-            .setMessage("Vuelven los cinco botones de fábrica: Copiar, Pegar, Captura, Deshacer y Bloquear. Se pierden los tuyos.")
-            .setPositiveButton("Restaurar") { _, _ ->
+            .setTitle(R.string.bt_restore_defaults)
+            .setMessage(R.string.btw_restore_message)
+            .setPositiveButton(R.string.bt_restore) { _, _ ->
                 store.resetWidgets()
                 config = store.widgets()
                 show()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
@@ -192,13 +190,13 @@ class BtWidgetsActivity : Activity() {
         val existing = config.buttons.getOrNull(index)
         val layout = settings.keyboardLayout
 
-        var card = screen.card("Botón")
-        val label = BtActionForm.field(this, "Etiqueta (p. ej. Copiar)").apply {
+        var card = screen.card(getString(R.string.btw_button_card))
+        val label = BtActionForm.field(this, getString(R.string.btw_label_hint)).apply {
             setSingleLine()
             setText(existing?.label.orEmpty())
             filters = arrayOf(android.text.InputFilter.LengthFilter(BtWidgetConfig.MAX_LABEL))
         }
-        val icon = BtActionForm.field(this, "Icono: un emoji o 1–3 letras").apply {
+        val icon = BtActionForm.field(this, getString(R.string.btw_icon_hint)).apply {
             setSingleLine()
             setText(existing?.icon.orEmpty())
             filters = arrayOf(android.text.InputFilter.LengthFilter(8))
@@ -208,46 +206,45 @@ class BtWidgetsActivity : Activity() {
             topMargin = (8 * density).toInt()
         })
 
-        card = screen.card("Acción")
+        card = screen.card(getString(R.string.bt_action_card))
         val form = BtActionForm(this, existing?.action, layout, allowNone = false)
         card.addView(form.view)
-        val test = GlassTheme.button(this, "Probar") {
+        val test = GlassTheme.button(this, getString(R.string.bt_try)) {
             val problem = form.problem()
             val action = form.action()
             when {
                 problem != null -> toast(problem)
-                action == null -> toast("No hay acción que probar")
+                action == null -> toast(getString(R.string.bt_no_action_to_try))
                 else -> testAction(action)
             }
         }
         card.addView(test)
         card.addView(GlassTheme.note(
             this,
-            if (canTest()) "Probar ejecuta la acción en el PC al momento (el móvil debe estar conectado por Bluetooth)."
-            else "Probar solo está disponible con la conexión por Bluetooth elegida en Ajustes.",
+            getString(if (canTest()) R.string.bt_try_note_ok else R.string.bt_try_note_unavailable),
         ))
         test.isEnabled = canTest()
 
         card = screen.card(null)
         card.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(GlassTheme.button(this@BtWidgetsActivity, "Guardar", accent = true) {
+            addView(GlassTheme.button(this@BtWidgetsActivity, getString(R.string.save), accent = true) {
                 val name = label.text.toString().trim()
                 val symbol = icon.text.toString().trim()
                 val problem = when {
-                    !BtWidgetConfig.validLabel(name) -> "Escribe una etiqueta (hasta ${BtWidgetConfig.MAX_LABEL} caracteres)"
-                    !BtWidgetConfig.validIcon(symbol) -> "El icono es un emoji o de 1 a 3 letras"
+                    !BtWidgetConfig.validLabel(name) -> getString(R.string.btw_err_label, BtWidgetConfig.MAX_LABEL)
+                    !BtWidgetConfig.validIcon(symbol) -> getString(R.string.btw_err_icon)
                     else -> form.problem()
                 }
                 val action = form.action()
                 if (problem != null || action == null) {
-                    toast(problem ?: "Falta la acción")
+                    toast(problem ?: getString(R.string.btw_err_action))
                     return@button
                 }
                 val button = BtButton(name, symbol, action)
                 saveAndClose(if (index == NEW) config.add(button) else config.replace(index, button))
             })
-            addView(GlassTheme.button(this@BtWidgetsActivity, "Cancelar") { onBackPressed() })
+            addView(GlassTheme.button(this@BtWidgetsActivity, getString(R.string.cancel)) { onBackPressed() })
         })
     }
 
@@ -259,15 +256,15 @@ class BtWidgetsActivity : Activity() {
 
     private fun testAction(action: BtAction) {
         if (action == BtAction.Keyboard) {
-            toast("Abre el teclado del móvil: pruébalo desde el trackpad")
+            toast(getString(R.string.bt_test_keyboard))
             return
         }
         if (!canTest()) {
-            toast("Elige la conexión por Bluetooth en Ajustes")
+            toast(getString(R.string.bt_test_need_bt))
             return
         }
         val ok = BluetoothHidTransport.shared(this).runAction(action)
-        toast(if (ok) "Enviado al PC: ${BtActions.describe(action)}" else "El móvil no está conectado al PC por Bluetooth")
+        toast(if (ok) getString(R.string.bt_test_sent, UiText.action(this, action)) else getString(R.string.bt_test_not_connected))
     }
 
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()

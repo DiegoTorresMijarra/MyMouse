@@ -68,8 +68,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     // ---- Acciones guardadas en el móvil (docs/spec-v5-bluetooth-completo.md §2 y §3) ----
     private val actionStore = BtActionStore(app)
-    private var gestureConfig: BtGestureConfig = BtGestureConfig.DEFAULT
-    private var widgetConfig: BtWidgetConfig = BtWidgetConfig.DEFAULT
+    private var gestureConfig: BtGestureConfig = BtGestureConfig.defaultFor(BtActionStore.language())
+    private var widgetConfig: BtWidgetConfig = BtWidgetConfig.defaultFor(BtActionStore.language())
     private var layout: KeyboardLayout = AppSettings().keyboardLayout
 
     /** Descriptor con el que se registró la app: con o sin scroll fino (el ajuste puede cambiar con la app registrada). */
@@ -93,7 +93,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     val stats = HidSendStats()
 
     /** "Bluetooth · 120 inf/s · 8 ms" mientras haya conexión: el intervalo real entre informes. */
-    fun linkInfo(): String? = if (host == null) null else "Bluetooth · " + stats.snapshot(SystemClock.uptimeMillis()).label()
+    fun linkInfo(): String? = if (host == null) null else app.getString(R.string.bt_link_info, UiText.statsLabel(app, stats.snapshot(SystemClock.uptimeMillis())))
 
     private var users = 0
     private var hid: BluetoothHidDevice? = null
@@ -116,18 +116,18 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     override var onKeyboardLayout: (String) -> Unit = {} // Windows no dice cuál es su distribución por Bluetooth: "Automática" usa el ajuste de texto
     override val supportsKeyboard = true // informes de teclado HID
     override val hostRepeatsKeys = true // la repetición al mantener pulsada la tecla la hace Windows
-    override val keyboardUnavailableText = "Sin conexión Bluetooth con el PC"
+    override val keyboardUnavailableRes = R.string.bt_keyboard_unavailable
     override val supportsGestures = true // las acciones de las formas viven en el móvil (bt-gestures.json)
     override val supportsSystemGestures = true // atajos de teclado HID (HidMapper)
     override val supportsToolbox = false // sin MyMouse en el PC no hay toolbox
-    override val toolboxUnavailableText = "La toolbox del PC solo funciona por USB"
+    override val toolboxUnavailableRes = R.string.bt_toolbox_unavailable
 
     /** Registro de depuración (docs/spec-v4.5-estilo.md §4): los últimos 30 eventos, para la sección "Diagnóstico". */
     val events = BluetoothEventLog()
     var eventListener: () -> Unit = {}
 
     /** Estado legible para la pantalla de emparejar. */
-    var status: String = "Sin iniciar"
+    var status: String = app.getString(R.string.bt_status_idle)
         private set(value) {
             field = value
             Log.i(TAG, "Bluetooth: $value")
@@ -272,7 +272,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
 
     /** Lista de formas con acción (la misma forma que `GESTURE_LIST` del PC) para la hoja del modo gestos de la pantalla del trackpad. */
     fun gestureList(enabledShapes: Collection<String>): Message.GestureList =
-        Message.GestureList("por Bluetooth", gestureConfig.listEntries(enabledShapes))
+        Message.GestureList(app.getString(R.string.bt_via_bluetooth), gestureConfig.listEntries(enabledShapes) { UiText.action(app, it) })
 
     /**
      * Ejecuta una acción en el PC al momento (botón "Probar" de los editores). Devuelve false si el móvil no está conectado al PC por
@@ -306,8 +306,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         }
         val a = adapter
         when {
-            a == null -> status = "Este móvil no tiene Bluetooth"
-            !a.isEnabled -> status = "El Bluetooth está apagado"
+            a == null -> status = app.getString(R.string.bt_status_no_adapter)
+            !a.isEnabled -> status = app.getString(R.string.bt_status_off)
             else -> try {
                 val ok = a.getProfileProxy(app, object : BluetoothProfile.ServiceListener {
                     override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
@@ -321,13 +321,13 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                         registered = false
                         setHost(null)
                         log("registro HID perdido: el sistema cerró el perfil")
-                        status = "El sistema cerró el perfil Bluetooth HID"
+                        status = app.getString(R.string.bt_status_profile_closed)
                     }
                 }, BluetoothProfile.HID_DEVICE)
                 log("getProfileProxy(HID_DEVICE) devolvió $ok")
-                status = if (ok) "Iniciando el perfil Bluetooth HID…" else "Este móvil no permite hacer de ratón Bluetooth (perfil HID no disponible)"
+                status = app.getString(if (ok) R.string.bt_status_starting else R.string.bt_status_no_hid)
             } catch (e: SecurityException) {
-                status = "Falta el permiso de Bluetooth"
+                status = app.getString(R.string.bt_status_no_permission)
             }
         }
     }
@@ -356,7 +356,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         hid = null
         registered = false
         setHost(null)
-        status = "Desconectado"
+        status = app.getString(R.string.bt_status_disconnected)
     }
 
     private fun register() {
@@ -373,9 +373,9 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             )
             val ok = h.registerApp(sdp, null, outQos, app.mainExecutor, callback)
             log("registerApp() devolvió $ok (descriptor ${if (registeredFine) "con scroll fino" else "antiguo, sin scroll fino"}; QoS de salida: mejor esfuerzo, tasa $QOS_TOKEN_RATE B/s, cubo $QOS_TOKEN_BUCKET, latencia $QOS_LATENCY_US µs; entrada: sin QoS)")
-            status = if (ok) "Registrando como ratón Bluetooth…" else "No se pudo registrar como ratón Bluetooth"
+            status = app.getString(if (ok) R.string.bt_status_registering else R.string.bt_status_register_failed)
         } catch (e: SecurityException) {
-            status = "Falta el permiso de Bluetooth"
+            status = app.getString(R.string.bt_status_no_permission)
         }
     }
 
@@ -385,10 +385,10 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             log("onAppStatusChanged registered=$registered, dispositivo=${pluggedDevice?.let { nameOf(it) } ?: "ninguno"}")
             if (!registered) {
                 setHost(null)
-                status = "Registro Bluetooth cancelado"
+                status = app.getString(R.string.bt_status_unregistered)
                 return
             }
-            status = "Listo: esperando al PC"
+            status = app.getString(R.string.bt_status_waiting)
             val target = pluggedDevice ?: preferredHost()
             if (target != null) connect(target)
         }
@@ -406,12 +406,12 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
                 BluetoothProfile.STATE_CONNECTED -> {
                     setHost(device)
                     savePreferredHost(device.address)
-                    status = "Conectado a ${nameOf(device)}"
+                    status = app.getString(R.string.bt_status_connected, nameOf(device))
                 }
-                BluetoothProfile.STATE_CONNECTING -> status = "Conectando con ${nameOf(device)}…"
+                BluetoothProfile.STATE_CONNECTING -> status = app.getString(R.string.bt_status_connecting, nameOf(device))
                 BluetoothProfile.STATE_DISCONNECTED -> if (host == null || host?.address == device.address) {
                     setHost(null)
-                    status = "Listo: esperando al PC"
+                    status = app.getString(R.string.bt_status_waiting)
                 }
             }
         }
@@ -497,7 +497,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             log("connect(${nameOf(device)}) devolvió $ok")
             savePreferredHost(device.address)
         } catch (e: SecurityException) {
-            status = "Falta el permiso de Bluetooth"
+            status = app.getString(R.string.bt_status_no_permission)
         }
     }
 
@@ -536,8 +536,8 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
     private fun replayState() {
         if (host == null) return
         onConnectionChanged(true)
-        onWidgetLayout(Message.WidgetLayout(widgetConfig.entries()))
-        onMediaState(Message.MediaState(false, "Multimedia del PC", "por Bluetooth"))
+        onWidgetLayout(Message.WidgetLayout(widgetConfig.entries(app.getString(R.string.widget_vol_down), app.getString(R.string.widget_vol_up), app.getString(R.string.widget_mute))))
+        onMediaState(Message.MediaState(false, app.getString(R.string.bt_media_title), app.getString(R.string.bt_via_bluetooth)))
     }
 
     override fun send(action: OutputAction) {
@@ -576,7 +576,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             return
         }
         val reports = mapper.action(binding.action, layout)
-        log("forma $name → ${BtActions.describe(binding.action)}")
+        log("forma $name → ${BtActions.logText(binding.action)}")
         sendActionReports(device, binding.action, reports)
         onGestureResult(GestureStatus.EXECUTED)
     }
@@ -603,7 +603,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
             }
             if (button != null) {
                 val reports = mapper.action(button.action, layout)
-                log("botón ${button.label} → ${BtActions.describe(button.action)}")
+                log("botón ${button.label} → ${BtActions.logText(button.action)}")
                 sendActionReports(device, button.action, reports)
                 onWidgetResult(Message.WidgetResult(message.id, GestureStatus.EXECUTED))
                 return
@@ -679,7 +679,7 @@ class BluetoothHidTransport private constructor(context: Context) : Transport {
         val ok = try {
             hid?.sendReport(device, report.id, report.data) ?: false
         } catch (e: SecurityException) {
-            status = "Falta el permiso de Bluetooth"
+            status = app.getString(R.string.bt_status_no_permission)
             false
         }
         val now = SystemClock.uptimeMillis()

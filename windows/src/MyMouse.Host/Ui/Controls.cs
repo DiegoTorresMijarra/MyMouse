@@ -384,7 +384,7 @@ internal static class Dialogs
     /// <summary>Muestra un mensaje con botones; devuelve el índice del pulsado (-1 si se cierra la ventana).</summary>
     public static int Message(Window? owner, string title, string text, params string[] buttons)
     {
-        if (buttons.Length == 0) buttons = ["Aceptar"];
+        if (buttons.Length == 0) buttons = [Loc.T("ok")];
         var result = -1;
         var window = Create(owner, title, 420);
         var panel = new StackPanel { Margin = new Thickness(20) };
@@ -422,8 +422,8 @@ internal static class Dialogs
         var input = Theme.Input(initial);
         panel.Children.Add(input);
         var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
-        var ok = Theme.AccentButton("Aceptar");
-        var cancel = Theme.FlatButton("Cancelar");
+        var ok = Theme.AccentButton(Loc.T("ok"));
+        var cancel = Theme.FlatButton(Loc.T("cancel"));
         cancel.Margin = new Thickness(8, 0, 0, 0);
         ok.Click += (_, _) => { result = input.Text; window.Close(); };
         cancel.Click += (_, _) => window.Close();

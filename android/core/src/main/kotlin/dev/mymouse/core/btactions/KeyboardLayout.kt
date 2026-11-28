@@ -10,7 +10,7 @@ data class KeyPress(val modifiers: Int, val usage: Int)
  * (usos HID) y es Windows quien las convierte en caracteres según su distribución: para escribir "@" hay que saber en qué tecla está.
  * [strokes] da, para cada carácter, la secuencia de pulsaciones que lo produce (una, o dos con teclas muertas: `á` = ´ + a).
  */
-class KeyboardLayout(val id: String, val label: String, private val table: Map<Char, List<KeyPress>>) {
+class KeyboardLayout(val id: String, private val table: Map<Char, List<KeyPress>>) {
 
     /** Pulsaciones que escriben [c], o null si esta distribución no lo tiene (o no se sabe teclear). */
     fun strokes(c: Char): List<KeyPress>? = table[c]
@@ -73,7 +73,7 @@ object KeyboardLayouts {
     }
 
     /** Inglés (EE. UU.). */
-    val US: KeyboardLayout = KeyboardLayout("us", "Inglés (EE. UU.)", buildMap<Char, List<KeyPress>> {
+    val US: KeyboardLayout = KeyboardLayout("us", buildMap<Char, List<KeyPress>> {
         letters()
         // Fila de números con Shift.
         val shifted = "!@#$%^&*("
@@ -101,7 +101,7 @@ object KeyboardLayouts {
      * Español (España), la distribución ISO de Windows: `ñ` y `ç` tienen tecla propia, `@ # ~ € \ | [ ] { }` van con AltGr
      * y los acentos son teclas muertas (`´` `¨` `` ` `` `^`) que se combinan con la vocal siguiente.
      */
-    val ES: KeyboardLayout = KeyboardLayout("es", "Español (España)", buildMap<Char, List<KeyPress>> {
+    val ES: KeyboardLayout = KeyboardLayout("es", buildMap<Char, List<KeyPress>> {
         letters()
         // Fila de números: normal, Shift y AltGr.
         key('º', 0, 0x35); key('ª', S, 0x35); key('\\', G, 0x35)

@@ -51,7 +51,7 @@ internal sealed class WindowsActionExecutor(Action togglePause, Action openPhone
         inputs.Add(Key(stroke.VirtualKey, up: true, KeyChord.IsExtended(stroke.VirtualKey)));
         inputs.AddRange(Enumerable.Reverse(mods).Select(vk => Key(vk, up: true, KeyChord.IsExtended(vk))));
         if (Send([.. inputs]) != inputs.Count)
-            throw new InvalidOperationException("Windows no aceptó las teclas (¿ventana de administrador o pantalla bloqueada?)");
+            throw new InvalidOperationException(Loc.T("wa_keys_rejected"));
     }
 
     /// <summary>Texto como caracteres Unicode: no depende de la distribución del teclado. "\n" = Intro.</summary>
@@ -72,7 +72,7 @@ internal sealed class WindowsActionExecutor(Action togglePause, Action openPhone
             }
         }
         if (Send([.. inputs]) != inputs.Count)
-            throw new InvalidOperationException("Windows no aceptó el texto");
+            throw new InvalidOperationException(Loc.T("wa_text_rejected"));
     }
 
     private static void Launch(LaunchAction l)

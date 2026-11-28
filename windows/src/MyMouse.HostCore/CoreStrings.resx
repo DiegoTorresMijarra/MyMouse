@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="gs_unassigned" xml:space="preserve"><value>No action · {0}</value></data>
+  <data name="kind_keys" xml:space="preserve"><value>Keyboard shortcut</value></data>
+  <data name="kind_launch" xml:space="preserve"><value>Open app, file or web page</value></data>
+  <data name="kind_media" xml:space="preserve"><value>Media</value></data>
+  <data name="kind_none" xml:space="preserve"><value>None</value></data>
+  <data name="kind_text" xml:space="preserve"><value>Type text</value></data>
+  <data name="lsm_not_run" xml:space="preserve"><value>It was not run (is MyMouse paused?)</value></data>
+  <data name="media_mute" xml:space="preserve"><value>Mute</value></data>
+  <data name="media_next" xml:space="preserve"><value>Next track</value></data>
+  <data name="media_playpause" xml:space="preserve"><value>Play / pause</value></data>
+  <data name="media_previous" xml:space="preserve"><value>Previous track</value></data>
+  <data name="media_stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="media_volumedown" xml:space="preserve"><value>Volume down</value></data>
+  <data name="media_volumeup" xml:space="preserve"><value>Volume up</value></data>
+  <data name="no_action" xml:space="preserve"><value>No action</value></data>
+  <data name="shape_circle" xml:space="preserve"><value>Circle</value></data>
+  <data name="shape_line_down" xml:space="preserve"><value>Line ↓</value></data>
+  <data name="shape_line_left" xml:space="preserve"><value>Line ←</value></data>
+  <data name="shape_line_right" xml:space="preserve"><value>Line →</value></data>
+  <data name="shape_line_up" xml:space="preserve"><value>Line ↑</value></data>
+  <data name="shape_square" xml:space="preserve"><value>Square</value></data>
+  <data name="shape_triangle" xml:space="preserve"><value>Triangle</value></data>
+  <data name="summary_no_action" xml:space="preserve"><value>no action</value></data>
+  <data name="up_from_pc" xml:space="preserve"><value>from the PC</value></data>
+  <data name="up_from_phone" xml:space="preserve"><value>from the phone</value></data>
+  <data name="up_new_version" xml:space="preserve"><value>New version {0} available</value></data>
+  <data name="up_other_newer" xml:space="preserve"><value>{0} has MyMouse {1} and {2} {3}: update it.</value></data>
+  <data name="up_other_older" xml:space="preserve"><value>{0} has an older version ({1}): update it {2}.</value></data>
+  <data name="up_the_pc" xml:space="preserve"><value>The PC</value></data>
+  <data name="up_the_phone" xml:space="preserve"><value>The phone</value></data>
+  <data name="up_this_pc" xml:space="preserve"><value>this PC</value></data>
+  <data name="up_this_phone" xml:space="preserve"><value>this phone</value></data>
+  <data name="ws_music" xml:space="preserve"><value>Music</value></data>
+  <data name="ws_mute" xml:space="preserve"><value>Mute</value></data>
+  <data name="ws_volume" xml:space="preserve"><value>Volume</value></data>
+</root>

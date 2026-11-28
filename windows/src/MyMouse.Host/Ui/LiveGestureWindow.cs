@@ -78,7 +78,7 @@ internal sealed class StrokeCanvas : FrameworkElement
 
         if (_model.Phase == LivePhase.Waiting)
         {
-            DrawCentered(dc, "Dibuja una forma…", 14, Theme.Dim, w, h);
+            DrawCentered(dc, Loc.T("lg_draw"), 14, Theme.Dim, w, h);
             return;
         }
 
@@ -122,7 +122,7 @@ internal sealed class StrokeCanvas : FrameworkElement
 
 /// <summary>
 /// La tarjeta del gesto en vivo (docs/spec-v4-toolbox.md §3): 260 × 300, siempre encima, sin foco y transparente para el ratón
-/// (salvo el botón "Asignar", cuando lo hay). Sube desde la esquina de la bandeja al activarse el modo gestos y baja al terminar.
+/// (salvo el botón Asignar, cuando lo hay). Sube desde la esquina de la bandeja al activarse el modo gestos y baja al terminar.
 /// </summary>
 internal sealed class LiveGestureWindow : FloatingWindow
 {
@@ -144,7 +144,7 @@ internal sealed class LiveGestureWindow : FloatingWindow
     /// <param name="model">Estado del gesto en vivo.</param>
     /// <param name="liftDip">Cuánto subirla desde la esquina (para ponerla sobre la toolbox si está abierta).</param>
     /// <param name="idealShape">Puntos de la forma ideal de un nombre, para superponerla tenue.</param>
-    /// <param name="assign">Se pulsa "Asignar" en una forma sin acción: abre el editor con esa forma.</param>
+    /// <param name="assign">Se pulsa Asignar en una forma sin acción: abre el editor con esa forma.</param>
     public LiveGestureWindow(LiveStrokeModel model, Func<double> liftDip, Func<string, IReadOnlyList<PointF>?> idealShape, Action<string> assign)
         : base(CardWidth)
     {
@@ -168,7 +168,7 @@ internal sealed class LiveGestureWindow : FloatingWindow
         _detail = Theme.Label("", 12, Theme.Dim);
         _detail.TextWrapping = TextWrapping.Wrap;
         _detail.Margin = new Thickness(2, 6, 0, 0);
-        _assignButton = Theme.AccentButton("Asignar");
+        _assignButton = Theme.AccentButton(Loc.T("assign"));
         _assignButton.HorizontalAlignment = HorizontalAlignment.Left;
         _assignButton.Margin = new Thickness(0, 6, 0, 0);
         _assignButton.Visibility = Visibility.Collapsed;
@@ -259,15 +259,15 @@ internal sealed class LiveGestureWindow : FloatingWindow
         var r = _model.Result;
         (string head, string detail, Brush color) = _model.Phase switch
         {
-            LivePhase.Waiting => ("Modo gestos", "Dibuja una forma con un dedo en el trackpad del móvil", Theme.Text),
+            LivePhase.Waiting => (Loc.T("lg_mode"), Loc.T("lg_draw_hint"), Theme.Text),
             LivePhase.Drawing => ("…", "", Theme.Dim),
             LivePhase.Finished => r.Kind switch
             {
                 LiveResultKind.Executed => (r.Help ?? ShapeCatalog.Label(r.Shape ?? ""), r.Action ?? "", Theme.Green),
-                LiveResultKind.NoAction => ($"Forma «{ShapeCatalog.Label(r.Shape ?? "")}»: sin acción", "", Theme.Amber),
-                LiveResultKind.NotRecognized => ("?", "No se ha reconocido la forma", Theme.Gray),
-                LiveResultKind.Cancelled => ("Cancelado", "", Theme.Gray),
-                LiveResultKind.Failed => ("No se ha podido ejecutar", r.Error ?? "", Theme.Red),
+                LiveResultKind.NoAction => (Loc.F("lg_no_action", ShapeCatalog.Label(r.Shape ?? "")), "", Theme.Amber),
+                LiveResultKind.NotRecognized => ("?", Loc.T("lg_not_recognized"), Theme.Gray),
+                LiveResultKind.Cancelled => (Loc.T("lg_cancelled"), "", Theme.Gray),
+                LiveResultKind.Failed => (Loc.T("lg_not_run"), r.Error ?? "", Theme.Red),
                 LiveResultKind.Notice => (r.Help ?? "", r.Action ?? "", Theme.Text),
                 _ => ("…", "", Theme.Dim),
             },

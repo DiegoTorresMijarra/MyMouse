@@ -85,6 +85,7 @@ class MainActivity : Activity() {
     /** Tamaño del contenedor con el que se calcularon los márgenes; al girar la pantalla hay que recalcularlos. */
     private var laidOutSize = 0 to 0
     private lateinit var shapes: ShapeStore
+    private val widgetDescriber by lazy { WidgetDescriber(AppDebugTexts(this)) }
 
     /** Última lista de formas enviada al PC, para reenviarla solo si cambia (al volver de grabar o borrar formas). */
     private var lastSyncedShapes: List<Message>? = null
@@ -94,7 +95,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AdminReceiver.applyKioskPolicies(this)
+        Flavor.kiosk.applyPolicies(this)
 
         settings = AppSettings.load(this)
         GlassTheme.applyTheme(settings.theme) // antes de crear ninguna vista
@@ -105,21 +106,21 @@ class MainActivity : Activity() {
         panelProgress = if (panelShown) 1f else 0f
         connectionType = settings.connection
         connection = when (connectionType) {
-            AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Updater.localVersionText(this))
+            AppSettings.Connection.USB -> HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Flavor.updates.versionText(this))
             AppSettings.Connection.BLUETOOTH ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) BluetoothHidTransport.shared(this)
-                else HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Updater.localVersionText(this)) // Android 8: sin Bluetooth HID
+                else HostConnection(port = Protocol.DEFAULT_PORT, appVersion = Flavor.updates.versionText(this)) // Android 8: sin Bluetooth HID
         }
         trackpad = TrackpadView(this, buildEngine(), connection::send)
         trackpad.shapeStore = shapes
         trackpad.onPanelGesture = ::onPanelGesture
         trackpad.systemGesturesAvailable = { connection.supportsSystemGestures }
         trackpad.toolboxAvailable = { connection.supportsToolbox }
-        trackpad.toolboxUnavailableText = { connection.toolboxUnavailableText }
+        trackpad.toolboxUnavailableRes = { connection.toolboxUnavailableRes }
         // En modo Bluetooth, un toque en el punto de estado abre el diagnóstico (docs/spec-v4.5-estilo.md §4).
         if (connectionType == AppSettings.Connection.BLUETOOTH && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             trackpad.linkInfo = { (connection as? BluetoothHidTransport)?.linkInfo() }
-            trackpad.unassignedText = "sin acción (Ajustes → Acciones por Bluetooth)"
+            trackpad.unassignedRes = R.string.trackpad_unassigned_phone
             trackpad.hostGestureList = phoneGestureList()
             trackpad.onStatusDotTap = {
                 startActivity(Intent(this, BluetoothActivity::class.java).putExtra(BluetoothActivity.EXTRA_SHOW_DIAGNOSTICS, true))
@@ -178,10 +179,10 @@ class MainActivity : Activity() {
         connection.onWidgetResult = { result ->
             panel.post {
                 val entry = panel.entries.firstOrNull { it.id == result.id }
-                WidgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
+                widgetDescriber.resultNotice(entry, result.status)?.let(trackpad::showNotice)
             }
         }
-        connection.onHostAppVersion = { version -> Updater.setPcVersion(version) } // avisos de versión cruzados
+        connection.onHostAppVersion = { version -> Flavor.updates.onPcVersion(version) } // avisos de versión cruzados
         connection.onShapeAdd = { add -> handler.post { applyShapeRequest(add) } }
         connection.onShapeDelete = { delete -> handler.post { applyShapeRequest(delete) } }
         connection.onGestureList = { list -> trackpad.post { trackpad.hostGestureList = list } }
@@ -234,9 +235,7 @@ class MainActivity : Activity() {
         connection.start()
         applySettings()
         applyLayout()
-        Updater.addListener(updateListener)
-        Updater.start(this)
-        Updater.onForeground(this) // si había un APK esperando (permiso o app en segundo plano), se abre el instalador
+        Flavor.updates.onShown(this, updateListener)
         // Fijar la app cuando ya está en primer plano (llamarlo antes puede fallar).
         if (mode == Mode.LOCKED) root.post { startLock() } else scheduleAutoRelock()
     }
@@ -248,8 +247,7 @@ class MainActivity : Activity() {
         setDimmed(false)
         keyboardView.releaseAll() // en segundo plano no puede quedar ninguna tecla pulsada
         connection.stop()
-        Updater.removeListener(updateListener)
-        Updater.onBackground(this)
+        Flavor.updates.onHidden(this, updateListener)
         super.onPause()
     }
 
@@ -328,7 +326,7 @@ class MainActivity : Activity() {
         }
         applyMargins() // "Mostrar panel de widgets" y "Tamaño del panel" pueden haber cambiado
         if (settings.debug != (trackpad.debugOverlay != null)) {
-            trackpad.debugOverlay = if (settings.debug) DebugOverlay(density) else null
+            trackpad.debugOverlay = if (settings.debug) DebugOverlay(density, resources, AppDebugTexts(this)) else null
         }
         requestedOrientation = when (settings.orientation) {
             AppSettings.Orientation.FREE -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
@@ -407,8 +405,8 @@ class MainActivity : Activity() {
         trackpad.cheatSheet.rows = CheatSheet.rowsFor(
             windowsGestures = settings.windowsGestures,
             gestureMode = connection.supportsGestures && settings.gestureFingers == 4,
-        ) + CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) "Bloquear / desbloquear" else "Salir del bloqueo") +
-            CheatSheet.Row(CheatSheet.Icon.VOLUME_UP, "Teclado ⇄ mouse")
+        ) + CheatSheet.Row(CheatSheet.Icon.VOLUME, if (window) R.string.cheat_lock_toggle else R.string.cheat_lock_exit) +
+            CheatSheet.Row(CheatSheet.Icon.VOLUME_UP, R.string.cheat_keyboard_mouse)
         trackpad.invalidate()
         applySystemBars()
     }
@@ -499,7 +497,7 @@ class MainActivity : Activity() {
     private fun enterKeyboardMode() {
         if (keyboardMode) return
         if (!connection.supportsKeyboard) {
-            trackpad.showNotice(connection.keyboardUnavailableText)
+            trackpad.showNotice(getString(connection.keyboardUnavailableRes))
             return
         }
         keyboardMode = true
@@ -535,7 +533,7 @@ class MainActivity : Activity() {
     /** 4 dedos juntándose (show) o separándose. Con el panel vacío solo avisa. */
     private fun onPanelGesture(show: Boolean) {
         if (show && !panel.hasWidgets) {
-            trackpad.showNotice("No hay widgets: configúralos en el PC")
+            trackpad.showNotice(getString(R.string.main_no_widgets))
             return
         }
         if (show == panelShown) return
@@ -698,75 +696,17 @@ class MainActivity : Activity() {
     }
 
     private fun fillControls(layout: LinearLayout) {
-        val pill = updatePill()
+        val pill = Flavor.updates.pill(this) { trackpad.showNotice(it) }
         // Con el aviso de actualización (que lleva texto) los otros botones se quedan en solo icono para que todo quepa en una fila.
         val labelled = pill == null
         if (pill != null) layout.addView(pill)
-        layout.addView(iconButton(GlassTheme.IconButton.Kind.SLIDERS, "Ajustes", labelled) { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
-        layout.addView(iconButton(GlassTheme.IconButton.Kind.LOCK, "Bloquear", labelled) { setMode(Mode.LOCKED) })
-        layout.addView(iconButton(GlassTheme.IconButton.Kind.POWER, "Salir", labelled) {
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.SLIDERS, getString(R.string.bar_settings), labelled) { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) })
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.LOCK, getString(R.string.bar_lock), labelled) { setMode(Mode.LOCKED) })
+        layout.addView(iconButton(GlassTheme.IconButton.Kind.POWER, getString(R.string.bar_exit), labelled) {
             stopLock()
             finishAndRemoveTask()
         })
-        if (AdminReceiver.isDeviceOwner(this@MainActivity)) {
-            layout.addView(GlassTheme.button(this@MainActivity, "Quitar propietario") { confirmReleaseOwner() }.apply {
-                (layoutParams as LinearLayout.LayoutParams).apply { topMargin = 0; marginStart = (8 * density).toInt(); marginEnd = 0 }
-            })
-        }
-    }
-
-    // ---- Avisos de versión nueva (docs/spec-v5.1-actualizaciones.md §5 y §6): una píldora en la barra y una hoja con las novedades ----
-
-    /** La píldora de actualización, o null si no hay nada que avisar. Solo existe en modo ventana (en modo bloqueado la barra no se ve). */
-    private fun updatePill(): View? {
-        val download = Updater.download
-        val (label, onClick) = when {
-            download != null && download.failed -> "Error al actualizar" to { showUpdateError(download.message) }
-            download != null -> "Descargando ${(download.progress * 100).toInt()} %" to { trackpad.showNotice("Descargando la actualización…") }
-            else -> {
-                val banner = Updater.banners(this).firstOrNull() ?: return null
-                val text = when (banner.kind) {
-                    BannerKind.NEW_VERSION -> "Actualizar a ${banner.release!!.version.display}"
-                    BannerKind.PC_NEWER -> banner.release?.let { "Actualizar a ${it.version.display}" } ?: "PC con versión nueva"
-                    BannerKind.PC_OLDER -> "PC desactualizado"
-                }
-                text to { showUpdateSheet() }
-            }
-        }
-        return GlassTheme.IconButton(this, GlassTheme.IconButton.Kind.UPDATE, label = label, highlight = true).apply {
-            contentDescription = label
-            setOnClickListener { onClick() }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
-        }
-    }
-
-    /** La hoja de novedades: el texto de la release (recortado) y "Descargar e instalar" / "Omitir"; sin botones si solo informa. */
-    private fun showUpdateSheet() {
-        val banners = Updater.banners(this)
-        val primary = banners.firstOrNull() ?: return
-        val message = StringBuilder()
-        message.append("Tienes la ${Updater.localVersionText(this)}.")
-        primary.release?.notes?.let { UpdatePolicy.trimNotes(it).takeIf { notes -> notes.isNotEmpty() }?.let { notes -> message.append("\n\n").append(notes) } }
-        banners.drop(1).forEach { message.append("\n\n").append(it.text) }
-        val builder = AlertDialog.Builder(this).setTitle(primary.text).setMessage(message.toString())
-        val release = primary.release
-        if (primary.canInstall && release != null) {
-            builder.setPositiveButton("Descargar e instalar") { _, _ -> Updater.downloadAndInstall(this, release) }
-            if (primary.canSkip) builder.setNegativeButton("Omitir") { _, _ -> Updater.skipOffered(this) }
-            builder.setNeutralButton("Más tarde", null)
-        } else {
-            builder.setPositiveButton("Entendido", null)
-        }
-        builder.show()
-    }
-
-    private fun showUpdateError(message: String?) {
-        AlertDialog.Builder(this)
-            .setTitle("No se pudo actualizar")
-            .setMessage(message ?: "Inténtalo de nuevo más tarde.")
-            .setPositiveButton("Aceptar") { _, _ -> Updater.clearFailure() }
-            .setOnCancelListener { Updater.clearFailure() }
-            .show()
+        Flavor.kiosk.barButton(this@MainActivity)?.let { layout.addView(it) }
     }
 
     private fun iconButton(kind: GlassTheme.IconButton.Kind, description: String, labelled: Boolean = true, onClick: () -> Unit) =
@@ -775,18 +715,6 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply { marginStart = (8 * density).toInt() }
         }
-
-    private fun confirmReleaseOwner() {
-        AlertDialog.Builder(this)
-            .setTitle("Quitar propietario del dispositivo")
-            .setMessage("MyMouse dejará de bloquear el móvil por completo y volverá la pantalla de bloqueo. Se puede volver a activar desde el PC con adb.")
-            .setPositiveButton("Quitar") { _, _ ->
-                AdminReceiver.releaseDeviceOwner(this)
-                recreate()
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
 
     private companion object {
         const val TAG = "MyMouse"

@@ -8,8 +8,8 @@ import dev.mymouse.core.shapes.ShapeCatalog
 
 /** Una regla de `bt-gestures.json`: forma → acción, con su texto de ayuda y si se fija en la chuleta. */
 data class BtBinding(val gesture: String, val action: BtAction, val help: String = "", val pinned: Boolean = false) {
-    /** El texto de ayuda: el propio o, si está en blanco, lo que hace la acción. */
-    val helpText: String get() = help.ifBlank { BtActions.describe(action) }
+    /** El texto de ayuda: el propio o, si está en blanco, lo que hace la acción según [describe] (la app lo traduce). */
+    fun helpText(describe: (BtAction) -> String): String = help.ifBlank { describe(action) }
 }
 
 /** Resultado de leer el fichero: la configuración válida y los avisos de lo que se descartó. */
@@ -36,8 +36,8 @@ class BtGestureConfig(bindings: List<BtBinding>) {
      * La lista que ve el modo gestos del móvil (la misma forma que `GESTURE_LIST` del PC): las reglas de las formas activas,
      * con su ayuda. Las formas sin acción no salen.
      */
-    fun listEntries(enabledShapes: Collection<String>): List<GestureListEntry> =
-        bindings.filter { it.gesture in enabledShapes }.map { GestureListEntry(it.gesture, it.helpText, it.pinned) }
+    fun listEntries(enabledShapes: Collection<String>, describe: (BtAction) -> String): List<GestureListEntry> =
+        bindings.filter { it.gesture in enabledShapes }.map { GestureListEntry(it.gesture, it.helpText(describe), it.pinned) }
 
     /** Contenido del fichero: `{"version": 1, "bindings": [...]}`. */
     fun toJson(): String = MiniJson.write(
@@ -61,18 +61,27 @@ class BtGestureConfig(bindings: List<BtBinding>) {
         /** ¿Es una forma que puede tener acción? Las del catálogo y las propias (`custom:…`). */
         fun isShape(id: String) = id in ShapeCatalog.BY_ID || (id.startsWith("custom:") && id.length > "custom:".length)
 
-        /** Los valores de la primera vez (docs/spec-v5-bluetooth-completo.md §2.2), con los ids reales del catálogo (`>` es `gt` y `<` es `lt`). */
-        val DEFAULT = BtGestureConfig(listOf(
-            BtBinding("z", keys(HidKeys.MOD_CTRL, "Z"), "Deshacer", pinned = true),
-            BtBinding(ShapeCatalog.LINE_LEFT, keys(HidKeys.MOD_ALT, "Left"), "Atrás"),
-            BtBinding(ShapeCatalog.LINE_RIGHT, keys(HidKeys.MOD_ALT, "Right"), "Adelante"),
-            BtBinding(ShapeCatalog.LINE_DOWN, keys(HidKeys.MOD_GUI, "D"), "Escritorio"),
-            BtBinding(ShapeCatalog.LINE_UP, keys(HidKeys.MOD_GUI, "Tab"), "Vista de tareas"),
-            BtBinding("v", BtAction.Media(ConsumerKey.PLAY_PAUSE), "Reproducir / pausar", pinned = true),
-            BtBinding("gt", BtAction.Media(ConsumerKey.NEXT), "Siguiente canción"),
-            BtBinding("lt", BtAction.Media(ConsumerKey.PREVIOUS), "Canción anterior"),
-            BtBinding("check", keys(HidKeys.MOD_CTRL, "S"), "Guardar"),
-        ))
+        /**
+         * Los valores de la primera vez (docs/spec-v5-bluetooth-completo.md §2.2), con los ids reales del catálogo (`>` es `gt` y `<` es `lt`).
+         * Las ayudas son datos del usuario: se escriben en el idioma del móvil al crear el fichero ([language] = `es`; cualquier otro, inglés).
+         */
+        fun defaultFor(language: String): BtGestureConfig {
+            val es = language == "es"
+            fun t(spanish: String, english: String) = if (es) spanish else english
+            return BtGestureConfig(listOf(
+                BtBinding("z", keys(HidKeys.MOD_CTRL, "Z"), t("Deshacer", "Undo"), pinned = true),
+                BtBinding(ShapeCatalog.LINE_LEFT, keys(HidKeys.MOD_ALT, "Left"), t("Atrás", "Back")),
+                BtBinding(ShapeCatalog.LINE_RIGHT, keys(HidKeys.MOD_ALT, "Right"), t("Adelante", "Forward")),
+                BtBinding(ShapeCatalog.LINE_DOWN, keys(HidKeys.MOD_GUI, "D"), t("Escritorio", "Desktop")),
+                BtBinding(ShapeCatalog.LINE_UP, keys(HidKeys.MOD_GUI, "Tab"), t("Vista de tareas", "Task view")),
+                BtBinding("v", BtAction.Media(ConsumerKey.PLAY_PAUSE), t("Reproducir / pausar", "Play / pause"), pinned = true),
+                BtBinding("gt", BtAction.Media(ConsumerKey.NEXT), t("Siguiente canción", "Next track")),
+                BtBinding("lt", BtAction.Media(ConsumerKey.PREVIOUS), t("Canción anterior", "Previous track")),
+                BtBinding("check", keys(HidKeys.MOD_CTRL, "S"), t("Guardar", "Save")),
+            ))
+        }
+
+        val DEFAULT = defaultFor("es")
 
         private fun keys(modifiers: Int, key: String) = BtAction.Keys(modifiers, HidKeys.byName(key)!!.usage)
 

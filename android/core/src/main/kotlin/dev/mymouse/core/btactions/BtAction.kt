@@ -38,7 +38,7 @@ object BtActions {
         "win" to HidKeys.MOD_GUI, "windows" to HidKeys.MOD_GUI, "meta" to HidKeys.MOD_GUI,
     )
 
-    /** Atajos: `Ctrl+Shift+T`, `Win+D`, `F5`, `Win`. Lanza [IllegalArgumentException] (en español) si no se entiende. */
+    /** Atajos: `Ctrl+Shift+T`, `Win+D`, `F5`, `Win`. Lanza [IllegalArgumentException] si no se entiende. */
     fun parseKeys(text: String): BtAction.Keys {
         if (text.isBlank()) throw IllegalArgumentException("Atajo vacío")
         if (text.contains(',')) throw IllegalArgumentException("Por Bluetooth solo hay atajos de una combinación: '$text'")
@@ -74,16 +74,16 @@ object BtActions {
         if (keys.key != 0) add((if (display) HidKeys.labelOf(keys.key) else HidKeys.nameOf(keys.key)) ?: "0x%02X".format(keys.key))
     }
 
-    /** Las seis teclas multimedia del panel de Bluetooth, con su nombre en el fichero y su etiqueta. */
-    data class MediaOption(val name: String, val label: String, val key: ConsumerKey)
+    /** Las seis teclas multimedia del panel de Bluetooth, con su nombre en el fichero (la app pone la etiqueta). */
+    data class MediaOption(val name: String, val key: ConsumerKey)
 
     val MEDIA: List<MediaOption> = listOf(
-        MediaOption("PlayPause", "Reproducir / pausar", ConsumerKey.PLAY_PAUSE),
-        MediaOption("Next", "Siguiente canción", ConsumerKey.NEXT),
-        MediaOption("Previous", "Canción anterior", ConsumerKey.PREVIOUS),
-        MediaOption("VolumeUp", "Subir volumen", ConsumerKey.VOLUME_UP),
-        MediaOption("VolumeDown", "Bajar volumen", ConsumerKey.VOLUME_DOWN),
-        MediaOption("Mute", "Silenciar", ConsumerKey.MUTE),
+        MediaOption("PlayPause", ConsumerKey.PLAY_PAUSE),
+        MediaOption("Next", ConsumerKey.NEXT),
+        MediaOption("Previous", ConsumerKey.PREVIOUS),
+        MediaOption("VolumeUp", ConsumerKey.VOLUME_UP),
+        MediaOption("VolumeDown", ConsumerKey.VOLUME_DOWN),
+        MediaOption("Mute", ConsumerKey.MUTE),
     )
 
     fun mediaOption(key: ConsumerKey): MediaOption = MEDIA.first { it.key == key }
@@ -96,12 +96,12 @@ object BtActions {
             ?: throw IllegalArgumentException("Tecla multimedia desconocida: '$name'")
     }
 
-    /** Texto corto de lo que hace la acción: el atajo, la tecla multimedia o el texto entre comillas. */
-    fun describe(action: BtAction): String = when (action) {
+    /** Texto neutro (sin traducir) de la acción, para el registro de eventos. La pantalla usa el de la app, en el idioma del móvil. */
+    fun logText(action: BtAction): String = when (action) {
         is BtAction.Keys -> displayKeys(action)
-        is BtAction.Media -> mediaOption(action.key).label
-        is BtAction.Text -> "Escribir \"" + action.text.let { if (it.length > 20) it.take(20) + "…" else it }.replace('\n', ' ') + "\""
-        BtAction.Keyboard -> "Abrir teclado del móvil"
+        is BtAction.Media -> "media " + mediaOption(action.key).name
+        is BtAction.Text -> "text \"" + action.text.let { if (it.length > 20) it.take(20) + "…" else it }.replace('\n', ' ') + "\""
+        BtAction.Keyboard -> "keyboard"
     }
 
     /** Tipo en el fichero. */

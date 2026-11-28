@@ -21,7 +21,7 @@ public sealed record GestureSections(IReadOnlyList<GestureRow> Pinned, IReadOnly
     public bool IsEmpty => Pinned.Count == 0 && Assigned.Count == 0 && Unassigned.Count == 0;
 
     /// <summary>Título de la sección plegada: "Sin acción · 5".</summary>
-    public string UnassignedTitle => $"Sin acción · {Unassigned.Count}";
+    public string UnassignedTitle => CoreLoc.F("gs_unassigned", Unassigned.Count);
 
     /// <summary>
     /// Agrupa las formas (docs/spec-v4.5-estilo.md §2.4): "Fijadas" (con acción y chincheta), "Asignadas" (el resto de las que

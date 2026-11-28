@@ -57,7 +57,7 @@ internal static class Theme
     /// <summary>Fondo sólido de los diálogos y base del universo: el color medio de la base del tema.</summary>
     public static SolidColorBrush Bg { get; } = Mutable(Colors.Black);
 
-    /// <summary>Tarjeta sólida: "Efecto cristal" desactivado, y fondo de menús y diálogos (la base del tema, aclarada).</summary>
+    /// <summary>Tarjeta sólida: Efecto cristal desactivado, y fondo de menús y diálogos (la base del tema, aclarada).</summary>
     public static SolidColorBrush CardSolid { get; } = Mutable(Colors.Black);
 
     /// <summary>Menús flotantes: lo mismo, casi opaco.</summary>
@@ -71,7 +71,7 @@ internal static class Theme
         [(Color.FromArgb(0x2B, 255, 255, 255), 0), (Color.FromArgb(0x12, 255, 255, 255), 0.35), (Color.FromArgb(0x12, 255, 255, 255), 1)],
         new Point(0, 0), new Point(0, 1));
 
-    /// <summary>"Efecto cristal" activado (por defecto). Lo fija <c>HostApp</c> al cambiar el ajuste; las tarjetas nuevas lo leen.</summary>
+    /// <summary>Efecto cristal activado (por defecto). Lo fija <c>HostApp</c> al cambiar el ajuste; las tarjetas nuevas lo leen.</summary>
     public static bool GlassEffect { get; set; } = true;
 
     /// <summary>Fondo de una tarjeta: cristal con brillo o, sin el efecto, sólido.</summary>

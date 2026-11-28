@@ -39,9 +39,9 @@ class HostConnection(private val port: Int, private val appVersion: String = "")
 
     override val hostRepeatsKeys = false
 
-    override val keyboardUnavailableText get() = "Sin conexión con el PC"
+    override val keyboardUnavailableRes get() = R.string.no_pc_connection
 
-    override val toolboxUnavailableText get() = "Sin conexión con el PC"
+    override val toolboxUnavailableRes get() = R.string.no_pc_connection
 
     override var onConnectionChanged: (Boolean) -> Unit = {}
 

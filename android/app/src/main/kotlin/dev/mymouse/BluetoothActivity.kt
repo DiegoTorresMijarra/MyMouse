@@ -18,6 +18,13 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import dev.mymouse.core.bluetooth.BluetoothDiagnostics
 import dev.mymouse.core.bluetooth.CheckStatus
+import dev.mymouse.core.bluetooth.BluetoothEvent
+import dev.mymouse.core.bluetooth.BluetoothFacts
+import dev.mymouse.core.bluetooth.CheckId
+import dev.mymouse.core.bluetooth.DiagnosticCheck
+import dev.mymouse.core.bluetooth.DiagnosticDetail
+import dev.mymouse.core.bluetooth.DiagnosticSummary
+import dev.mymouse.core.bluetooth.FineScrollState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -49,10 +56,10 @@ class BluetoothActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         transport = BluetoothHidTransport.shared(this)
-        screen = GlassTheme.Screen(this, "Bluetooth")
-        statusBody = body(screen.card("Estado"))
-        devicesBody = body(screen.card("Dispositivos emparejados"))
-        diagCard = screen.card("Diagnóstico")
+        screen = GlassTheme.Screen(this, getString(R.string.bt_title))
+        statusBody = body(screen.card(getString(R.string.bt_card_status)))
+        devicesBody = body(screen.card(getString(R.string.bt_card_devices)))
+        diagCard = screen.card(getString(R.string.bt_card_diagnostics))
         diagBody = body(diagCard)
         screen.setContentView()
         if (intent.getBooleanExtra(EXTRA_SHOW_DIAGNOSTICS, false)) {
@@ -79,7 +86,7 @@ class BluetoothActivity : Activity() {
         if (::statsText.isInitialized) statsText.text = statsLine()
     }
 
-    private fun statsLine(): String = "Envío: " + transport.stats.snapshot(android.os.SystemClock.uptimeMillis()).detail()
+    private fun statsLine(): String = getString(R.string.bt_stats_prefix, UiText.statsDetail(this, transport.stats.snapshot(android.os.SystemClock.uptimeMillis())))
 
     override fun onPause() {
         ui.removeCallbacks(statsTick)
@@ -98,23 +105,18 @@ class BluetoothActivity : Activity() {
     private fun buildStatus() {
         statusBody.removeAllViews()
         val granted = hasPermissions()
-        statusBody.addView(GlassTheme.text(this, if (granted) transport.status else "Falta el permiso de Bluetooth", 16f, GlassTheme.GREEN))
+        statusBody.addView(GlassTheme.text(this, if (granted) transport.status else getString(R.string.bt_status_no_permission), 16f, GlassTheme.GREEN))
         if (!granted) {
-            statusBody.addView(GlassTheme.button(this, "Dar permiso de Bluetooth", accent = true) {
+            statusBody.addView(GlassTheme.button(this, getString(R.string.bt_grant_permission), accent = true) {
                 requestPermissions(PERMISSIONS, REQUEST_PERMISSIONS)
             })
             return
         }
         statusBody.addView(GlassTheme.note(
             this,
-            "Para emparejar por primera vez:\n" +
-                "1. Pulsa \"Hacer visible\" y deja esta pantalla abierta.\n" +
-                "2. En Windows: Configuración → Bluetooth y dispositivos → Agregar dispositivo → Bluetooth, y elige este móvil.\n" +
-                "3. Acepta el código en los dos lados.\n" +
-                "Después, el móvil se conecta solo a ese PC al abrir MyMouse.\n\n" +
-                BluetoothDiagnostics.REPAIR_FINE_SCROLL,
+            getString(R.string.bt_pairing_steps, getString(R.string.bt_repair_fine_scroll)),
         ))
-        statusBody.addView(GlassTheme.button(this, "Hacer visible (3 min)") {
+        statusBody.addView(GlassTheme.button(this, getString(R.string.bt_make_discoverable)) {
             // Mientras Windows empareja salen diálogos del sistema: el registro HID se mantiene 3 minutos pase lo que pase.
             transport.holdRegistration(HOLD_PAIRING_MS)
             startActivity(
@@ -127,19 +129,19 @@ class BluetoothActivity : Activity() {
     private fun buildDevices() {
         devicesBody.removeAllViews()
         if (!hasPermissions()) {
-            devicesBody.addView(GlassTheme.note(this, "Da el permiso de Bluetooth para ver los dispositivos."))
+            devicesBody.addView(GlassTheme.note(this, getString(R.string.bt_grant_to_see_devices)))
             return
         }
         val devices = transport.bondedDevices()
-        if (devices.isEmpty()) devicesBody.addView(GlassTheme.note(this, "Ninguno todavía."))
+        if (devices.isEmpty()) devicesBody.addView(GlassTheme.note(this, getString(R.string.bt_no_devices)))
         val connected = transport.connectedHost?.address
         for (d in devices) {
             devicesBody.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                addView(GlassTheme.text(this@BluetoothActivity, transport.nameOf(d) + if (d.address == connected) "  · conectado" else "", 15f),
+                addView(GlassTheme.text(this@BluetoothActivity, transport.nameOf(d) + if (d.address == connected) getString(R.string.bt_device_connected_suffix) else "", 15f),
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                if (d.address != connected) addView(GlassTheme.button(this@BluetoothActivity, "Usar este") { transport.connect(d) })
+                if (d.address != connected) addView(GlassTheme.button(this@BluetoothActivity, getString(R.string.bt_use_this)) { transport.connect(d) })
             })
         }
     }
@@ -161,23 +163,23 @@ class BluetoothActivity : Activity() {
                 setPadding(0, (4 * density).toInt(), 0, (4 * density).toInt())
                 addView(GlassTheme.text(this@BluetoothActivity, c.mark, 15f, color, bold = true),
                     LinearLayout.LayoutParams((24 * density).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT))
-                addView(GlassTheme.text(this@BluetoothActivity, if (c.detail.isEmpty()) c.label else "${c.label}: ${c.detail}", 14f),
+                addView(GlassTheme.text(this@BluetoothActivity, checkText(c), 14f),
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             })
         }
         if (BluetoothDiagnostics.suspectsStalePairing(checks)) {
             diagBody.addView(GlassTheme.text(
-                this, "Todo está bien en el móvil pero Windows no abre la conexión: probablemente se emparejó antes de activar el modo Bluetooth.",
+                this, getString(R.string.bt_stale_pairing),
                 13f, GlassTheme.AMBER,
             ).apply { setPadding(0, (8 * density).toInt(), 0, 0) })
         }
 
-        diagBody.addView(GlassTheme.text(this, BluetoothDiagnostics.fineScrollLine(facts), 13f, GlassTheme.TEXT_SECONDARY).apply {
+        diagBody.addView(GlassTheme.text(this, fineScrollLine(facts), 13f, GlassTheme.TEXT_SECONDARY).apply {
             setPadding(0, (8 * density).toInt(), 0, 0)
         })
         // Luces del teclado (modo teclado): si no llegan, el teclado las supone y aquí se sugiere volver a emparejar.
         diagBody.addView(GlassTheme.text(
-            this, BluetoothDiagnostics.keyboardLedsLine(facts), 13f,
+            this, keyboardLedsLine(facts), 13f,
             if (facts.keyboardLedsReceived) GlassTheme.TEXT_SECONDARY else GlassTheme.AMBER,
         ).apply { setPadding(0, (8 * density).toInt(), 0, 0) })
         statsText = GlassTheme.text(this, statsLine(), 12f, GlassTheme.TEXT_SECONDARY).apply {
@@ -187,28 +189,92 @@ class BluetoothActivity : Activity() {
         diagBody.addView(statsText)
         diagBody.addView(GlassTheme.note(
             this,
-            "El puntero va tan fluido como los informes por segundo: el intervalo real entre informes (no es un ping: " +
-                "Bluetooth HID no confirma lo que envía). Ajustes → Intervalo Bluetooth cambia la cadencia (6–20 ms).",
+            getString(R.string.bt_pointer_note),
         ))
         diagBody.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(GlassTheme.button(this@BluetoothActivity, "Reintentar conexión") { transport.retryConnection() })
-            addView(GlassTheme.button(this@BluetoothActivity, "Volver a registrar") { transport.reregister() })
+            addView(GlassTheme.button(this@BluetoothActivity, getString(R.string.bt_retry)) { transport.retryConnection() })
+            addView(GlassTheme.button(this@BluetoothActivity, getString(R.string.bt_reregister)) { transport.reregister() })
         })
-        diagBody.addView(GlassTheme.button(this, "Copiar diagnóstico") { copyDiagnostics() })
+        diagBody.addView(GlassTheme.button(this, getString(R.string.bt_copy_diagnostics)) { copyDiagnostics() })
 
-        diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.REPAIR_HELP))
-        diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.PAIRING_NOTE))
-        diagBody.addView(GlassTheme.note(this, BluetoothDiagnostics.REPAIR_FINE_SCROLL))
+        diagBody.addView(GlassTheme.note(this, getString(R.string.bt_repair_help)))
+        diagBody.addView(GlassTheme.note(this, getString(R.string.bt_pairing_note)))
+        diagBody.addView(GlassTheme.note(this, getString(R.string.bt_repair_fine_scroll)))
 
-        diagBody.addView(GlassTheme.cardTitle(this, "Últimos eventos").apply { setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt()) })
+        diagBody.addView(GlassTheme.cardTitle(this, getString(R.string.bt_last_events)).apply { setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt()) })
         val events = transport.events.entries()
-        if (events.isEmpty()) diagBody.addView(GlassTheme.note(this, "Todavía no hay eventos."))
+        if (events.isEmpty()) diagBody.addView(GlassTheme.note(this, getString(R.string.bt_no_events)))
         val fmt = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
         for (e in events) {
             diagBody.addView(GlassTheme.text(this, "${fmt.format(Instant.ofEpochMilli(e.timeMillis))}  ${e.text}", 11f, GlassTheme.TEXT_SECONDARY).apply {
                 typeface = Typeface.MONOSPACE
             })
+        }
+    }
+
+    // ---- Textos del diagnóstico: el núcleo devuelve códigos y aquí se traducen ----
+
+    private fun checkLabel(c: DiagnosticCheck): String = getString(when (c.id) {
+        CheckId.BLUETOOTH -> R.string.diag_check_bluetooth
+        CheckId.PERMISSIONS -> R.string.diag_check_permissions
+        CheckId.PROFILE -> R.string.diag_check_profile
+        CheckId.REGISTERED -> R.string.diag_check_registered
+        CheckId.HOST -> R.string.diag_check_host
+        CheckId.LINK -> R.string.diag_check_link
+    })
+
+    private fun checkDetail(c: DiagnosticCheck): String = when (c.detail) {
+        DiagnosticDetail.NONE -> ""
+        DiagnosticDetail.NO_ADAPTER -> getString(R.string.diag_detail_no_adapter)
+        DiagnosticDetail.OFF -> getString(R.string.diag_detail_off)
+        DiagnosticDetail.MISSING_PERMISSIONS -> getString(R.string.diag_detail_missing_permissions)
+        DiagnosticDetail.NO_HID_PROFILE -> getString(R.string.diag_detail_no_hid_profile)
+        DiagnosticDetail.NOT_REGISTERED -> getString(R.string.diag_detail_not_registered)
+        DiagnosticDetail.NO_HOST -> getString(R.string.diag_detail_no_host)
+        DiagnosticDetail.HOST_UNBONDED -> getString(R.string.diag_detail_host_unbonded, c.hostName.orEmpty())
+        DiagnosticDetail.HOST_OK -> c.hostName.orEmpty()
+        DiagnosticDetail.CONNECTED -> getString(R.string.diag_detail_connected)
+        DiagnosticDetail.CONNECTING -> getString(R.string.diag_detail_connecting)
+        DiagnosticDetail.DISCONNECTED -> getString(R.string.diag_detail_disconnected)
+    }
+
+    private fun checkText(c: DiagnosticCheck): String {
+        val detail = checkDetail(c)
+        return if (detail.isEmpty()) checkLabel(c) else "${checkLabel(c)}: $detail"
+    }
+
+    private fun summaryText(checks: List<DiagnosticCheck>): String = when (val s = BluetoothDiagnostics.summary(checks)) {
+        DiagnosticSummary.AllOk -> getString(R.string.diag_summary_ok)
+        DiagnosticSummary.NotEnoughData -> getString(R.string.diag_summary_no_data)
+        is DiagnosticSummary.Failed -> checkText(s.check)
+    }
+
+    private fun fineScrollLine(f: BluetoothFacts): String = getString(when (BluetoothDiagnostics.fineScrollState(f)) {
+        FineScrollState.DISABLED -> R.string.diag_fine_scroll_disabled
+        FineScrollState.ACTIVE -> R.string.diag_fine_scroll_active
+        FineScrollState.INACTIVE -> R.string.diag_fine_scroll_inactive
+    })
+
+    private fun keyboardLedsLine(f: BluetoothFacts): String =
+        if (f.keyboardLedsReceived) getString(R.string.diag_leds_received)
+        else getString(R.string.diag_leds_missing, getString(R.string.diag_repair_leds))
+
+    /** Texto para "Copiar diagnóstico": comprobaciones y registro, pensado para pegarlo en un chat. */
+    private fun buildReport(facts: BluetoothFacts, events: List<BluetoothEvent>, appInfo: String): String {
+        val checks = BluetoothDiagnostics.evaluate(facts)
+        val fmt = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
+        return buildString {
+            append(getString(R.string.diag_report_title)).append('\n')
+            if (appInfo.isNotBlank()) append(appInfo).append('\n')
+            append(getString(R.string.diag_report_summary, summaryText(checks))).append("\n\n")
+            for (c in checks) append(c.mark).append(' ').append(checkText(c)).append('\n')
+            append('\n').append(fineScrollLine(facts)).append('\n')
+            append(keyboardLedsLine(facts)).append('\n')
+            if (BluetoothDiagnostics.suspectsStalePairing(checks)) append('\n').append(getString(R.string.diag_report_stale)).append('\n')
+            append('\n').append(getString(R.string.diag_report_events, events.size)).append('\n')
+            if (events.isEmpty()) append(getString(R.string.diag_report_none)).append('\n')
+            for (e in events) append(fmt.format(Instant.ofEpochMilli(e.timeMillis))).append("  ").append(e.text).append('\n')
         }
     }
 
@@ -219,12 +285,12 @@ class BluetoothActivity : Activity() {
             "?"
         }
         val info = "MyMouse $version · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL}"
-        val text = BluetoothDiagnostics.report(
+        val text = buildReport(
             transport.facts(hasPermissions()), transport.events.entries(),
-            "$info\n${statsLine()}\nIntervalo de envío configurado: ${transport.intervalMs} ms",
+            "$info\n${statsLine()}\n" + getString(R.string.diag_report_interval, transport.intervalMs),
         )
-        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Diagnóstico de MyMouse", text))
-        Toast.makeText(this, "Diagnóstico copiado", Toast.LENGTH_SHORT).show()
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(getString(R.string.diag_clip_label), text))
+        Toast.makeText(this, getString(R.string.diag_copied), Toast.LENGTH_SHORT).show()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

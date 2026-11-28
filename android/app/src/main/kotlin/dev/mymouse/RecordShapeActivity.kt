@@ -40,15 +40,15 @@ class RecordShapeActivity : Activity() {
             textSize = 15f
             setTextColor(GlassTheme.TEXT)
         }
-        saveButton = GlassTheme.button(this, "Guardar", accent = true) {
+        saveButton = GlassTheme.button(this, getString(R.string.save), accent = true) {
             store.put(name, samples.toList())
             finish()
         }
-        val again = GlassTheme.button(this, "Repetir") { reset() }
-        val cancel = GlassTheme.button(this, "Cancelar") { finish() }
+        val again = GlassTheme.button(this, getString(R.string.rec_repeat)) { reset() }
+        val cancel = GlassTheme.button(this, getString(R.string.cancel)) { finish() }
         canvasView = DrawView(this) { stroke -> onStroke(stroke) }
 
-        val screen = GlassTheme.Screen(this, "Grabar \"${ShapeStore.label(name)}\"", scrollable = false)
+        val screen = GlassTheme.Screen(this, getString(R.string.rec_title, ShapeStore.label(this, name)), scrollable = false)
         val card = screen.card(null)
         card.addView(info)
         card.addView(LinearLayout(this).apply {
@@ -68,7 +68,7 @@ class RecordShapeActivity : Activity() {
         samples.clear()
         canvasView.clearSamples()
         setSaveEnabled(false)
-        info.text = "Dibújala con un dedo, de un solo trazo (1 de $SAMPLES)."
+        info.text = getString(R.string.rec_first, SAMPLES)
     }
 
     private fun setSaveEnabled(enabled: Boolean) {
@@ -80,13 +80,13 @@ class RecordShapeActivity : Activity() {
         val xs = stroke.map { it.x }
         val ys = stroke.map { it.y }
         if ((xs.max() - xs.min()) < 40 * density && (ys.max() - ys.min()) < 40 * density) {
-            info.text = "Demasiado pequeña: dibújala más grande (${samples.size + 1} de $SAMPLES)."
+            info.text = getString(R.string.rec_too_small, samples.size + 1, SAMPLES)
             return
         }
         samples += stroke
         canvasView.addSample(stroke)
         if (samples.size < SAMPLES) {
-            info.text = "Otra vez (${samples.size + 1} de $SAMPLES)."
+            info.text = getString(R.string.rec_again, samples.size + 1, SAMPLES)
             return
         }
         info.text = check()
@@ -97,10 +97,9 @@ class RecordShapeActivity : Activity() {
     private fun check(): String {
         val clashes = store.clashes(name, samples, minSizePx = 40 * density)
         return if (clashes.isEmpty()) {
-            "Lista. No se parece a ninguna otra forma activa."
+            getString(R.string.rec_ready)
         } else {
-            "Ojo: se confunde con ${clashes.joinToString { "\"${ShapeStore.label(it)}\"" }}. " +
-                "Puedes guardarla igualmente, repetirla de otra manera o desactivar esa forma."
+            getString(R.string.rec_clash, clashes.joinToString { "\"${ShapeStore.label(this, it)}\"" })
         }
     }
 

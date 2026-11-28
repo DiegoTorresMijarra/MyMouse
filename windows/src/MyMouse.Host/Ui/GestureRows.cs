@@ -51,7 +51,7 @@ internal static class GestureRows
             chipLine.Children.Add(chip);
             if (row.OnlyInSomeApps)
             {
-                var some = Theme.Label("solo en algunas apps", 11, Theme.Faint);
+                var some = Theme.Label(Loc.T("gr_some_apps"), 11, Theme.Faint);
                 some.Margin = new Thickness(8, 0, 0, 0);
                 some.VerticalAlignment = VerticalAlignment.Center;
                 chipLine.Children.Add(some);
@@ -59,7 +59,7 @@ internal static class GestureRows
         }
         else
         {
-            chipLine.Children.Add(Theme.Chip("Sin acción", Theme.Amber, mono: true));
+            chipLine.Children.Add(Theme.Chip(Loc.T("no_action"), Theme.Amber, mono: true));
         }
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 8, 0) };
         texts.Children.Add(title);
@@ -69,14 +69,14 @@ internal static class GestureRows
         if (row.Pinned)
         {
             var pin = Theme.Glyph("", 12, Theme.Accent);
-            pin.ToolTip = "Fijada en la chuleta del móvil";
+            pin.ToolTip = Loc.T("gr_pinned");
             pin.Margin = new Thickness(0, 0, 6, 0);
             right.Children.Add(pin);
         }
         if (!row.HasAction && row.IsCustom)
         {
             // Solo visual: la fila entera abre el editor con la forma seleccionada.
-            right.Children.Add(Theme.Label("Asignar", 12, Theme.Accent, FontWeights.SemiBold));
+            right.Children.Add(Theme.Label(Loc.T("assign"), 12, Theme.Accent, FontWeights.SemiBold));
         }
         var chevron = Theme.Glyph("", 11, Theme.Faint);
         chevron.Margin = new Thickness(6, 0, 0, 0);
@@ -104,7 +104,7 @@ internal static class GestureRows
         return button;
     }
 
-    /// <summary>Cabecera de sección ("Fijadas", "Sin acción · 5"). Con <paramref name="toggle"/> se puede plegar (flecha a la derecha).</summary>
+    /// <summary>Cabecera de sección (Fijadas, "Sin acción · 5"). Con <paramref name="toggle"/> se puede plegar (flecha a la derecha).</summary>
     public static UIElement SectionHeader(string title, bool? open = null, Action? toggle = null)
     {
         var label = Theme.Label(title, 11, Theme.Dim, FontWeights.SemiBold);

@@ -2,6 +2,7 @@ package dev.mymouse.core.hid
 
 import dev.mymouse.core.bluetooth.BluetoothDiagnostics
 import dev.mymouse.core.bluetooth.BluetoothFacts
+import dev.mymouse.core.bluetooth.FineScrollState
 import dev.mymouse.core.gesture.OutputAction
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -275,12 +276,8 @@ class HidFineScrollMapperTest {
 
     @Test
     fun diagnosticsLineSaysIfThePcEnabledFineScroll() {
-        assertEquals("Scroll fino: activado por el PC", BluetoothDiagnostics.fineScrollLine(BluetoothFacts(fineScrollActive = true)))
-        assertEquals(
-            "Scroll fino: no (el PC no lo ha activado; se usan pasos enteros)",
-            BluetoothDiagnostics.fineScrollLine(BluetoothFacts(fineScrollActive = false)),
-        )
-        assertTrue(BluetoothDiagnostics.fineScrollLine(BluetoothFacts(fineScrollEnabled = false, fineScrollActive = true)).startsWith("Scroll fino: no"))
-        assertTrue(BluetoothDiagnostics.report(BluetoothFacts(fineScrollActive = true), emptyList()).contains("Scroll fino: activado por el PC"))
+        assertEquals(FineScrollState.ACTIVE, BluetoothDiagnostics.fineScrollState(BluetoothFacts(fineScrollActive = true)))
+        assertEquals(FineScrollState.INACTIVE, BluetoothDiagnostics.fineScrollState(BluetoothFacts(fineScrollActive = false)))
+        assertEquals(FineScrollState.DISABLED, BluetoothDiagnostics.fineScrollState(BluetoothFacts(fineScrollEnabled = false, fineScrollActive = true)))
     }
 }

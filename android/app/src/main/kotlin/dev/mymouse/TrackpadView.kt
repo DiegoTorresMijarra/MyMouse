@@ -48,7 +48,7 @@ class TrackpadView(
     private val statusPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val density = resources.displayMetrics.density
 
-    val cheatSheet = CheatSheet(density)
+    val cheatSheet = CheatSheet(density, resources)
 
     /** Modo ventana: dibuja un borde alrededor del trackpad. */
     var framed: Boolean = false
@@ -129,9 +129,9 @@ class TrackpadView(
         invalidate()
     }
 
-    /** ¿Hay toolbox en el PC? Si no (sin conexión o por Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableText]. */
+    /** ¿Hay toolbox en el PC? Si no (sin conexión o por Bluetooth), 4 dedos ↑ / ↓ solo avisan con [toolboxUnavailableRes]. */
     var toolboxAvailable: () -> Boolean = { true }
-    var toolboxUnavailableText: () -> String = { "Sin conexión con el PC" }
+    var toolboxUnavailableRes: () -> Int = { R.string.no_pc_connection }
 
     /** ¿Puede el destino hacer los gestos de 3 dedos de Windows? Si no (sin conexión), solo se anotan en depuración. */
     var systemGesturesAvailable: () -> Boolean = { true }
@@ -143,9 +143,9 @@ class TrackpadView(
         when (action) {
             is OutputAction.WidgetPanel -> onPanelGesture(action.show)
             is OutputAction.SystemGesture -> if (!systemGesturesAvailable() && action.command.isStart()) {
-                noteDebug("Gestos de 3 dedos: el PC necesita MyMouse 3.1 o posterior")
+                noteDebug(context.getString(R.string.trackpad_pc_needs_3_1))
             }
-            is OutputAction.FourFingerSwipe -> if (!toolboxAvailable()) showNotice(toolboxUnavailableText())
+            is OutputAction.FourFingerSwipe -> if (!toolboxAvailable()) showNotice(context.getString(toolboxUnavailableRes()))
             is OutputAction.FourFingerDoubleTap -> onKeyboardGesture()
             is OutputAction.GestureMode -> {
                 if (action.active) vibrate()
@@ -155,11 +155,11 @@ class TrackpadView(
                 lastGesture = action.name
                 val item = gestureItems().firstOrNull { it.name == action.name }
                 showResult(
-                    "${ShapeStore.label(action.name)}${item?.help?.takeIf { it.isNotEmpty() }?.let { " → $it" } ?: ""}",
+                    "${ShapeStore.label(context, action.name)}${item?.help?.takeIf { it.isNotEmpty() }?.let { " → $it" } ?: ""}",
                     ok = true,
                 )
             }
-            is OutputAction.GestureRejected -> showResult(action.reason, ok = false)
+            is OutputAction.GestureRejected -> showResult(UiText.reject(context, action.reason, action.other), ok = false)
             else -> Unit
         }
     }
@@ -176,14 +176,14 @@ class TrackpadView(
             invalidate()
         }
 
-    private val gestureSheet = GestureSheet(density)
+    private val gestureSheet = GestureSheet(density, resources)
     private var lastGesture: String? = null
     private var resultText: String? = null
     private var resultOk = true
     private var resultUntil = 0L
 
     private fun gestureItems(): List<GestureSheet.Item> =
-        shapeStore?.let { GestureSheet.items(it, hostGestureList?.entries) } ?: emptyList()
+        shapeStore?.let { GestureSheet.items(context, it, hostGestureList?.entries) } ?: emptyList()
 
     private fun showResult(text: String, ok: Boolean) {
         resultText = text
@@ -192,15 +192,15 @@ class TrackpadView(
         invalidate()
     }
 
-    /** Lo que se dice de una forma sin acción: "sin acción en el PC" por USB; por Bluetooth las acciones son del móvil. */
-    var unassignedText: String = "sin acción en el PC"
+    /** Lo que se dice de una forma sin acción (recurso): "sin acción en el PC" por USB; por Bluetooth las acciones son del móvil. */
+    var unassignedRes: Int = R.string.trackpad_unassigned_pc
 
     /** Respuesta del PC a la última forma: solo se avisa si no se ha ejecutado. */
     fun showGestureStatus(status: GestureStatus) {
         when (status) {
             GestureStatus.EXECUTED -> Unit
-            GestureStatus.UNASSIGNED -> showResult("${lastGesture?.let(ShapeStore::label) ?: "Forma"}: $unassignedText", ok = false)
-            GestureStatus.ERROR -> showResult("El PC no la ha ejecutado (¿en pausa?)", ok = false)
+            GestureStatus.UNASSIGNED -> showResult(context.getString(R.string.trackpad_shape_unassigned, lastGesture?.let { ShapeStore.label(context, it) } ?: context.getString(R.string.shape_generic), context.getString(unassignedRes)), ok = false)
+            GestureStatus.ERROR -> showResult(context.getString(R.string.trackpad_pc_not_run), ok = false)
         }
     }
 
@@ -339,8 +339,8 @@ class TrackpadView(
         if (gestureMode) {
             val list = hostGestureList
             val note = when {
-                !connected -> "Sin conexión: las formas no llegarán al PC"
-                list == null -> "El PC no tiene modo gestos (actualiza el host)"
+                !connected -> context.getString(R.string.trackpad_shapes_offline)
+                list == null -> context.getString(R.string.trackpad_pc_no_gesture_mode)
                 else -> null
             }
             gestureSheet.draw(canvas, width, height, gestureItems(), list?.context ?: "", note, null, debugOverlay?.occupiedArea(width, height))

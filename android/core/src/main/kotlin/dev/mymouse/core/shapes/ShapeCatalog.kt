@@ -12,8 +12,6 @@ object ShapeCatalog {
 
     data class Shape(
         val id: String,
-        /** Nombre para mostrar en el móvil. */
-        val label: String,
         /** Trazo de referencia, en el orden en que se dibuja. Vacío para las líneas. */
         val points: List<P>,
         /** Cerrada: da igual el punto de inicio y el sentido. */
@@ -27,21 +25,21 @@ object ShapeCatalog {
     val LINES = setOf(LINE_RIGHT, LINE_LEFT, LINE_UP, LINE_DOWN)
 
     val ALL: List<Shape> = listOf(
-        Shape(LINE_RIGHT, "Línea →", listOf(P(0f, 0.5f), P(1f, 0.5f))),
-        Shape(LINE_LEFT, "Línea ←", listOf(P(1f, 0.5f), P(0f, 0.5f))),
-        Shape(LINE_UP, "Línea ↑", listOf(P(0.5f, 1f), P(0.5f, 0f))),
-        Shape(LINE_DOWN, "Línea ↓", listOf(P(0.5f, 0f), P(0.5f, 1f))),
-        Shape("v", "V", listOf(P(0f, 0f), P(0.5f, 1f), P(1f, 0f))),
-        Shape("caret", "Λ", listOf(P(0f, 1f), P(0.5f, 0f), P(1f, 1f))),
-        Shape("lt", "<", listOf(P(0.8f, 0f), P(0f, 0.5f), P(0.8f, 1f))),
-        Shape("gt", ">", listOf(P(0f, 0f), P(0.8f, 0.5f), P(0f, 1f))),
-        Shape("circle", "Círculo", circle(), closed = true),
-        Shape("triangle", "Triángulo", listOf(P(0.5f, 0f), P(0f, 0.9f), P(1f, 0.9f), P(0.5f, 0f)), closed = true),
-        Shape("square", "Cuadrado", listOf(P(0f, 0f), P(0f, 1f), P(1f, 1f), P(1f, 0f), P(0f, 0f)), closed = true),
-        Shape("check", "✓", listOf(P(0f, 0.55f), P(0.3f, 1f), P(1f, 0f))),
-        Shape("z", "Z", listOf(P(0f, 0f), P(1f, 0f), P(0f, 1f), P(1f, 1f))),
-        Shape("s", "S", sCurve()),
-        Shape("l", "L", listOf(P(0f, 0f), P(0f, 1f), P(0.6f, 1f))),
+        Shape(LINE_RIGHT, listOf(P(0f, 0.5f), P(1f, 0.5f))),
+        Shape(LINE_LEFT, listOf(P(1f, 0.5f), P(0f, 0.5f))),
+        Shape(LINE_UP, listOf(P(0.5f, 1f), P(0.5f, 0f))),
+        Shape(LINE_DOWN, listOf(P(0.5f, 0f), P(0.5f, 1f))),
+        Shape("v", listOf(P(0f, 0f), P(0.5f, 1f), P(1f, 0f))),
+        Shape("caret", listOf(P(0f, 1f), P(0.5f, 0f), P(1f, 1f))),
+        Shape("lt", listOf(P(0.8f, 0f), P(0f, 0.5f), P(0.8f, 1f))),
+        Shape("gt", listOf(P(0f, 0f), P(0.8f, 0.5f), P(0f, 1f))),
+        Shape("circle", circle(), closed = true),
+        Shape("triangle", listOf(P(0.5f, 0f), P(0f, 0.9f), P(1f, 0.9f), P(0.5f, 0f)), closed = true),
+        Shape("square", listOf(P(0f, 0f), P(0f, 1f), P(1f, 1f), P(1f, 0f), P(0f, 0f)), closed = true),
+        Shape("check", listOf(P(0f, 0.55f), P(0.3f, 1f), P(1f, 0f))),
+        Shape("z", listOf(P(0f, 0f), P(1f, 0f), P(0f, 1f), P(1f, 1f))),
+        Shape("s", sCurve()),
+        Shape("l", listOf(P(0f, 0f), P(0f, 1f), P(0.6f, 1f))),
     )
 
     val BY_ID: Map<String, Shape> = ALL.associateBy { it.id }

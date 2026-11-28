@@ -49,7 +49,7 @@ internal sealed class UpdateController : IDisposable
     /// <summary>Último fallo de la descarga, para el banner; null si no hay.</summary>
     public string? Error { get; private set; }
 
-    /// <summary>¿Se instaló con el instalador? Entonces "Actualizar" lo hace solo; si es el zip portátil, abre la página de la release.</summary>
+    /// <summary>¿Se instaló con el instalador? Entonces Actualizar lo hace solo; si es el zip portátil, abre la página de la release.</summary>
     public bool IsInstalled
     {
         get
@@ -101,12 +101,12 @@ internal sealed class UpdateController : IDisposable
         if (outcome == CheckOutcome.Available && Manager.ShouldNotify)
         {
             Manager.MarkNotified();
-            _notify($"Nueva versión {Manager.Offer!.Version.Display} disponible. Haz clic para verla.");
+            _notify(Loc.F("uc_new_version", Manager.Offer!.Version.Display));
         }
         return outcome;
     }
 
-    /// <summary>"Actualizar" en el banner. Instalada con el instalador: descarga y lanza el instalador en silencio, y se cierra. Portátil: abre la página.</summary>
+    /// <summary>Actualizar en el banner. Instalada con el instalador: descarga y lanza el instalador en silencio, y se cierra. Portátil: abre la página.</summary>
     public async Task InstallAsync(ReleaseInfo release)
     {
         if (Busy) return;
@@ -139,7 +139,7 @@ internal sealed class UpdateController : IDisposable
         catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidDataException or Win32Exception or OperationCanceledException or UnauthorizedAccessException)
         {
             FileLog.Write($"No se pudo actualizar: {ex.Message}");
-            Error = ex is InvalidDataException ? "La descarga no es válida. Inténtalo de nuevo." : "No se pudo descargar la actualización. Revisa la conexión.";
+            Error = ex is InvalidDataException ? Loc.T("uc_invalid") : Loc.T("uc_download_failed");
             Busy = false;
             Changed?.Invoke();
         }

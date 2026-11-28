@@ -1,10 +1,10 @@
 package dev.mymouse.core.keyboard
 
 /** Distribución elegida en Ajustes → Teclado (docs/spec-v6-teclado.md §6). */
-enum class KeyboardLayoutSetting(val id: String, val label: String) {
-    AUTO("auto", "Automática (la del PC)"),
-    ES("es", "Español (España)"),
-    US("us", "Inglés (EE. UU.)");
+enum class KeyboardLayoutSetting(val id: String) {
+    AUTO("auto"),
+    ES("es"),
+    US("us");
 
     companion object {
         fun fromId(id: String?): KeyboardLayoutSetting = entries.firstOrNull { it.id == id } ?: AUTO
@@ -12,10 +12,10 @@ enum class KeyboardLayoutSetting(val id: String, val label: String) {
 }
 
 /** Tamaño de las teclas: multiplica el alto de las filas. */
-enum class KeySize(val id: String, val label: String, val heightFactor: Float) {
-    SMALL("small", "Pequeño", 0.8f),
-    MEDIUM("medium", "Mediano", 1.0f),
-    LARGE("large", "Grande", 1.25f);
+enum class KeySize(val id: String, val heightFactor: Float) {
+    SMALL("small", 0.8f),
+    MEDIUM("medium", 1.0f),
+    LARGE("large", 1.25f);
 
     companion object {
         fun fromId(id: String?): KeySize = entries.firstOrNull { it.id == id } ?: MEDIUM

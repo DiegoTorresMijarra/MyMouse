@@ -1,10 +1,12 @@
 package dev.mymouse
 
+import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import dev.mymouse.core.debug.ActionDescriber
+import dev.mymouse.core.debug.DebugTexts
 import dev.mymouse.core.gesture.OutputAction
 import dev.mymouse.core.gesture.TouchInput
 import dev.mymouse.core.layout.Area
@@ -13,12 +15,12 @@ import dev.mymouse.core.layout.Area
  * Modo depuración: una minipantalla con los dedos y sus trazos en vivo y, debajo, la lista de
  * acciones que se han enviado al PC ("Clic", "Doble clic", "Scroll ↓ 2"...). Se activa en Ajustes.
  */
-class DebugOverlay(private val density: Float) {
+class DebugOverlay(private val density: Float, private val res: Resources, texts: DebugTexts) {
 
     private data class TrailPoint(val x: Float, val y: Float, val t: Long)
     private data class Entry(val key: Long, var text: String, var t: Long)
 
-    private val describer = ActionDescriber()
+    private val describer = ActionDescriber(texts)
     private val trails = LinkedHashMap<Int, ArrayDeque<TrailPoint>>()
     private val down = HashSet<Int>()
     private val entries = ArrayDeque<Entry>()
@@ -138,8 +140,8 @@ class DebugOverlay(private val density: Float) {
         var y = panel.bottom + 16 * density
         canvas.drawText(
             ellipsize(
-                "${down.size} dedo${if (down.size == 1) "" else "s"} · " +
-                    (if (connected) "enviando al PC" else "sin conexión: no se envía nada") + (linkInfo?.let { " · $it" } ?: ""),
+                res.getString(if (down.size == 1) R.string.debug_finger_one else R.string.debug_finger_many, down.size) + " · " +
+                    res.getString(if (connected) R.string.debug_sending else R.string.debug_not_connected) + (linkInfo?.let { " · $it" } ?: ""),
                 textWidth, smallPaint,
             ),
             m, y, smallPaint,

@@ -1,7 +1,5 @@
 package dev.mymouse.core.hid
 
-import kotlin.math.roundToInt
-
 /**
  * Estadística del último segundo de envíos por Bluetooth (docs/spec-v4.5-estilo.md §4.2).
  *
@@ -20,20 +18,6 @@ class HidSendStats(private val windowMs: Long = 1_000L) {
         /** Llamadas a `sendReport` que devolvieron false en la ventana. */
         val failures: Int,
     ) {
-        /** Texto corto para el estado: "120 inf/s · 8 ms" (o "en reposo"). */
-        fun label(): String = when {
-            reportsPerSecond == 0 -> "en reposo"
-            avgIntervalMs == null -> "$reportsPerSecond inf/s"
-            else -> "$reportsPerSecond inf/s · ${avgIntervalMs.roundToInt()} ms"
-        }
-
-        /** Texto largo para el diagnóstico y el informe copiado. */
-        fun detail(): String =
-            if (reportsPerSecond == 0) "sin informes en el último segundo"
-            else "$reportsPerSecond informes/s, intervalo real entre informes " +
-                (avgIntervalMs?.let { "${format(it)} ms" } ?: "—") +
-                ", sendReport ${avgSendMs?.let { "${format(it)} ms" } ?: "—"} de media" +
-                if (failures > 0) ", $failures rechazados" else ""
     }
 
     private class Sample(val timeMs: Long, val sendMicros: Long, val ok: Boolean)
@@ -59,9 +43,5 @@ class HidSendStats(private val windowMs: Long = 1_000L) {
 
     private fun prune(nowMs: Long) {
         while (samples.isNotEmpty() && nowMs - samples.first().timeMs >= windowMs) samples.removeFirst()
-    }
-
-    private companion object {
-        fun format(value: Double): String = ((value * 10).roundToInt() / 10.0).toString().replace('.', ',')
     }
 }

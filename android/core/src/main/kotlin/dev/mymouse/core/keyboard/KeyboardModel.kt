@@ -155,9 +155,9 @@ data class KeyboardCombo(
         "fn".takeIf { fn }, "arrows".takeIf { arrows }, "nav".takeIf { nav }, "num".takeIf { numpad }, "numonly".takeIf { numpadOnly },
     ).joinToString(",")
 
-    /** Etiquetas cortas de los bloques encendidos (barra de estado). */
-    fun labels(): List<String> = listOfNotNull(
-        "Fn".takeIf { fn }, "Flechas".takeIf { arrows }, "Nav".takeIf { nav }, "Num".takeIf { numpad }, "Solo num".takeIf { numpadOnly },
+    /** Ids de los bloques encendidos, en orden (barra de estado; la app pone el texto). */
+    fun blocks(): List<String> = listOfNotNull(
+        "fn".takeIf { fn }, "arrows".takeIf { arrows }, "nav".takeIf { nav }, "num".takeIf { numpad }, "numonly".takeIf { numpadOnly },
     )
 
     companion object {

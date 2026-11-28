@@ -114,11 +114,11 @@ public sealed class WidgetService : IWidgetService, IDisposable
         }
     }
 
-    public void SetVolume(int level) => Guard("Volumen", () => _volume.SetLevel(Math.Clamp(level, 0, 100)));
+    public void SetVolume(int level) => Guard(CoreLoc.T("ws_volume"), () => _volume.SetLevel(Math.Clamp(level, 0, 100)));
 
-    public void SetMuted(bool muted) => Guard("Silencio", () => _volume.SetMuted(muted));
+    public void SetMuted(bool muted) => Guard(CoreLoc.T("ws_mute"), () => _volume.SetMuted(muted));
 
-    public void SendMedia(MediaCommand command) => Guard("Música", () => _media.Send(command));
+    public void SendMedia(MediaCommand command) => Guard(CoreLoc.T("ws_music"), () => _media.Send(command));
 
     private void Guard(string what, Action action)
     {

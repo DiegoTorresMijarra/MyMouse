@@ -5,3 +5,6 @@ local.properties
 *.iml
 .kotlin/
 captures/
+# Claves de subida a Play: privadas, nunca en git (su ruta y contraseñas van en local.properties o en variables de entorno).
+*.jks
+upload*.keystore

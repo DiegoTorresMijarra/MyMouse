@@ -1,5 +1,6 @@
 package dev.mymouse
 
+import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -7,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import androidx.annotation.StringRes
 import dev.mymouse.core.layout.Area
 import dev.mymouse.core.layout.SheetLayout
 
@@ -14,11 +16,11 @@ import dev.mymouse.core.layout.SheetLayout
  * Chuleta de gestos básicos en el centro del trackpad (docs/spec-v0.md §2.1.2).
  * Solo dibuja: no intercepta toques.
  */
-class CheatSheet(private val density: Float) {
+class CheatSheet(private val density: Float, private val res: Resources) {
 
     enum class Icon { MOVE, TAP, TWO_TAP, SCROLL, PINCH, DRAG, THREE_UP, THREE_DOWN, THREE_SIDE, FOUR_HOLD, FOUR_PINCH, FOUR_TAP, VOLUME, VOLUME_UP }
 
-    data class Row(val icon: Icon, val text: String)
+    data class Row(val icon: Icon, @StringRes val text: Int)
 
     var rows: List<Row> = DEFAULT_ROWS
 
@@ -77,7 +79,7 @@ class CheatSheet(private val density: Float) {
         val perCol = (rows.size + cols - 1) / cols
         val columns = rows.chunked(perCol)
         val colGap = 20 * density
-        val colW = columns.map { col -> tileW + 12 * density + col.maxOf { textPaint.measureText(it.text) } }
+        val colW = columns.map { col -> tileW + 12 * density + col.maxOf { textPaint.measureText(res.getString(it.text)) } }
         val w = pad * 2 + colW.sum() + colGap * (columns.size - 1)
         val h = pad * 2 + titleH + rowH * perCol
         // Sitio libre y escala (la lógica pura está en `core`, con tests). Se dibuja a tamaño natural en (left, top) y el lienzo se escala.
@@ -101,7 +103,7 @@ class CheatSheet(private val density: Float) {
         canvas.drawRoundRect(box, radius, radius, shinePaint)
         canvas.drawRoundRect(box, radius, radius, borderPaint)
 
-        canvas.drawText("GESTOS BÁSICOS", pad, pad + titlePaint.textSize, titlePaint)
+        canvas.drawText(res.getString(R.string.cheat_title), pad, pad + titlePaint.textSize, titlePaint)
         val baselineOffset = -(textPaint.ascent() + textPaint.descent()) / 2
         var colLeft = box.left + pad
         columns.forEachIndexed { c, col ->
@@ -111,7 +113,7 @@ class CheatSheet(private val density: Float) {
                 // Icono en baldosa, como en el PC.
                 canvas.drawRoundRect(tileLeft, cy - tileH / 2, tileLeft + tileW, cy + tileH / 2, GlassTheme.RADIUS_ROW * density, GlassTheme.RADIUS_ROW * density, tilePaint)
                 drawIcon(canvas, row.icon, tileLeft + tileW / 2, cy)
-                canvas.drawText(row.text, tileLeft + tileW + 12 * density, cy + baselineOffset, textPaint)
+                canvas.drawText(res.getString(row.text), tileLeft + tileW + 12 * density, cy + baselineOffset, textPaint)
             }
             colLeft += colW[c] + colGap
         }
@@ -192,12 +194,12 @@ class CheatSheet(private val density: Float) {
             Icon.VOLUME_UP -> {
                 val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
                 c.drawRoundRect(r, 4 * d, 4 * d, iconStroke)
-                c.drawText("VOL+×2", cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
+                c.drawText(res.getString(R.string.cheat_vol_up_x2), cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
             }
             Icon.VOLUME -> {
                 val r = RectF(cx - 17 * d, cy - 8 * d, cx + 17 * d, cy + 8 * d)
                 c.drawRoundRect(r, 4 * d, 4 * d, iconStroke)
-                c.drawText("VOL−×2", cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
+                c.drawText(res.getString(R.string.cheat_vol_down_x2), cx, cy - (iconText.ascent() + iconText.descent()) / 2, iconText)
             }
         }
     }
@@ -223,12 +225,12 @@ class CheatSheet(private val density: Float) {
     companion object {
         /** Gestos básicos, sin los de 3 y 4 dedos (ver [rowsFor]). */
         private val BASIC_ROWS = listOf(
-            Row(Icon.MOVE, "Mover"),
-            Row(Icon.TAP, "Clic"),
-            Row(Icon.TWO_TAP, "Clic derecho"),
-            Row(Icon.SCROLL, "Scroll"),
-            Row(Icon.PINCH, "Zoom"),
-            Row(Icon.DRAG, "Doble toque y mover: arrastrar"),
+            Row(Icon.MOVE, R.string.cheat_move),
+            Row(Icon.TAP, R.string.cheat_click),
+            Row(Icon.TWO_TAP, R.string.cheat_right_click),
+            Row(Icon.SCROLL, R.string.cheat_scroll),
+            Row(Icon.PINCH, R.string.cheat_zoom),
+            Row(Icon.DRAG, R.string.cheat_drag),
         )
 
         val DEFAULT_ROWS = rowsFor(windowsGestures = true, gestureMode = true)
@@ -237,13 +239,13 @@ class CheatSheet(private val density: Float) {
         fun rowsFor(windowsGestures: Boolean, gestureMode: Boolean): List<Row> = buildList {
             addAll(BASIC_ROWS)
             if (windowsGestures) {
-                add(Row(Icon.THREE_UP, "3 dedos ↑: Vista de tareas"))
-                add(Row(Icon.THREE_DOWN, "3 dedos ↓: Mostrar el escritorio"))
-                add(Row(Icon.THREE_SIDE, "3 dedos ← →: Cambiar de app"))
+                add(Row(Icon.THREE_UP, R.string.cheat_three_up))
+                add(Row(Icon.THREE_DOWN, R.string.cheat_three_down))
+                add(Row(Icon.THREE_SIDE, R.string.cheat_three_side))
             }
-            if (gestureMode) add(Row(Icon.FOUR_HOLD, "4 dedos quietos: modo gestos"))
-            add(Row(Icon.FOUR_PINCH, "4 dedos juntar / separar: widgets"))
-            add(Row(Icon.FOUR_TAP, "4 dedos doble toque: teclado"))
+            if (gestureMode) add(Row(Icon.FOUR_HOLD, R.string.cheat_four_hold))
+            add(Row(Icon.FOUR_PINCH, R.string.cheat_four_pinch))
+            add(Row(Icon.FOUR_TAP, R.string.cheat_four_tap))
         }
     }
 }

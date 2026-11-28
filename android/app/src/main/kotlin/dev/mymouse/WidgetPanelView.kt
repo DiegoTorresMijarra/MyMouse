@@ -40,6 +40,7 @@ class WidgetPanelView(
     private val debug: (String) -> Unit,
 ) : View(context) {
 
+    private val describer = WidgetDescriber(AppDebugTexts(context))
     private val density = resources.displayMetrics.density
     private fun dp(value: Float) = value * density
 
@@ -192,25 +193,25 @@ class WidgetPanelView(
         when (event) {
             is WidgetEvent.Press -> {
                 send(Message.WidgetPress(event.id))
-                debug(WidgetDescriber.press(entries.firstOrNull { it.id == event.id }?.label.orEmpty()))
+                debug(describer.press(entries.firstOrNull { it.id == event.id }?.label.orEmpty()))
                 feedback(event.target)
             }
             is WidgetEvent.Media -> {
                 send(Message.MediaControl(event.command))
-                debug(WidgetDescriber.media(event.command))
+                debug(describer.media(event.command))
                 feedback(event.target)
             }
             is WidgetEvent.SetVolume -> {
                 send(Message.VolumeSet(event.level))
                 // La barra sigue al dedo sin esperar al eco del PC.
                 volumeState = Message.VolumeState(event.level, volumeState?.muted ?: false)
-                if (event.final) debug(WidgetDescriber.volume(event.level))
+                if (event.final) debug(describer.volume(event.level))
             }
             is WidgetEvent.ToggleMute -> {
                 val muted = !(volumeState?.muted ?: false)
                 send(Message.VolumeMute(muted))
                 volumeState = Message.VolumeState(volumeState?.level ?: 0, muted)
-                debug(WidgetDescriber.mute(muted))
+                debug(describer.mute(muted))
                 feedback(event.target)
             }
         }
@@ -359,7 +360,7 @@ class WidgetPanelView(
         val state = mediaState
         val text = parts.text
         if (state == null || (state.title.isEmpty() && state.artist.isEmpty())) {
-            canvas.drawText("Nada en reproducción", text.x, text.y + dp(16f), artistText)
+            canvas.drawText(context.getString(R.string.widget_nothing_playing), text.x, text.y + dp(16f), artistText)
         } else {
             canvas.drawText(ellipsize(state.title, text.width, titleText), text.x, text.y + dp(16f), titleText)
             canvas.drawText(ellipsize(state.artist, text.width, artistText), text.x, text.y + dp(34f), artistText)

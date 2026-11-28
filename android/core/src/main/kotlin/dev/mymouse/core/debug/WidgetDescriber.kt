@@ -4,19 +4,15 @@ import dev.mymouse.core.protocol.GestureStatus
 import dev.mymouse.core.protocol.MediaCommand
 import dev.mymouse.core.protocol.WidgetEntry
 
-/** Textos del modo depuración y de los avisos para las acciones del panel de widgets. */
-object WidgetDescriber {
-    fun press(label: String) = "Widget: $label"
+/** Textos del modo depuración y de los avisos para las acciones del panel de widgets (los escribe [DebugTexts]). */
+class WidgetDescriber(private val texts: DebugTexts) {
+    fun press(label: String) = texts.widget(label)
 
-    fun volume(level: Int) = "Volumen $level"
+    fun volume(level: Int) = texts.volume(level)
 
-    fun mute(muted: Boolean) = if (muted) "🔇 Silenciar" else "🔈 Quitar silencio"
+    fun mute(muted: Boolean) = texts.mute(muted)
 
-    fun media(command: MediaCommand) = when (command) {
-        MediaCommand.PLAY_PAUSE -> "⏯ Reproducir / pausar"
-        MediaCommand.NEXT -> "⏭ Siguiente"
-        MediaCommand.PREVIOUS -> "⏮ Anterior"
-    }
+    fun media(command: MediaCommand) = texts.media(command)
 
     /**
      * Aviso (1,5 s) para un `WIDGET_RESULT`, o null si se ejecutó. [entry] es el widget del layout actual, si sigue existiendo.
@@ -24,7 +20,7 @@ object WidgetDescriber {
      */
     fun resultNotice(entry: WidgetEntry?, status: GestureStatus): String? = when (status) {
         GestureStatus.EXECUTED -> null
-        GestureStatus.UNASSIGNED -> "${entry?.label?.takeIf { it.isNotEmpty() } ?: "Widget"}: sin acción en el PC"
-        GestureStatus.ERROR -> "El PC no lo ha ejecutado"
+        GestureStatus.UNASSIGNED -> texts.widgetUnassigned(entry?.label?.takeIf { it.isNotEmpty() })
+        GestureStatus.ERROR -> texts.text(DebugText.WIDGET_NOT_RUN)
     }
 }

@@ -6,6 +6,9 @@ import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.sin
 
+/** Por qué no se reconoció (o se canceló) un trazo: un código, no un texto; la app lo escribe en el idioma del móvil. */
+enum class RejectReason { EMPTY_STROKE, TOO_SMALL, NO_ACTIVE_SHAPES, NOT_RECOGNIZED, AMBIGUOUS, TIMEOUT, CANCELLED, NO_RECOGNIZER }
+
 /**
  * Reconocedor de trazos de un solo dedo (docs/spec-v1-gestos.md §4):
  * 1. Descarta trazos diminutos (toques).
@@ -33,7 +36,7 @@ class Recognizer(
 
     sealed interface Result {
         data class Match(val name: String, val score: Float) : Result
-        data class NoMatch(val reason: String, val best: String? = null, val score: Float = 0f) : Result
+        data class NoMatch(val reason: RejectReason, val best: String? = null, val score: Float = 0f, val second: String? = null) : Result
     }
 
     private class Prepared(val name: String, val vector: FloatArray)
@@ -43,13 +46,13 @@ class Recognizer(
         .map { Prepared(it.name, Geometry.vectorize(Geometry.resample(it.points, N))) }
 
     fun recognize(stroke: List<P>): Result {
-        if (stroke.size < 2) return Result.NoMatch("Trazo vacío")
+        if (stroke.size < 2) return Result.NoMatch(RejectReason.EMPTY_STROKE)
         val b = Geometry.bounds(stroke)
-        if (b.width < config.minSizePx && b.height < config.minSizePx) return Result.NoMatch("Demasiado pequeño")
+        if (b.width < config.minSizePx && b.height < config.minSizePx) return Result.NoMatch(RejectReason.TOO_SMALL)
 
         line(stroke)?.let { return it }
 
-        if (prepared.isEmpty()) return Result.NoMatch("No hay formas activas")
+        if (prepared.isEmpty()) return Result.NoMatch(RejectReason.NO_ACTIVE_SHAPES)
         val v = Geometry.vectorize(Geometry.resample(stroke, N))
         val bestByName = HashMap<String, Float>()
         for (t in prepared) {
@@ -73,8 +76,8 @@ class Recognizer(
 
         val second = ranked.getOrNull(1)?.value ?: -1f
         return when {
-            best.value < config.minScore -> Result.NoMatch("No reconocido", best.key, best.value)
-            best.value - second < config.minMargin -> Result.NoMatch("Ambiguo (${ranked[1].key})", best.key, best.value)
+            best.value < config.minScore -> Result.NoMatch(RejectReason.NOT_RECOGNIZED, best.key, best.value)
+            best.value - second < config.minMargin -> Result.NoMatch(RejectReason.AMBIGUOUS, best.key, best.value, ranked[1].key)
             else -> Result.Match(best.key, best.value)
         }
     }

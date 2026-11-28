@@ -8,10 +8,10 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
- * Traduce las acciones enviadas al PC a textos legibles para el modo depuración ("Clic", "Doble clic",
- * "Scroll ↓ 2 pasos"...). Las acciones seguidas del mismo tipo se agrupan en una sola entrada.
+ * Convierte las acciones enviadas al PC en textos legibles para el modo depuración (clic, doble clic,
+ * scroll ↓ 2 pasos...), que pone [DebugTexts] en el idioma del móvil. Las acciones seguidas del mismo tipo se agrupan en una sola entrada.
  */
-class ActionDescriber(private val doubleClickMs: Long = 500) {
+class ActionDescriber(private val texts: DebugTexts, private val doubleClickMs: Long = 500) {
 
     /** [key] identifica la entrada: si coincide con la anterior, la sustituye en lugar de añadir otra. */
     data class Label(val key: Long, val text: String)
@@ -36,21 +36,21 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
             if (kind == Kind.DRAG) lastClickAt = null
             val px = continueOrStart(kind) { movePx = 0f }
             movePx += hypot(action.dx.toFloat(), action.dy.toFloat())
-            Label(px, "${if (kind == Kind.DRAG) "Arrastrar" else "Mover"} (${movePx.roundToInt()} px)")
+            Label(px, if (kind == Kind.DRAG) texts.drag(movePx.roundToInt()) else texts.move(movePx.roundToInt()))
         }
         is OutputAction.Scroll -> {
             val key = continueOrStart(Kind.SCROLL) { scrollV = 0; scrollH = 0 }
             scrollV += action.vertical
             scrollH += action.horizontal
-            Label(key, "Scroll " + listOfNotNull(
+            Label(key, texts.scroll(listOfNotNull(
                 axis(scrollV, "↑", "↓"),
                 axis(scrollH, "→", "←"),
-            ).joinToString(" "))
+            ).joinToString(" ")))
         }
         is OutputAction.Zoom -> {
             val key = continueOrStart(Kind.ZOOM) { zoom = 0 }
             zoom += action.delta
-            Label(key, "Zoom ${if (zoom >= 0) "+" else "−"} ${steps(zoom)}")
+            Label(key, texts.zoom(zoom >= 0, steps(zoom)))
         }
         is OutputAction.SystemGesture -> {
             currentKind = null
@@ -58,40 +58,40 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
         }
         is OutputAction.WidgetPanel -> {
             currentKind = null
-            newLabel(if (action.show) "4 dedos juntar: mostrar widgets" else "4 dedos separar: ocultar widgets")
+            newLabel(texts.text(if (action.show) DebugText.WIDGETS_SHOW else DebugText.WIDGETS_HIDE))
         }
         is OutputAction.FourFingerSwipe -> {
             currentKind = null
-            newLabel(if (action.up) "4 dedos ↑: abrir la toolbox del PC" else "4 dedos ↓: cerrar la toolbox del PC")
+            newLabel(texts.text(if (action.up) DebugText.TOOLBOX_OPEN else DebugText.TOOLBOX_CLOSE))
         }
         is OutputAction.FourFingerDoubleTap -> {
             currentKind = null
-            newLabel("4 dedos doble toque: abrir el teclado")
+            newLabel(texts.text(DebugText.KEYBOARD_OPEN))
         }
         // Los lotes de puntos son demasiado frecuentes para listarlos; el fin del trazo ya sale en "Forma: …".
         is OutputAction.StrokePoints, is OutputAction.StrokeEnd -> null
         is OutputAction.GestureMode -> {
             currentKind = null
-            newLabel(if (action.active) "Modo gestos: dibuja una forma" else "Fin del modo gestos")
+            newLabel(texts.text(if (action.active) DebugText.GESTURES_START else DebugText.GESTURES_END))
         }
         is OutputAction.Gesture -> {
             currentKind = null
-            newLabel("Forma: ${action.name} (${(action.score * 100).roundToInt()} %)")
+            newLabel(texts.shape(action.name, (action.score * 100).roundToInt()))
         }
         is OutputAction.GestureRejected -> {
             currentKind = null
-            newLabel("Forma: ${action.reason}")
+            newLabel(texts.shapeRejected(action.reason, action.other))
         }
     }
 
-    private fun system(command: SystemGestureCommand) = when (command) {
-        SystemGestureCommand.TASK_VIEW -> "3 dedos ↑: Vista de tareas"
-        SystemGestureCommand.SHOW_DESKTOP -> "3 dedos ↓: Escritorio"
-        SystemGestureCommand.APP_SWITCH_START -> "3 dedos ← →: cambiar de app"
-        SystemGestureCommand.APP_SWITCH_NEXT -> "Siguiente app"
-        SystemGestureCommand.APP_SWITCH_PREVIOUS -> "App anterior"
-        SystemGestureCommand.APP_SWITCH_END -> "Fin del cambio de app"
-    }
+    private fun system(command: SystemGestureCommand) = texts.text(when (command) {
+        SystemGestureCommand.TASK_VIEW -> DebugText.TASK_VIEW
+        SystemGestureCommand.SHOW_DESKTOP -> DebugText.SHOW_DESKTOP
+        SystemGestureCommand.APP_SWITCH_START -> DebugText.APP_SWITCH_START
+        SystemGestureCommand.APP_SWITCH_NEXT -> DebugText.APP_SWITCH_NEXT
+        SystemGestureCommand.APP_SWITCH_PREVIOUS -> DebugText.APP_SWITCH_PREVIOUS
+        SystemGestureCommand.APP_SWITCH_END -> DebugText.APP_SWITCH_END
+    })
 
     private fun button(b: OutputAction.Button, nowMs: Long): Label? {
         val endsDrag = currentKind == Kind.DRAG
@@ -102,17 +102,17 @@ class ActionDescriber(private val doubleClickMs: Long = 500) {
                 val last = lastClickAt
                 if (last != null && nowMs - last <= doubleClickMs) {
                     lastClickAt = null
-                    newLabel("Doble clic")
+                    newLabel(texts.text(DebugText.DOUBLE_CLICK))
                 } else {
                     lastClickAt = nowMs
-                    newLabel("Clic")
+                    newLabel(texts.text(DebugText.CLICK))
                 }
             }
             b.button == MouseButton.LEFT -> {
                 leftDown = false
-                if (endsDrag) newLabel("Soltar") else null
+                if (endsDrag) newLabel(texts.text(DebugText.RELEASE)) else null
             }
-            b.pressed -> newLabel(if (b.button == MouseButton.RIGHT) "Clic derecho" else "Clic central")
+            b.pressed -> newLabel(texts.text(if (b.button == MouseButton.RIGHT) DebugText.RIGHT_CLICK else DebugText.MIDDLE_CLICK))
             else -> null
         }
     }

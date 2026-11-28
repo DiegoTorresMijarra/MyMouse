@@ -28,7 +28,7 @@ class ShapesActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        screen = GlassTheme.Screen(this, "Formas")
+        screen = GlassTheme.Screen(this, getString(R.string.shapes_title))
         screen.setContentView()
     }
 
@@ -49,18 +49,16 @@ class ShapesActivity : Activity() {
         screen.content.removeAllViews()
         list = screen.card(null)
         list.addView(note(
-            "Activa solo las que uses: cuantas menos, menos se confunden (recomendado: hasta 10). " +
-                "Qué hace cada forma se decide en el PC: toolbox → tarjeta Gestos (4 dedos ↑ en el trackpad). " +
-                "El punto azul de cada dibujo marca dónde empieza el trazo.",
+            getString(R.string.shapes_intro),
         ))
 
-        section("Formas incluidas")
+        section(getString(R.string.shapes_included))
         for (shape in ShapeCatalog.ALL) {
             val mine = store.recorded.any { it.name == shape.id }
             list.addView(row(
                 store.preview(shape.id),
-                "${shape.label}   ",
-                shape.id + if (mine) " · tu versión" else "",
+                "${ShapeStore.label(this, shape.id)}   ",
+                shape.id + if (mine) getString(R.string.shapes_your_version) else "",
             ) {
                 addView(Switch(this@ShapesActivity).apply {
                     GlassTheme.tint(this)
@@ -72,52 +70,52 @@ class ShapesActivity : Activity() {
                 list.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.END
-                    addView(smallButton(if (mine) "Regrabar mi versión" else "Grabar mi versión") { record(shape.id) })
-                    if (mine) addView(smallButton("Quitar mi versión") { store.remove(shape.id); build() })
+                    addView(smallButton(if (mine) getString(R.string.shapes_rerecord) else getString(R.string.shapes_record)) { record(shape.id) })
+                    if (mine) addView(smallButton(getString(R.string.shapes_remove_mine)) { store.remove(shape.id); build() })
                 })
             }
         }
 
-        section("Formas propias")
+        section(getString(R.string.shapes_custom))
         val custom = store.recorded.filter { it.name.startsWith(ShapeStore.CUSTOM_PREFIX) }
-        if (custom.isEmpty()) list.addView(note("Todavía no hay ninguna."))
+        if (custom.isEmpty()) list.addView(note(getString(R.string.shapes_none_yet)))
         for (r in custom) {
-            list.addView(row(r.samples.firstOrNull(), ShapeStore.label(r.name), "en el PC: \"${r.name}\"") {
-                addView(smallButton("Borrar") { confirmDelete(r.name) })
+            list.addView(row(r.samples.firstOrNull(), ShapeStore.label(this, r.name), getString(R.string.shapes_on_pc, r.name)) {
+                addView(smallButton(getString(R.string.shapes_delete)) { confirmDelete(r.name) })
             })
         }
-        list.addView(GlassTheme.button(this, "Nueva forma", accent = true) { askName() })
+        list.addView(GlassTheme.button(this, getString(R.string.shapes_new), accent = true) { askName() })
     }
 
     private fun askName() {
         val input = EditText(this).apply {
-            hint = "p. ej. firma"
+            hint = getString(R.string.shapes_name_hint)
             inputType = InputType.TYPE_CLASS_TEXT
             setSingleLine()
         }
         AlertDialog.Builder(this)
-            .setTitle("Nombre de la forma")
-            .setMessage("En el PC se usará como \"custom:<nombre>\".")
+            .setTitle(R.string.shapes_name_title)
+            .setMessage(R.string.shapes_name_note)
             .setView(input)
-            .setPositiveButton("Dibujar") { _, _ ->
+            .setPositiveButton(R.string.shapes_draw) { _, _ ->
                 val name = input.text.toString().trim().replace(Regex("\\s+"), "-").lowercase()
                 val full = ShapeStore.CUSTOM_PREFIX + name
                 when {
-                    name.isEmpty() -> toast("Hace falta un nombre")
-                    full.toByteArray(Charsets.UTF_8).size > 64 -> toast("Nombre demasiado largo")
-                    store.recorded.any { it.name == full } -> toast("Ya hay una forma con ese nombre")
+                    name.isEmpty() -> toast(getString(R.string.shapes_err_name))
+                    full.toByteArray(Charsets.UTF_8).size > 64 -> toast(getString(R.string.shapes_err_long))
+                    store.recorded.any { it.name == full } -> toast(getString(R.string.shapes_err_exists))
                     else -> record(full)
                 }
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun confirmDelete(name: String) {
         AlertDialog.Builder(this)
-            .setTitle("Borrar \"${ShapeStore.label(name)}\"")
-            .setPositiveButton("Borrar") { _, _ -> store.remove(name); build() }
-            .setNegativeButton("Cancelar", null)
+            .setTitle(getString(R.string.shapes_delete_title, ShapeStore.label(this, name)))
+            .setPositiveButton(R.string.shapes_delete) { _, _ -> store.remove(name); build() }
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 

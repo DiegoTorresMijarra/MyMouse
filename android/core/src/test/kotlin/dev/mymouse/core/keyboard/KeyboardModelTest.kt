@@ -275,7 +275,7 @@ class KeyboardModelTest {
         assertEquals(KeyboardCombo(), KeyboardCombo.decode("", false))
         assertEquals(KeyboardCombo(arrows = true), KeyboardCombo.decode(null, true))
         assertEquals(KeyboardCombo(), KeyboardCombo.decode(null, false))
-        assertEquals(listOf("Fn", "Nav", "Num"), KeyboardCombo(fn = true, nav = true, numpad = true).labels())
+        assertEquals(listOf("fn", "nav", "num"), KeyboardCombo(fn = true, nav = true, numpad = true).blocks())
     }
 
     @Test

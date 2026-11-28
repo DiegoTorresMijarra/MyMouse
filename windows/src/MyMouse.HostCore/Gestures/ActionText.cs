@@ -26,11 +26,11 @@ public static class ActionText
 
     public static string KindLabel(ActionKind kind) => kind switch
     {
-        ActionKind.None => "Ninguna",
-        ActionKind.Keys => "Atajo de teclado",
-        ActionKind.Launch => "Abrir app, archivo o web",
-        ActionKind.Text => "Escribir texto",
-        ActionKind.Media => "Multimedia",
+        ActionKind.None => CoreLoc.T("kind_none"),
+        ActionKind.Keys => CoreLoc.T("kind_keys"),
+        ActionKind.Launch => CoreLoc.T("kind_launch"),
+        ActionKind.Text => CoreLoc.T("kind_text"),
+        ActionKind.Media => CoreLoc.T("kind_media"),
         ActionKind.MyMouse => "MyMouse",
         _ => kind.ToString(),
     };
@@ -45,7 +45,7 @@ public static class ActionText
         MyMouseAction { Command: MyMouseCommand.Pause } => "mymouse pause",
         MyMouseAction { Command: MyMouseCommand.Lock } => "mymouse lock",
         MyMouseAction { Command: MyMouseCommand.Keyboard } => "mymouse keyboard",
-        _ => "sin acción",
+        _ => CoreLoc.T("summary_no_action"),
     };
 
     /// <summary>Opciones del desplegable Multimedia: (clave, etiqueta).</summary>

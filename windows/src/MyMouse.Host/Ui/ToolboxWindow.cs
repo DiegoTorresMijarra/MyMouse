@@ -113,12 +113,12 @@ internal sealed class ToolboxWindow : FloatingWindow
         };
 
         // Barra superior de 40 px: logo y nombre a la izquierda; ⚙ ⤢ ✕ de 28 × 28 a la derecha.
-        var settings = Theme.IconButton("", tooltip: "Ajustes");
+        var settings = Theme.IconButton("", tooltip: Loc.T("settings"));
         settings.Click += (_, _) => MiniMenu.Show(settings, SettingsItems(), PlacementMode.Bottom);
-        _maximizeButton = Theme.IconButton("", tooltip: "Maximizar");
+        _maximizeButton = Theme.IconButton("", tooltip: Loc.T("maximize"));
         _maximizeGlyph = (TextBlock)_maximizeButton.Content;
         _maximizeButton.Click += (_, _) => ToggleMaximized();
-        var close = Theme.IconButton("", tooltip: "Cerrar");
+        var close = Theme.IconButton("", tooltip: Loc.T("close"));
         close.Click += (_, _) => Close();
 
         var icons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
@@ -242,19 +242,19 @@ internal sealed class ToolboxWindow : FloatingWindow
 
     private IEnumerable<(string, bool?, Action)> SettingsItems() =>
     [
-        ("Iniciar con Windows", _app.AutostartEnabled, () => _app.AutostartEnabled = !_app.AutostartEnabled),
-        ("Mostrar el gesto en vivo", _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
-        ("Efecto cristal", _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
-        ("Mostrar siempre el icono en la barra de tareas", _app.Layout.AlwaysShowIcon, () => _app.Layout = _app.Layout.WithAlwaysShowIcon(!_app.Layout.AlwaysShowIcon)),
-        ("Buscar actualizaciones automáticamente", _app.Updates.Manager.AutoCheck, () => _app.Updates.Manager.AutoCheck = !_app.Updates.Manager.AutoCheck),
-        ("Buscar actualizaciones ahora", null, () => _ = CheckUpdatesNowAsync()),
-        ($"Versión instalada: {_app.Updates.Manager.LocalText}", null, () => { }),
-        ("Tema…", null, _app.ChooseTheme),
-        ("Personalizar tarjetas…", null, _app.CustomizeCards),
-        ("Abrir la carpeta de logs", null, _app.OpenLogs),
+        (Loc.T("tb_autostart"), _app.AutostartEnabled, () => _app.AutostartEnabled = !_app.AutostartEnabled),
+        (Loc.T("tb_live_gesture"), _app.Layout.ShowLiveGesture, () => _app.Layout = _app.Layout.WithLiveGesture(!_app.Layout.ShowLiveGesture)),
+        (Loc.T("tb_glass"), _app.Layout.GlassEffect, () => _app.Layout = _app.Layout.WithGlass(!_app.Layout.GlassEffect)),
+        (Loc.T("tb_always_icon"), _app.Layout.AlwaysShowIcon, () => _app.Layout = _app.Layout.WithAlwaysShowIcon(!_app.Layout.AlwaysShowIcon)),
+        (Loc.T("tb_auto_updates"), _app.Updates.Manager.AutoCheck, () => _app.Updates.Manager.AutoCheck = !_app.Updates.Manager.AutoCheck),
+        (Loc.T("tb_check_now"), null, () => _ = CheckUpdatesNowAsync()),
+        (Loc.F("tb_installed_version", _app.Updates.Manager.LocalText), null, () => { }),
+        (Loc.T("tb_theme"), null, _app.ChooseTheme),
+        (Loc.T("tb_customize"), null, _app.CustomizeCards),
+        (Loc.T("tb_open_logs"), null, _app.OpenLogs),
     ];
 
-    /// <summary>Ajustes → "Buscar actualizaciones ahora": el resultado se dice con un cuadro; si hay una versión nueva, sale el banner.</summary>
+    /// <summary>Ajustes → Buscar actualizaciones ahora: el resultado se dice con un cuadro; si hay una versión nueva, sale el banner.</summary>
     private async Task CheckUpdatesNowAsync()
     {
         var updates = _app.Updates;
@@ -262,10 +262,10 @@ internal sealed class ToolboxWindow : FloatingWindow
         var text = outcome switch
         {
             CheckOutcome.Available => null, // el banner de la toolbox ya lo dice
-            CheckOutcome.UpToDate => $"Ya tienes la última versión (MyMouse {updates.Manager.LocalText}).",
-            CheckOutcome.DevBuild => $"Esta es una versión de desarrollo ({updates.Manager.LocalText}): no avisa de versiones nuevas.",
-            CheckOutcome.Skipped => "Hay una versión más nueva, pero la omitiste.",
-            _ => "No se pudo comprobar si hay una versión nueva. Revisa la conexión a Internet e inténtalo de nuevo.",
+            CheckOutcome.UpToDate => Loc.F("tb_up_to_date", updates.Manager.LocalText),
+            CheckOutcome.DevBuild => Loc.F("tb_dev_build", updates.Manager.LocalText),
+            CheckOutcome.Skipped => Loc.T("tb_skipped"),
+            _ => Loc.T("tb_check_failed"),
         };
         if (text is not null) Dialogs.Message(null, "MyMouse", text);
     }
@@ -369,7 +369,7 @@ internal sealed class ToolboxWindow : FloatingWindow
             _scroll.Content = _columns;
             _scroll.MaxHeight = double.PositiveInfinity;
             _maximizeGlyph.Text = ""; // restaurar
-            _maximizeButton.ToolTip = "Restaurar";
+            _maximizeButton.ToolTip = Loc.T("restore");
         }
         else
         {
@@ -381,7 +381,7 @@ internal sealed class ToolboxWindow : FloatingWindow
             Width = PanelWidth + 2 * ShadowMargin;
             _scroll.Content = _stack;
             _maximizeGlyph.Text = ""; // maximizar
-            _maximizeButton.ToolTip = "Maximizar";
+            _maximizeButton.ToolTip = Loc.T("maximize");
         }
     }
 
@@ -443,7 +443,7 @@ internal static class CardChrome
 
     public static TextBlock Title(string text) => Theme.CardTitle(text);
 
-    /// <summary>Botón secundario de cristal para las cabeceras de tarjeta ("+ Nueva forma").</summary>
+    /// <summary>Botón secundario de cristal para las cabeceras de tarjeta (+ Nueva forma).</summary>
     public static Button HeaderButton(string text)
     {
         var b = Theme.FlatButton(text, Theme.Hover, padding: new Thickness(10, 3, 10, 4));
@@ -469,7 +469,7 @@ internal sealed class OptionsCard : IToolboxCard
     private readonly StackPanel _pillHost = new();
     private readonly TextBlock _hint = Theme.Label("", 12, Theme.Dim);
     private readonly TextBlock _pauseGlyph = Theme.Glyph("", 16);
-    private readonly TextBlock _pauseLabel = Theme.Label("Pausar", 11);
+    private readonly TextBlock _pauseLabel = Theme.Label(Loc.T("pause"), 11);
     private string _shown = "";
 
     public OptionsCard(HostApp app)
@@ -481,13 +481,13 @@ internal sealed class OptionsCard : IToolboxCard
 
         var pause = Tile(_pauseGlyph, _pauseLabel);
         pause.Click += (_, _) => _app.TogglePause();
-        var editor = Tile(Theme.Glyph("", 16), Theme.Label("Gestos", 11));
-        editor.ToolTip = "Gestos y widgets";
+        var editor = Tile(Theme.Glyph("", 16), Theme.Label(Loc.T("card_gestures"), 11));
+        editor.ToolTip = Loc.T("tb_gestures_widgets");
         editor.Click += (_, _) => _app.OpenEditor(EditorTab.Gestures);
-        var help = Tile(Theme.Glyph("", 16), Theme.Label("Ayuda", 11));
+        var help = Tile(Theme.Glyph("", 16), Theme.Label(Loc.T("help"), 11));
         help.Click += (_, _) => _app.ShowHelp();
-        var quit = Tile(Theme.Glyph("", 16), Theme.Label("Salir", 11));
-        quit.ToolTip = "Salir de MyMouse";
+        var quit = Tile(Theme.Glyph("", 16), Theme.Label(Loc.T("exit"), 11));
+        quit.ToolTip = Loc.T("tb_quit");
         quit.Click += (_, _) => _app.Quit();
 
         var tiles = new UniformGrid { Columns = 4, Margin = new Thickness(-3, 12, -3, 0) };
@@ -525,7 +525,7 @@ internal sealed class OptionsCard : IToolboxCard
         var hint = _app.StatusHint ?? "";
         var key = _app.StatusText + "|" + _app.Paused + "|" + hint;
         _pauseGlyph.Text = _app.Paused ? "" : "";
-        _pauseLabel.Text = _app.Paused ? "Reanudar" : "Pausar";
+        _pauseLabel.Text = _app.Paused ? Loc.T("resume") : Loc.T("pause");
         if (key == _shown) return false;
         _shown = key;
         // El estado va en una "píldora" con punto de color.
@@ -605,7 +605,7 @@ internal sealed class MusicCard : IToolboxCard
         volume.Children.Add(_slider);
 
         var stack = new StackPanel();
-        stack.Children.Add(CardChrome.Title("Música"));
+        stack.Children.Add(CardChrome.Title(Loc.T("card_music")));
         stack.Children.Add(new Border { Height = 8 });
         stack.Children.Add(top);
         stack.Children.Add(volume);
@@ -620,7 +620,7 @@ internal sealed class MusicCard : IToolboxCard
     {
         var media = _app.Media.Current();
         var nothing = media.Title.Length == 0 && !media.Playing;
-        _title.Text = nothing ? "Nada en reproducción" : media.Title;
+        _title.Text = nothing ? Loc.T("nothing_playing") : media.Title;
         _title.Foreground = nothing ? Theme.Dim : Theme.Text;
         _artist.Text = media.Artist;
         _artist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -662,8 +662,8 @@ internal sealed class MusicCard : IToolboxCard
 }
 
 /// <summary>
-/// Las formas en secciones (docs/spec-v4.5-estilo.md §2.4): "Fijadas", "Asignadas" y "Sin acción" (plegada, con contador), con
-/// la fila de <see cref="GestureRows"/>, "+ Nueva forma" de cristal y una búsqueda opcional.
+/// Las formas en secciones (docs/spec-v4.5-estilo.md §2.4): Fijadas, Asignadas y Sin acción (plegada, con contador), con
+/// la fila de <see cref="GestureRows"/>, + Nueva forma de cristal y una búsqueda opcional.
 /// </summary>
 internal sealed class GesturesCard : IToolboxCard
 {
@@ -678,9 +678,9 @@ internal sealed class GesturesCard : IToolboxCard
     public GesturesCard(HostApp app)
     {
         _app = app;
-        var add = CardChrome.HeaderButton("+ Nueva forma");
+        var add = CardChrome.HeaderButton(Loc.T("ed_new_shape_plus"));
         add.Click += (_, _) => _app.OpenEditor(EditorTab.Gestures, newShape: true);
-        var searchButton = Theme.IconButton("", 26, "Buscar");
+        var searchButton = Theme.IconButton("", 26, Loc.T("search"));
         searchButton.Margin = new Thickness(0, 0, 6, 0);
         _search = Theme.Input();
         _search.Margin = new Thickness(0, 8, 0, 0);
@@ -705,7 +705,7 @@ internal sealed class GesturesCard : IToolboxCard
         var header = new DockPanel();
         DockPanel.SetDock(right, Dock.Right);
         header.Children.Add(right);
-        header.Children.Add(new Border { Child = CardChrome.Title("Gestos"), VerticalAlignment = VerticalAlignment.Center });
+        header.Children.Add(new Border { Child = CardChrome.Title(Loc.T("card_gestures")), VerticalAlignment = VerticalAlignment.Center });
 
         var stack = new StackPanel();
         stack.Children.Add(header);
@@ -735,8 +735,8 @@ internal sealed class GesturesCard : IToolboxCard
             _rows.Children.Add(GestureRows.SectionHeader(title));
             foreach (var row in rows) _rows.Children.Add(BuildRow(row));
         }
-        Add("Fijadas", sections.Pinned);
-        Add("Asignadas", sections.Assigned);
+        Add(Loc.T("pinned"), sections.Pinned);
+        Add(Loc.T("assigned"), sections.Assigned);
         if (sections.Unassigned.Count > 0)
         {
             _rows.Children.Add(GestureRows.SectionHeader(sections.UnassignedTitle, open, () =>
@@ -748,7 +748,7 @@ internal sealed class GesturesCard : IToolboxCard
             }));
             if (open) foreach (var row in sections.Unassigned) _rows.Children.Add(BuildRow(row));
         }
-        if (sections.IsEmpty) _rows.Children.Add(Theme.Label(_filter.Length > 0 ? $"Nada coincide con «{_filter}»." : "Todavía no hay formas.", 12, Theme.Dim));
+        if (sections.IsEmpty) _rows.Children.Add(Theme.Label(_filter.Length > 0 ? Loc.F("tb_nothing_matches", _filter) : Loc.T("tb_no_shapes"), 12, Theme.Dim));
         return true;
     }
 
@@ -756,7 +756,7 @@ internal sealed class GesturesCard : IToolboxCard
         GestureRows.Row(_app, row, () => _app.OpenEditor(EditorTab.Gestures, gesture: row.Gesture, focusAction: !row.HasAction));
 }
 
-/// <summary>Los widgets del panel del móvil, en orden, con "+ Añadir". Oculta por defecto.</summary>
+/// <summary>Los widgets del panel del móvil, en orden, con + Añadir. Oculta por defecto.</summary>
 internal sealed class WidgetsCard : IToolboxCard
 {
     private readonly HostApp _app;
@@ -767,12 +767,12 @@ internal sealed class WidgetsCard : IToolboxCard
     public WidgetsCard(HostApp app)
     {
         _app = app;
-        var add = CardChrome.HeaderButton("+ Añadir");
+        var add = CardChrome.HeaderButton(Loc.T("add_plus"));
         add.Click += (_, _) => _app.OpenEditor(EditorTab.Widgets, newWidget: true);
         var header = new DockPanel();
         DockPanel.SetDock(add, Dock.Right);
         header.Children.Add(add);
-        header.Children.Add(new Border { Child = CardChrome.Title("Widgets del móvil"), VerticalAlignment = VerticalAlignment.Center });
+        header.Children.Add(new Border { Child = CardChrome.Title(Loc.T("card_phone_widgets")), VerticalAlignment = VerticalAlignment.Center });
         var stack = new StackPanel();
         stack.Children.Add(header);
         _rows.Margin = new Thickness(0, 8, 0, 0);
@@ -803,7 +803,7 @@ internal sealed class WidgetsCard : IToolboxCard
             row.Children.Add(Theme.Label(label, 13));
             _rows.Children.Add(CardChrome.Row(row, () => _app.OpenEditor(EditorTab.Widgets, widgetIndex: index)));
         }
-        if (widgets.Count == 0) _rows.Children.Add(Theme.Label("No hay widgets: el móvil no muestra panel.", 12, Theme.Dim));
+        if (widgets.Count == 0) _rows.Children.Add(Theme.Label(Loc.T("no_widgets"), 12, Theme.Dim));
         return true;
     }
 
@@ -818,8 +818,8 @@ internal sealed class WidgetsCard : IToolboxCard
     public static (string Icon, string Label) Parts(WidgetDefinition w) => w switch
     {
         ButtonWidget b => (string.IsNullOrEmpty(b.Icon) ? "▫" : b.Icon, b.Label),
-        MediaWidget => ("🎵", "Música"),
-        VolumeWidget => ("🔊", "Volumen"),
+        MediaWidget => ("🎵", Loc.T("card_music")),
+        VolumeWidget => ("🔊", Loc.T("volume")),
         _ => ("▫", "?"),
     };
 }
@@ -827,7 +827,7 @@ internal sealed class WidgetsCard : IToolboxCard
 
 /// <summary>
 /// Avisos de versión (docs/spec-v5.1-actualizaciones.md §4 y §6): una tarjeta con el acento del tema encima de las Opciones por cada aviso, con
-/// "Novedades", "Actualizar" y "Omitir", y la barra de progreso mientras se descarga. Invisible si no hay nada que avisar.
+/// Novedades, Actualizar y Omitir, y la barra de progreso mientras se descarga. Invisible si no hay nada que avisar.
 /// </summary>
 internal sealed class UpdateCard : IToolboxCard
 {
@@ -869,7 +869,7 @@ internal sealed class UpdateCard : IToolboxCard
 
         if (banner.Release is { } release)
         {
-            var notes = Theme.Label("Novedades", 12, Theme.Accent);
+            var notes = Theme.Label(Loc.T("whats_new"), 12, Theme.Accent);
             notes.Cursor = Cursors.Hand;
             notes.TextDecorations = TextDecorations.Underline;
             notes.Margin = new Thickness(0, 4, 0, 0);
@@ -895,19 +895,19 @@ internal sealed class UpdateCard : IToolboxCard
                     Foreground = Theme.Accent, Background = Theme.Hover, BorderThickness = new Thickness(0) };
                 _bars.Add(bar);
                 stack.Children.Add(bar);
-                var busy = Theme.Label("Descargando e instalando…", 12, Theme.Dim);
+                var busy = Theme.Label(Loc.T("tb_downloading"), 12, Theme.Dim);
                 busy.Margin = new Thickness(0, 6, 0, 0);
                 stack.Children.Add(busy);
             }
             else
             {
-                var update = Theme.AccentButton(updates.IsInstalled ? "Actualizar" : "Ver descarga");
+                var update = Theme.AccentButton(updates.IsInstalled ? Loc.T("update") : Loc.T("view_download"));
                 update.Click += (_, _) => _ = updates.InstallAsync(target);
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
                 row.Children.Add(update);
                 if (banner.CanSkip)
                 {
-                    var skip = Theme.FlatButton("Omitir");
+                    var skip = Theme.FlatButton(Loc.T("skip"));
                     skip.Margin = new Thickness(8, 0, 0, 0);
                     skip.Click += (_, _) => updates.Skip();
                     row.Children.Add(skip);

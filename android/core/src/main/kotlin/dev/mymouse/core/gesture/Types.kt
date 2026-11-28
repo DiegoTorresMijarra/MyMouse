@@ -4,6 +4,7 @@ import dev.mymouse.core.protocol.MouseButton
 import dev.mymouse.core.protocol.StrokePoint
 import dev.mymouse.core.protocol.StrokeResult
 import dev.mymouse.core.protocol.SystemGestureCommand
+import dev.mymouse.core.shapes.RejectReason
 
 /** Evento táctil abstracto (independiente de Android). Coordenadas en píxeles; tiempo en ms monotónicos. */
 sealed interface TouchInput {
@@ -55,7 +56,7 @@ sealed interface OutputAction {
     // ---- Solo locales (feedback en el móvil, no se envían) ----
 
     /** Trazo dibujado en el modo gestos que no se ha reconocido (o se ha cancelado). */
-    data class GestureRejected(val reason: String) : OutputAction
+    data class GestureRejected(val reason: RejectReason, val other: String? = null) : OutputAction
 
     /** 4 dedos juntándose ([show] = true: mostrar el panel de widgets) o separándose (ocultarlo). */
     data class WidgetPanel(val show: Boolean) : OutputAction

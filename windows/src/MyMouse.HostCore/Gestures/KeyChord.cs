@@ -214,12 +214,12 @@ public static class KeyChord
     /// <summary>Teclas válidas para acciones <c>media</c>.</summary>
     public static readonly IReadOnlyDictionary<string, string> MediaLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["PlayPause"] = "Reproducir / pausar",
-        ["Next"] = "Siguiente canción",
-        ["Previous"] = "Canción anterior",
-        ["Stop"] = "Detener",
-        ["VolumeUp"] = "Subir volumen",
-        ["VolumeDown"] = "Bajar volumen",
-        ["Mute"] = "Silenciar",
+        ["PlayPause"] = CoreLoc.T("media_playpause"),
+        ["Next"] = CoreLoc.T("media_next"),
+        ["Previous"] = CoreLoc.T("media_previous"),
+        ["Stop"] = CoreLoc.T("media_stop"),
+        ["VolumeUp"] = CoreLoc.T("media_volumeup"),
+        ["VolumeDown"] = CoreLoc.T("media_volumedown"),
+        ["Mute"] = CoreLoc.T("media_mute"),
     };
 }

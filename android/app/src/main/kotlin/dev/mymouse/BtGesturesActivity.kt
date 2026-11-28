@@ -90,7 +90,7 @@ class BtGesturesActivity : Activity() {
 
     private fun show() {
         val id = editing
-        val title = if (id == null) "Acciones por Bluetooth" else ShapeStore.label(id)
+        val title = if (id == null) getString(R.string.btg_title) else ShapeStore.label(this, id)
         screen = GlassTheme.Screen(this, title, onBack = { onBackPressed() })
         if (id == null) buildList() else buildDetail(id)
         screen.setContentView()
@@ -103,18 +103,16 @@ class BtGesturesActivity : Activity() {
         var card = screen.card(null)
         card.addView(GlassTheme.note(
             this,
-            "Qué hace cada forma del modo gestos cuando el móvil está conectado por Bluetooth, sin MyMouse en el PC. " +
-                "Por Bluetooth solo se pueden pulsar atajos, teclas multimedia y escribir texto; abrir programas, pausar MyMouse o " +
-                "las reglas por aplicación necesitan el programa del PC (USB). Para bloquear el PC usa el atajo Win+L.",
+            getString(R.string.btg_intro),
         ))
 
-        card = screen.card("Distribución del teclado del PC")
-        card.addView(GlassTheme.note(this, "Solo cambia cómo se escribe el texto (los atajos no dependen de ella): Windows convierte las teclas en letras con su propia distribución."))
+        card = screen.card(getString(R.string.btg_layout_card))
+        card.addView(GlassTheme.note(this, getString(R.string.btg_layout_note)))
         card.addView(RadioGroup(this).apply {
             KeyboardLayouts.ALL.forEach { layout ->
                 addView(RadioButton(this@BtGesturesActivity).apply {
                     id = View.generateViewId()
-                    text = layout.label
+                    text = UiText.layout(this@BtGesturesActivity, layout.id)
                     textSize = 16f
                     setTextColor(GlassTheme.TEXT)
                     GlassTheme.tint(this)
@@ -129,14 +127,14 @@ class BtGesturesActivity : Activity() {
             }
         })
 
-        card = screen.card("Formas")
+        card = screen.card(getString(R.string.btg_shapes_card))
         val enabled = shapes.enabled
         val customs = shapes.recorded.map { it.name }.filter { it.startsWith(ShapeStore.CUSTOM_PREFIX) }
         for (id in ShapeCatalog.IDS + customs) card.addView(row(id, id in enabled))
-        card.addView(GlassTheme.note(this, "Las formas desactivadas no se reconocen: se activan en Ajustes → Formas."))
+        card.addView(GlassTheme.note(this, getString(R.string.btg_disabled_note)))
 
         card = screen.card(null)
-        card.addView(GlassTheme.button(this, "Restaurar los valores por defecto") { confirmReset() })
+        card.addView(GlassTheme.button(this, getString(R.string.bt_restore_defaults)) { confirmReset() })
     }
 
     private fun row(id: String, active: Boolean): LinearLayout {
@@ -159,9 +157,9 @@ class BtGesturesActivity : Activity() {
             addView(LinearLayout(this@BtGesturesActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding((12 * density).toInt(), 0, 0, 0)
-                addView(GlassTheme.text(this@BtGesturesActivity, binding?.helpText ?: ShapeStore.label(id), 14f, bold = true))
+                addView(GlassTheme.text(this@BtGesturesActivity, binding?.helpText { UiText.action(this@BtGesturesActivity, it) } ?: ShapeStore.label(this@BtGesturesActivity, id), 14f, bold = true))
                 addView(TextView(this@BtGesturesActivity).apply {
-                    text = binding?.let { BtActions.describe(it.action) } ?: "Sin acción"
+                    text = binding?.let { UiText.action(this@BtGesturesActivity, it.action) } ?: getString(R.string.btg_no_action)
                     textSize = 11f
                     typeface = android.graphics.Typeface.MONOSPACE
                     setTextColor(GlassTheme.TEXT_SECONDARY)
@@ -178,14 +176,14 @@ class BtGesturesActivity : Activity() {
 
     private fun confirmReset() {
         AlertDialog.Builder(this)
-            .setTitle("Restaurar los valores por defecto")
-            .setMessage("Las acciones de todas las formas vuelven a las de fábrica (Z deshace, líneas ← → ↑ ↓, V reproduce…).")
-            .setPositiveButton("Restaurar") { _, _ ->
+            .setTitle(R.string.bt_restore_defaults)
+            .setMessage(R.string.btg_restore_message)
+            .setPositiveButton(R.string.bt_restore) { _, _ ->
                 store.resetGestures()
                 reload()
                 show()
             }
-            .setNegativeButton("Cancelar", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
@@ -205,32 +203,31 @@ class BtGesturesActivity : Activity() {
             }, LinearLayout.LayoutParams(size, size))
             addView(GlassTheme.note(
                 this@BtGesturesActivity,
-                "Lo que se hará en el PC al dibujar esta forma. El punto de color del dibujo marca dónde empieza el trazo.",
+                getString(R.string.btg_detail_note),
             ), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = (12 * density).toInt() })
         })
 
-        card = screen.card("Acción")
+        card = screen.card(getString(R.string.bt_action_card))
         val form = BtActionForm(this, binding?.action, layout, allowNone = true)
         card.addView(form.view)
-        val test = GlassTheme.button(this, "Probar") {
+        val test = GlassTheme.button(this, getString(R.string.bt_try)) {
             val problem = form.problem()
             val action = form.action()
             when {
                 problem != null -> toast(problem)
-                action == null -> toast("No hay acción que probar")
+                action == null -> toast(getString(R.string.bt_no_action_to_try))
                 else -> testAction(action)
             }
         }
         card.addView(test)
         card.addView(GlassTheme.note(
             this,
-            if (canTest()) "Probar ejecuta la acción en el PC al momento (el móvil debe estar conectado por Bluetooth)."
-            else "Probar solo está disponible con la conexión por Bluetooth elegida en Ajustes.",
+            getString(if (canTest()) R.string.bt_try_note_ok else R.string.bt_try_note_unavailable),
         ))
         test.isEnabled = canTest()
 
-        card = screen.card("En la chuleta")
-        val help = BtActionForm.field(this, "Texto de ayuda (si lo dejas vacío, se usa la acción)").apply {
+        card = screen.card(getString(R.string.btg_cheat_card))
+        val help = BtActionForm.field(this, getString(R.string.btg_help_hint)).apply {
             setSingleLine()
             setText(binding?.help.orEmpty())
             filters = arrayOf(android.text.InputFilter.LengthFilter(BtGestureConfig.MAX_HELP))
@@ -238,7 +235,7 @@ class BtGesturesActivity : Activity() {
         card.addView(help, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         @Suppress("UseSwitchCompatOrMaterialCode")
         val pin = Switch(this).apply {
-            text = "Fijar en la chuleta (sale en \"Tus formas\")"
+            text = getString(R.string.btg_pin)
             textSize = 16f
             setTextColor(GlassTheme.TEXT)
             GlassTheme.tint(this)
@@ -250,7 +247,7 @@ class BtGesturesActivity : Activity() {
         card = screen.card(null)
         card.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(GlassTheme.button(this@BtGesturesActivity, "Guardar", accent = true) {
+            addView(GlassTheme.button(this@BtGesturesActivity, getString(R.string.save), accent = true) {
                 val problem = form.problem()
                 if (problem != null) {
                     toast(problem)
@@ -262,9 +259,9 @@ class BtGesturesActivity : Activity() {
                 editing = null
                 show()
             })
-            addView(GlassTheme.button(this@BtGesturesActivity, "Cancelar") { onBackPressed() })
+            addView(GlassTheme.button(this@BtGesturesActivity, getString(R.string.cancel)) { onBackPressed() })
             if (binding != null && form.isNone.not()) {
-                addView(GlassTheme.button(this@BtGesturesActivity, "Quitar") {
+                addView(GlassTheme.button(this@BtGesturesActivity, getString(R.string.btg_remove)) {
                     config = config.without(id)
                     store.saveGestures(config)
                     editing = null
@@ -276,15 +273,15 @@ class BtGesturesActivity : Activity() {
 
     private fun testAction(action: BtAction) {
         if (action == BtAction.Keyboard) {
-            toast("Abre el teclado del móvil: pruébalo desde el trackpad")
+            toast(getString(R.string.bt_test_keyboard))
             return
         }
         if (!canTest()) {
-            toast("Elige la conexión por Bluetooth en Ajustes")
+            toast(getString(R.string.bt_test_need_bt))
             return
         }
         val ok = BluetoothHidTransport.shared(this).runAction(action)
-        toast(if (ok) "Enviado al PC: ${BtActions.describe(action)}" else "El móvil no está conectado al PC por Bluetooth")
+        toast(if (ok) getString(R.string.bt_test_sent, UiText.action(this, action)) else getString(R.string.bt_test_not_connected))
     }
 
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()

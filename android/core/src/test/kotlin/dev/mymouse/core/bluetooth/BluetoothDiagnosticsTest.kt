@@ -1,6 +1,5 @@
 package dev.mymouse.core.bluetooth
 
-import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,35 +26,38 @@ class BluetoothDiagnosticsTest {
         val checks = BluetoothDiagnostics.evaluate(good)
         assertEquals(6, checks.size)
         assertTrue(checks.all { it.status == CheckStatus.OK })
-        assertEquals("Todo correcto", BluetoothDiagnostics.summary(checks))
+        assertEquals(DiagnosticSummary.AllOk, BluetoothDiagnostics.summary(checks))
         assertFalse(BluetoothDiagnostics.suspectsStalePairing(checks))
     }
 
     @Test
     fun noPreferredHostFails() {
         val checks = BluetoothDiagnostics.evaluate(good.copy(preferredHostName = null, link = null))
-        assertEquals(CheckStatus.FAIL, checks.first { it.id == "host" }.status)
-        assertEquals("PC preferido elegido y emparejado: ningún PC elegido", BluetoothDiagnostics.summary(checks))
+        val host = checks.first { it.id == CheckId.HOST }
+        assertEquals(CheckStatus.FAIL, host.status)
+        assertEquals(DiagnosticDetail.NO_HOST, host.detail)
+        assertEquals(DiagnosticSummary.Failed(host), BluetoothDiagnostics.summary(checks))
     }
 
     @Test
     fun unbondedHostFails() {
-        val c = BluetoothDiagnostics.evaluate(good.copy(preferredHostBonded = false)).first { it.id == "host" }
+        val c = BluetoothDiagnostics.evaluate(good.copy(preferredHostBonded = false)).first { it.id == CheckId.HOST }
         assertEquals(CheckStatus.FAIL, c.status)
-        assertTrue(c.detail.contains("PC-Sala"))
+        assertEquals(DiagnosticDetail.HOST_UNBONDED, c.detail)
+        assertEquals("PC-Sala", c.hostName)
     }
 
     @Test
     fun disabledBluetoothAndMissingAdapter() {
-        assertEquals("está apagado", BluetoothDiagnostics.evaluate(good.copy(adapterEnabled = false)).first().detail)
-        assertEquals("este móvil no tiene Bluetooth", BluetoothDiagnostics.evaluate(good.copy(adapterPresent = false)).first().detail)
+        assertEquals(DiagnosticDetail.OFF, BluetoothDiagnostics.evaluate(good.copy(adapterEnabled = false)).first().detail)
+        assertEquals(DiagnosticDetail.NO_ADAPTER, BluetoothDiagnostics.evaluate(good.copy(adapterPresent = false)).first().detail)
     }
 
     @Test
     fun unknownValuesAreNotFailures() {
         val checks = BluetoothDiagnostics.evaluate(BluetoothFacts())
-        assertEquals(CheckStatus.UNKNOWN, checks.first { it.id == "permissions" }.status)
-        assertEquals("Sin datos suficientes", BluetoothDiagnostics.summary(checks.filter { it.status == CheckStatus.UNKNOWN }))
+        assertEquals(CheckStatus.UNKNOWN, checks.first { it.id == CheckId.PERMISSIONS }.status)
+        assertEquals(DiagnosticSummary.NotEnoughData, BluetoothDiagnostics.summary(checks.filter { it.status == CheckStatus.UNKNOWN }))
     }
 
     @Test
@@ -69,42 +71,18 @@ class BluetoothDiagnosticsTest {
     }
 
     @Test
-    fun reportListsChecksAndEvents() {
-        val log = BluetoothEventLog()
-        log.add(3_600_000L, "registro: true")
-        log.add(3_605_000L, "connect() devolvió false")
-        val text = BluetoothDiagnostics.report(good.copy(link = HidLinkState.DISCONNECTED), log.entries(), "Android 14", ZoneOffset.UTC)
-        assertTrue(text.contains("Android 14"))
-        assertTrue(text.contains("✓ Bluetooth activado"))
-        assertTrue(text.contains("✗ Conexión HID con el PC: desconectado"))
-        assertTrue(text.contains("Posible causa"))
-        assertTrue(text.contains("01:00:00  registro: true"))
-        assertTrue(text.contains("01:00:05  connect() devolvió false"))
+    fun linkDetailsFollowTheConnectionState() {
+        fun detail(link: HidLinkState?) = BluetoothDiagnostics.evaluate(good.copy(link = link)).last().detail
+        assertEquals(DiagnosticDetail.CONNECTED, detail(HidLinkState.CONNECTED))
+        assertEquals(DiagnosticDetail.CONNECTING, detail(HidLinkState.CONNECTING))
+        assertEquals(DiagnosticDetail.DISCONNECTED, detail(HidLinkState.DISCONNECTED))
+        assertEquals(DiagnosticDetail.NONE, detail(null))
     }
 
     @Test
-    fun emptyLogReport() {
-        assertTrue(BluetoothDiagnostics.report(good, emptyList(), zone = ZoneOffset.UTC).contains("(ninguno)"))
-    }
-
-    @Test
-    fun helpTextsMentionTheKeySteps() {
-        assertTrue(BluetoothDiagnostics.REPAIR_HELP.contains("Quitar dispositivo"))
-        assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("teléfono"))
-        assertTrue(BluetoothDiagnostics.PAIRING_NOTE.contains("Emparejado"))
-    }
-
-    @Test
-    fun keyboardLedsLineSaysWhetherTheHostWritesThem() {
-        assertTrue(BluetoothDiagnostics.keyboardLedsLine(good.copy(keyboardLedsReceived = true)).contains("recibidas del PC"))
-        val missing = BluetoothDiagnostics.keyboardLedsLine(good.copy(keyboardLedsReceived = false))
-        assertTrue(missing.contains("no recibidas"))
-        assertTrue(missing.contains("vuelve a emparejarlo"))
-    }
-
-    @Test
-    fun reportIncludesTheKeyboardLedsLine() {
-        assertTrue(BluetoothDiagnostics.report(good, emptyList(), zone = ZoneOffset.UTC).contains("Luces del teclado: no recibidas"))
-        assertTrue(BluetoothDiagnostics.report(good.copy(keyboardLedsReceived = true), emptyList(), zone = ZoneOffset.UTC).contains("Luces del teclado: recibidas"))
+    fun fineScrollStateSaysWhySmoothScrollIsOff() {
+        assertEquals(FineScrollState.DISABLED, BluetoothDiagnostics.fineScrollState(good.copy(fineScrollEnabled = false)))
+        assertEquals(FineScrollState.ACTIVE, BluetoothDiagnostics.fineScrollState(good.copy(fineScrollActive = true)))
+        assertEquals(FineScrollState.INACTIVE, BluetoothDiagnostics.fineScrollState(good))
     }
 }
